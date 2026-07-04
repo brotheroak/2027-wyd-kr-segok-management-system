@@ -2,11 +2,24 @@ import React from "react";
 
 type AppFooterProps = {
   navigate: (path: string) => void;
+  mode?: "public" | "admin";
 };
 
 const segokParishLogo = "/images/segok-parish-logo.png";
+const adminMenuItems = [
+  { label: "신청 현황", menu: "applications" },
+  { label: "계정 관리", menu: "accounts" },
+  { label: "비밀번호 변경", menu: "password" }
+] as const;
 
-export function AppFooter({ navigate }: AppFooterProps) {
+export function AppFooter({ navigate, mode = "public" }: AppFooterProps) {
+  const handleAdminMenu = (event: React.MouseEvent<HTMLAnchorElement>, menu: typeof adminMenuItems[number]["menu"]) => {
+    event.preventDefault();
+    window.dispatchEvent(new CustomEvent("admin-console-menu-change", { detail: menu }));
+    window.history.replaceState({}, "", `/admin#${menu}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <footer className="app-footer">
       <div className="shell footer-inner">
@@ -20,18 +33,29 @@ export function AppFooter({ navigate }: AppFooterProps) {
           <p>젊은이 순례자를 환영하는 공동체적 신앙 활동입니다.</p>
         </div>
         <div className="footer-links">
-          <div>
-            <span>신청 안내</span>
-            <a href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>
-              대회 소개
-            </a>
-            <a href="/apply" onClick={(event) => { event.preventDefault(); navigate("/apply"); }}>
-              신청서 작성
-            </a>
-            <a href="/check" onClick={(event) => { event.preventDefault(); navigate("/check"); }}>
-              접수 확인
-            </a>
-          </div>
+          {mode === "admin" ? (
+            <div>
+              <span>운영자 메뉴</span>
+              {adminMenuItems.map((item) => (
+                <a key={item.menu} href={`/admin#${item.menu}`} onClick={(event) => handleAdminMenu(event, item.menu)}>
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div>
+              <span>신청 안내</span>
+              <a href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>
+                대회 소개
+              </a>
+              <a href="/apply" onClick={(event) => { event.preventDefault(); navigate("/apply"); }}>
+                신청서 작성
+              </a>
+              <a href="/check" onClick={(event) => { event.preventDefault(); navigate("/check"); }}>
+                접수 확인
+              </a>
+            </div>
+          )}
           <div>
             <span>운영 기간</span>
             <dl className="footer-schedule">

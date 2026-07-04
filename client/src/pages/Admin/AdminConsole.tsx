@@ -169,6 +169,17 @@ export function AdminConsoleZip() {
     loadAdminUsers().catch(() => setAdminUsers([]));
   }, [token, role]);
 
+  useEffect(() => {
+    const onAdminMenuChange = (event: Event) => {
+      const menu = (event as CustomEvent<AdminConsoleMenu>).detail;
+      if (!["applications", "accounts", "password"].includes(menu)) return;
+      setActiveConsoleMenu(menu);
+      if (menu === "accounts") loadAdminUsers().catch(() => setAdminUsers([]));
+    };
+    window.addEventListener("admin-console-menu-change", onAdminMenuChange);
+    return () => window.removeEventListener("admin-console-menu-change", onAdminMenuChange);
+  }, [token, role]);
+
   const handleLoginStep1 = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoginError("");
@@ -429,18 +440,20 @@ export function AdminConsoleZip() {
                 </div>
               </form>
             )}
-            <div className="border-t border-gray-100 pt-5">
-              <button
-                type="button"
-                className="secondary w-full justify-center"
-                onClick={() => {
-                  resetLoginState();
-                  setRegisterModalOpen(true);
-                }}
-              >
-                <UserPlus size={18} /> 운영자 가입 신청
-              </button>
-            </div>
+            {!loginState.mfaRequired && (
+              <div className="border-t border-gray-100 pt-5">
+                <button
+                  type="button"
+                  className="secondary w-full justify-center"
+                  onClick={() => {
+                    resetLoginState();
+                    setRegisterModalOpen(true);
+                  }}
+                >
+                  <UserPlus size={18} /> 운영자 가입 신청
+                </button>
+              </div>
+            )}
           </div>
         </div>
         {registerModalOpen && (

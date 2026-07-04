@@ -344,7 +344,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
       <div className="district-assignment-panel">
         <div className="district-assignment-head">
           <div>
-            <span>{districtManual ? "수동 수정 구역반" : "자동 매핑 구역반"}</span>
+            <span>{districtManual ? "수동 설정 구역반" : "자동 매핑 구역반"}</span>
             <strong>{form.district?.label ?? "주소 입력 후 자동 판별"}</strong>
           </div>
           <em className={districtManual ? "manual" : "auto"}>{districtManual ? "수동" : "자동"}</em>

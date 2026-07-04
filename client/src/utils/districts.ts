@@ -46,10 +46,10 @@ export const districtGuideSections: DistrictGuideSection[] = [
     name: "2구역",
     areas: ["리엔파크 4, 5단지"],
     bans: [
-      { ban: "2-1", description: "세곡리엔파크 4단지 일부 동" },
-      { ban: "2-2", description: "세곡리엔파크 4단지 일부 동" },
-      { ban: "2-3", description: "데시앙파크 5단지 / 리엔파크 5단지 일부 동" },
-      { ban: "2-4", description: "데시앙파크 5단지 / 리엔파크 5단지 일부 동" }
+      { ban: "2-1", description: "세곡리엔파크 4단지 401-403동, 408동" },
+      { ban: "2-2", description: "세곡리엔파크 4단지 404-407동" },
+      { ban: "2-3", description: "데시앙파크 5단지 / 리엔파크 5단지 501-510동" },
+      { ban: "2-4", description: "데시앙파크 5단지 / 리엔파크 5단지 511-515동" }
     ]
   },
   {
@@ -57,9 +57,9 @@ export const districtGuideSections: DistrictGuideSection[] = [
     name: "3구역",
     areas: ["은곡마을", "이편한세상"],
     bans: [
-      { ban: "3-1", description: "강남 LH 1단지 / 이편한세상 일부 동" },
-      { ban: "3-2", description: "강남 LH 1단지 / 이편한세상 일부 동" },
-      { ban: "3-3", description: "강남 LH 1단지 / 이편한세상 일부 동" },
+      { ban: "3-1", description: "강남 LH 1단지 / 이편한세상 101-104동" },
+      { ban: "3-2", description: "강남 LH 1단지 / 이편한세상 105-108동" },
+      { ban: "3-3", description: "강남 LH 1단지 / 이편한세상 109-112동" },
       { ban: "3-4", description: "은곡마을 일대" }
     ]
   },

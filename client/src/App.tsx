@@ -215,7 +215,7 @@ export function App() {
         <main className="admin-page">
           <AdminConsoleZip />
         </main>
-        <AppFooter navigate={navigate} />
+        <AppFooter navigate={navigate} mode="admin" />
       </div>
     );
   }
