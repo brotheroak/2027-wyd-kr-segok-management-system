@@ -751,6 +751,212 @@ function csvCell(value: unknown) {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
+function cleanXml(value: unknown) {
+  return String(value ?? "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function excelWorkbook(sheetName: string, rows: unknown[][]) {
+  const worksheetRows = rows.map((row, rowIndex) => {
+    const style = rowIndex === 0 ? ' ss:StyleID="Header"' : ' ss:StyleID="Body"';
+    const cells = row.map((cell) => (
+      `<Cell${style}><Data ss:Type="String">${cleanXml(cell)}</Data></Cell>`
+    )).join("");
+    return `<Row>${cells}</Row>`;
+  }).join("");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:x="urn:schemas-microsoft-com:office:excel"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="Header">
+      <Font ss:Bold="1" ss:Color="#FFFFFF"/>
+      <Interior ss:Color="#121E31" ss:Pattern="Solid"/>
+      <Alignment ss:Vertical="Center" ss:WrapText="1"/>
+      <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9C17D"/></Borders>
+    </Style>
+    <Style ss:ID="Body">
+      <Alignment ss:Vertical="Top" ss:WrapText="1"/>
+      <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EEE9E2"/></Borders>
+    </Style>
+  </Styles>
+  <Worksheet ss:Name="${cleanXml(sheetName).slice(0, 31)}">
+    <Table ss:DefaultColumnWidth="120" ss:DefaultRowHeight="22">
+      ${worksheetRows}
+    </Table>
+    <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+      <FreezePanes/>
+      <FrozenNoSplit/>
+      <SplitHorizontal>1</SplitHorizontal>
+      <TopRowBottomPane>1</TopRowBottomPane>
+      <ActivePane>2</ActivePane>
+    </WorksheetOptions>
+  </Worksheet>
+</Workbook>`;
+}
+
+function sendExcel(res: express.Response, filename: string, sheetName: string, rows: unknown[][]) {
+  const body = excelWorkbook(sheetName, rows);
+  const encoded = encodeURIComponent(filename);
+  res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"; filename*=UTF-8''${encoded}`);
+  res.send(body);
+}
+
+function splitDelimited(value = "") {
+  return value.split(/[,/;\n]+/).map((item) => item.trim()).filter(Boolean);
+}
+
+function matchesApplicationFilters(appData: any, query: express.Request["query"]) {
+  const q = String(query.q ?? "").trim().toLowerCase();
+  const status = String(query.status ?? "all");
+  const gender = String(query.gender ?? "all");
+  const language = String(query.language ?? "all");
+  const pets = String(query.pets ?? "all");
+  const bed = String(query.bed ?? "all");
+
+  if (status !== "all" && appData.status !== status) return false;
+  if (gender !== "all" && appData.homestay.preferredGender !== gender) return false;
+  if (language !== "all" && !appData.homestay.languages.includes(language)) return false;
+  if (pets !== "all" && (pets === "yes") !== appData.homestay.hasPet) return false;
+  if (bed !== "all" && (bed === "yes") !== appData.homestay.hasBed) return false;
+  if (!q) return true;
+
+  return [
+    appData.applicationNo,
+    appData.representative.name,
+    appData.representative.phone,
+    appData.representative.email,
+    appData.representative.address
+  ].some((value) => String(value ?? "").toLowerCase().includes(q));
+}
+
+function sortApplications(list: any[], query: express.Request["query"]) {
+  const sortField = String(query.sortField ?? "applicationNo");
+  const sortOrder = String(query.sortOrder ?? "desc");
+  const sorted = [...list].sort((a, b) => {
+    let result = 0;
+    if (sortField === "capacity") result = a.homestay.capacity - b.homestay.capacity;
+    if (sortField === "name") result = a.representative.name.localeCompare(b.representative.name);
+    if (sortField === "members") result = a.members.length - b.members.length;
+    if (sortField === "applicationNo") result = String(a.applicationNo ?? "").localeCompare(String(b.applicationNo ?? ""));
+    return sortOrder === "asc" ? result : -result;
+  });
+  return sorted;
+}
+
+function matchesVolunteerFilters(volData: any, query: express.Request["query"]) {
+  const q = String(query.q ?? "").trim().toLowerCase();
+  const status = String(query.status ?? "all");
+  const field = String(query.field ?? "all");
+  const availability = String(query.availability ?? "all");
+  const language = String(query.language ?? "all");
+
+  if (status !== "all" && volData.status !== status) return false;
+  if (field !== "all" && !volData.supportFields.includes(field)) return false;
+  if (availability !== "all" && volData.availability !== availability) return false;
+  if (language !== "all" && !splitDelimited(volData.supportLanguage).includes(language)) return false;
+  if (!q) return true;
+
+  return [
+    volData.volunteerNo,
+    volData.name,
+    volData.phone,
+    volData.email,
+    volData.address
+  ].some((value) => String(value ?? "").toLowerCase().includes(q));
+}
+
+async function filteredApplicationsForAdmin(session: Session, query: express.Request["query"]) {
+  const rows = await db.select().from(tables.applications).orderBy(desc(tables.applications.updatedAt));
+  const applications: any[] = [];
+  for (const row of rows) {
+    const appData = await rowToApplication(row);
+    if (matchesApplicationFilters(appData, query)) {
+      applications.push(visibleApplicationFor(session, appData));
+    }
+  }
+  return sortApplications(applications, query);
+}
+
+async function filteredVolunteersForAdmin(session: Session, query: express.Request["query"]) {
+  const rows = await db.select().from(tables.volunteers).orderBy(desc(tables.volunteers.updatedAt));
+  const volunteers: any[] = [];
+  for (const row of rows) {
+    const volData = rowToVolunteer(row);
+    if (matchesVolunteerFilters(volData, query)) {
+      volunteers.push(visibleVolunteerFor(session, volData));
+    }
+  }
+  return volunteers;
+}
+
+function applicationExcelRows(applications: any[]) {
+  return [
+    ["접수번호", "상태", "대표 성명", "세례명", "성별", "생년월일", "연락처", "이메일", "우편번호", "주소", "상세주소", "가구원 수", "가족 구성", "주거형태", "반려동물", "가능 언어", "희망 성별", "수용 인원", "침대 제공", "공간 설명", "신청일", "서명", "접수일", "수정일"],
+    ...applications.map((item) => [
+      item.applicationNo,
+      item.status,
+      item.representative.name,
+      item.representative.baptismalName,
+      item.representative.gender,
+      item.representative.birthDate,
+      item.representative.phone,
+      item.representative.email,
+      item.representative.postcode,
+      item.representative.address,
+      item.representative.addressDetail,
+      item.homestay.householdTotal,
+      item.members.map((member: any) => `${member.relationship}:${member.name}${member.baptismalName ? `(${member.baptismalName})` : ""}/${member.gender}/${member.birthDate}`).join("\n"),
+      item.homestay.housingType === "기타" ? item.homestay.housingTypeOther : item.homestay.housingType,
+      item.homestay.hasPet ? `있음 ${item.homestay.petDescription ?? ""}`.trim() : "없음",
+      item.homestay.languages.join(", "),
+      item.homestay.preferredGender,
+      item.homestay.capacity,
+      item.homestay.hasBed ? "가능" : "불가",
+      item.homestay.spaceDescription,
+      item.confirmations.appliedDate,
+      item.confirmations.signatureName,
+      item.createdAt,
+      item.updatedAt
+    ])
+  ];
+}
+
+function volunteerExcelRows(volunteers: any[]) {
+  return [
+    ["접수번호", "상태", "성명", "세례명", "성별", "생년월일", "연락처", "이메일", "우편번호", "주소", "상세주소", "지원 분야", "지원 언어", "활동 가능 시간", "봉사 경력 및 재능", "개인정보 동의", "신청일", "서명", "접수일", "수정일"],
+    ...volunteers.map((item) => [
+      item.volunteerNo,
+      item.status,
+      item.name,
+      item.baptismalName,
+      item.gender,
+      item.birthDate,
+      item.phone,
+      item.email,
+      item.postcode,
+      item.address,
+      item.addressDetail,
+      item.supportFields.join(", "),
+      item.supportLanguage,
+      item.availability,
+      item.experience,
+      item.privacyConsent ? "동의" : "미동의",
+      item.appliedDate,
+      item.signatureName,
+      item.createdAt,
+      item.updatedAt
+    ])
+  ];
+}
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, app: "WYD Seoul 2027 Homestay", time: nowIso() });
 });
@@ -1030,34 +1236,7 @@ app.delete("/api/my/volunteer", requireSession("user"), async (req, res) => {
 
 app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   const session = res.locals.session as Session;
-  const q = String(req.query.q ?? "").trim();
-  const qLower = q.toLowerCase();
-  const status = String(req.query.status ?? "all");
-  
-  let rows;
-  if (status !== "all") {
-    rows = await db.select().from(tables.applications).where(eq(tables.applications.status, status)).orderBy(desc(tables.applications.updatedAt));
-  } else {
-    rows = await db.select().from(tables.applications).orderBy(desc(tables.applications.updatedAt));
-  }
-
-  const applications: any[] = [];
-  for (const row of rows) {
-    const appData = await rowToApplication(row);
-    if (!qLower) {
-      applications.push(visibleApplicationFor(session, appData));
-      continue;
-    }
-    const matches = [
-      appData.applicationNo,
-      appData.representative.name,
-      appData.representative.phone,
-      appData.representative.email
-    ].some((value) => String(value ?? "").toLowerCase().includes(qLower));
-    if (matches) {
-      applications.push(visibleApplicationFor(session, appData));
-    }
-  }
+  const applications = await filteredApplicationsForAdmin(session, req.query);
 
   // Calculate statistics database-agnostically
   const allApps = await db.select({
@@ -1085,6 +1264,16 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
     stats: { total, submitted, confirmed, canceled, capacity },
     applications
   });
+});
+
+app.get("/api/admin/applications.xls", requireAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  const applications = await filteredApplicationsForAdmin(session, req.query);
+  await logAudit(actorFrom(session), "admin_downloaded_applications_excel", undefined, {
+    count: applications.length,
+    privacy: session.role === "privacy_admin" ? "full" : "masked"
+  });
+  sendExcel(res, `wyd-homestay-hosts-${seoulDateKey()}.xls`, "홈스테이 신청", applicationExcelRows(applications));
 });
 
 app.patch("/api/admin/applications/:id/status", requireAdmin, async (req, res) => {
@@ -1150,34 +1339,7 @@ app.get("/api/admin/audit-logs.csv", requirePrivacyAdmin, async (_req, res) => {
 
 app.get("/api/admin/volunteers", requireAdmin, async (req, res) => {
   const session = res.locals.session as Session;
-  const q = String(req.query.q ?? "").trim();
-  const qLower = q.toLowerCase();
-  const status = String(req.query.status ?? "all");
-
-  let rows;
-  if (status !== "all") {
-    rows = await db.select().from(tables.volunteers).where(eq(tables.volunteers.status, status)).orderBy(desc(tables.volunteers.updatedAt));
-  } else {
-    rows = await db.select().from(tables.volunteers).orderBy(desc(tables.volunteers.updatedAt));
-  }
-
-  const volunteers: any[] = [];
-  for (const row of rows) {
-    const volData = rowToVolunteer(row);
-    if (!qLower) {
-      volunteers.push(visibleVolunteerFor(session, volData));
-      continue;
-    }
-    const matches = [
-      volData.volunteerNo,
-      volData.name,
-      volData.phone,
-      volData.email
-    ].some((value) => String(value ?? "").toLowerCase().includes(qLower));
-    if (matches) {
-      volunteers.push(visibleVolunteerFor(session, volData));
-    }
-  }
+  const volunteers = await filteredVolunteersForAdmin(session, req.query);
 
   // Stats calculation
   const allVols = await db.select({
@@ -1207,6 +1369,16 @@ app.get("/api/admin/volunteers", requireAdmin, async (req, res) => {
     stats: { total, submitted, confirmed, canceled, languageSupport, medicalSupport },
     volunteers
   });
+});
+
+app.get("/api/admin/volunteers.xls", requireAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  const volunteers = await filteredVolunteersForAdmin(session, req.query);
+  await logAudit(actorFrom(session), "admin_downloaded_volunteers_excel", undefined, {
+    count: volunteers.length,
+    privacy: session.role === "privacy_admin" ? "full" : "masked"
+  });
+  sendExcel(res, `wyd-volunteers-${seoulDateKey()}.xls`, "자원봉사자 신청", volunteerExcelRows(volunteers));
 });
 
 app.post("/api/admin/volunteers/sample-data", requireAdmin, async (req, res) => {

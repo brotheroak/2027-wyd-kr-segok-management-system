@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Heart, ClipboardList, Languages, ShieldCheck, Search, AlertCircle, XCircle, User, Sparkles } from "lucide-react";
+import { Heart, ClipboardList, Languages, ShieldCheck, Search, AlertCircle, XCircle, User, Sparkles, Download } from "lucide-react";
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { VolunteerPayload } from "../../types.js";
 import { api } from "../../api.js";
@@ -73,6 +73,32 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
     }, token);
     setSelected((current) => (current?.id === volunteer.id ? response.volunteer : current));
     await load();
+  };
+
+  const downloadVolunteersExcel = async () => {
+    const params = new URLSearchParams({
+      q: query,
+      status,
+      field: fieldFilter,
+      availability: availabilityFilter,
+      language: languageFilter
+    });
+    const response = await fetch(`/api/admin/volunteers.xls?${params}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) return alert("자원봉사자 엑셀 파일을 내려받지 못했습니다.");
+    const blob = await response.blob();
+    const disposition = response.headers.get("Content-Disposition") ?? "";
+    const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/)?.[1];
+    const plainName = disposition.match(/filename="([^"]+)"/)?.[1];
+    const filename = encodedName ? decodeURIComponent(encodedName) : plainName || "wyd-volunteers.xls";
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    URL.revokeObjectURL(link.href);
+    link.remove();
   };
 
   return (
@@ -207,7 +233,7 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
               ))}
             </select>
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col sm:flex-row justify-end gap-3">
             <button className="secondary" onClick={() => {
               setQuery("");
               setStatus("all");
@@ -216,6 +242,9 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
               setLanguageFilter("all");
             }}>
               필터 초기화
+            </button>
+            <button className="secondary" onClick={downloadVolunteersExcel}>
+              <Download size={18} /> 엑셀 다운로드
             </button>
             <button className="primary" onClick={() => load()}>
               검색 조회

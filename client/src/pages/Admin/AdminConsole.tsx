@@ -165,6 +165,39 @@ export function AdminConsoleZip() {
     link.remove();
   };
 
+  const downloadAdminFile = async (path: string, fallbackName: string) => {
+    const response = await fetch(path, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) return alert("엑셀 파일을 내려받지 못했습니다.");
+    const blob = await response.blob();
+    const disposition = response.headers.get("Content-Disposition") ?? "";
+    const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/)?.[1];
+    const plainName = disposition.match(/filename="([^"]+)"/)?.[1];
+    const filename = encodedName ? decodeURIComponent(encodedName) : plainName || fallbackName;
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    URL.revokeObjectURL(link.href);
+    link.remove();
+  };
+
+  const downloadApplicationsExcel = () => {
+    const params = new URLSearchParams({
+      q: query,
+      status,
+      gender: filterGender,
+      language: filterLanguage,
+      pets: filterPets,
+      bed: filterBed,
+      sortField,
+      sortOrder
+    });
+    return downloadAdminFile(`/api/admin/applications.xls?${params}`, "wyd-homestay-hosts.xls");
+  };
+
   if (!token) {
     return (
       <section className="single">
@@ -518,7 +551,10 @@ export function AdminConsoleZip() {
               <RefreshCw className="w-3.5 h-3.5 text-gold-600" /> {sortOrder === "asc" ? "🔼 오름차순" : "🔽 내림차순"}
             </button>
           </div>
-          <div className="flex justify-end">
+          <div className="flex flex-col sm:flex-row justify-end gap-3">
+            <button className="secondary" onClick={downloadApplicationsExcel}>
+              <Download size={18} /> 엑셀 다운로드
+            </button>
             <button className="secondary" onClick={() => load()}>
               조회
             </button>
