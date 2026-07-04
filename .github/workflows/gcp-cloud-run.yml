@@ -87,8 +87,7 @@ jobs:
 
       # 5. Cloud Run Service에 신규 이미지 배포 (기존 환경변수/연결 유지)
       - name: Deploy to GCP Cloud Run
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          service: wyd-2027-kr-segok-mgmt
-          image: asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/wyd-2027-kr-segok-mgmt:${{ github.sha }}
-          region: asia-northeast3
+        run: |
+          gcloud run deploy wyd-2027-kr-segok-mgmt \
+            --image asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/wyd-2027-kr-segok-mgmt:${{ github.sha }} \
+            --region asia-northeast3 --quiet
