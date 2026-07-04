@@ -52,7 +52,7 @@ npm run db:setup
 - 필수 인덱스 생성
 - SQLite WAL 모드 활성화
 - `INITIAL_ADMIN_EMAIL`과 `INITIAL_ADMIN_PASSWORD`가 지정된 경우에만 초기 관리자 계정 시딩
-- 기존 SQLite DB에 `applicant_pin`, `email_hash` 컬럼이 없으면 보수 마이그레이션
+- 기존 DB에 `applicant_pin`, `email_hash`, 홈스테이 `district_*` 컬럼이 없으면 보수 마이그레이션
 
 저장소에는 기본 관리자 비밀번호를 두지 않습니다. 운영에서는 개별 운영자 계정을 명시적으로 생성하고 MFA 등록을 완료합니다.
 
@@ -71,7 +71,7 @@ node scripts/create-admin.mjs privacy@example.org StrongPassword123! privacy_adm
 | --- | --- | --- |
 | 1 | DB 연결성 확인 `SELECT 1` | 서버 시작 중단 |
 | 2 | `admins` 테이블 존재 확인 | `npm run db:setup` 실행 안내 후 중단 |
-| 3 | `verification_codes.email_hash` 보수 마이그레이션 | 컬럼 또는 인덱스 생성 |
+| 3 | `verification_codes.email_hash`, 홈스테이 `district_*` 보수 마이그레이션 | 컬럼 또는 인덱스 생성 |
 
 `/api/ready`는 실행 중인 서버의 DB 연결 상태를 점검합니다. Kubernetes readiness probe, Docker healthcheck, 로드밸런서 상태 확인에 사용합니다.
 
@@ -109,6 +109,12 @@ erDiagram
         string postcode
         string address
         string address_detail
+        string district_no
+        string district_name
+        string district_ban
+        string district_label
+        string district_confidence
+        string district_reason
         integer household_total
         string housing_type
         boolean has_pet
@@ -204,6 +210,8 @@ erDiagram
 
 홈스테이 호스트 신청서의 대표 테이블입니다. 접수번호, 신청 상태, 대표자 인적사항, 주소, 홈스테이 조건, 동의 및 서명 정보를 저장합니다.
 
+주소 입력 시 구역반 편성표 기준으로 `district_no`, `district_name`, `district_ban`, `district_label`, `district_confidence`, `district_reason`을 자동 계산합니다. 한양수자인은 현재 편성표 기준 `12구역`으로 처리하고, 편성표에 매칭되지 않는 주소는 `13구역 = 구역외`로 저장합니다.
+
 주요 상태값:
 
 | 값 | 의미 |
@@ -289,6 +297,7 @@ enc:v1:
 | `idx_homestay_applications_email` | `homestay_applications.email` |
 | `idx_homestay_applications_lookup` | `homestay_applications.rep_name`, `homestay_applications.phone` |
 | `idx_homestay_applications_status` | `homestay_applications.status` |
+| `idx_homestay_applications_district` | `homestay_applications.district_no`, `homestay_applications.district_ban` |
 | `idx_capabilities_lookup` | `host_capabilities.capability_key`, `host_capabilities.capability_value` |
 | `idx_volunteers_status` | `volunteers.status` |
 | `idx_volunteers_lookup` | `volunteers.name`, `volunteers.phone` |

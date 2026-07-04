@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, XCircle, BedDouble, Sparkles } from "lucide-react";
+import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, XCircle, BedDouble, Sparkles, MapPinned } from "lucide-react";
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { AdminRole, ApplicationPayload } from "../../types.js";
 import { api } from "../../api.js";
@@ -49,6 +49,8 @@ export function AdminConsoleZip() {
   const [filterLanguage, setFilterLanguage] = useState("all");
   const [filterPets, setFilterPets] = useState("all");
   const [filterBed, setFilterBed] = useState("all");
+  const [filterDistrict, setFilterDistrict] = useState("all");
+  const [filterDistrictBan, setFilterDistrictBan] = useState("all");
   const [sortField, setSortField] = useState("applicationNo");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [activeAdminTab, setActiveAdminTab] = useState<"homestay" | "volunteer">("homestay");
@@ -60,7 +62,10 @@ export function AdminConsoleZip() {
 
   const load = async (nextToken = token) => {
     if (!nextToken) return;
-    const params = new URLSearchParams({ q: query, status });
+    const params = new URLSearchParams({
+      q: query,
+      status
+    });
     const response = await api<{ role: AdminRole; canViewPersonalData: boolean; stats: any; applications: ApplicationPayload[] }>(`/api/admin/applications?${params}`, {}, nextToken);
     setRole(response.role);
     sessionStorage.setItem(ADMIN_ROLE_KEY, response.role);
@@ -90,6 +95,10 @@ export function AdminConsoleZip() {
       logout();
     });
   }, [token, status]);
+
+  useEffect(() => {
+    setFilterDistrictBan("all");
+  }, [filterDistrict]);
 
   const handleLoginStep1 = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -192,6 +201,8 @@ export function AdminConsoleZip() {
       language: filterLanguage,
       pets: filterPets,
       bed: filterBed,
+      district: filterDistrict,
+      ban: filterDistrictBan,
       sortField,
       sortOrder
     });
@@ -291,6 +302,8 @@ export function AdminConsoleZip() {
   const applications = data?.applications ?? [];
   const statusLabel = (value?: string) => (value === "confirmed" ? "✅ 승인" : value === "canceled" ? "🚫 취소" : "⏳ 대기");
   const statusTone = (value?: string) => (value === "confirmed" ? "confirmed" : value === "canceled" ? "canceled" : "submitted");
+  const districtSort = (a: string, b: string) => Number(a) - Number(b);
+  const districtOptionLabel = (no: string) => (no === "13" ? "구역외 (13구역)" : `${no}구역`);
 
   if (activeAdminTab === "volunteer") {
     return (
@@ -320,17 +333,31 @@ export function AdminConsoleZip() {
     name,
     value: applications.filter((item) => item.homestay.housingType === name).length
   }));
+  const districtOptions = Array.from(new Set(applications.map((item) => item.district?.no).filter(Boolean) as string[]))
+    .sort(districtSort);
+  const districtBanOptions = Array.from(new Set(applications
+    .filter((item) => filterDistrict === "all" || item.district?.no === filterDistrict)
+    .map((item) => item.district?.ban)
+    .filter(Boolean) as string[]))
+    .sort((a, b) => {
+      const [aDistrict, aBan] = a.split("-").map(Number);
+      const [bDistrict, bBan] = b.split("-").map(Number);
+      return aDistrict - bDistrict || aBan - bBan;
+    });
 
   const filteredApplications = applications
     .filter((item) => filterGender === "all" || item.homestay.preferredGender === filterGender)
     .filter((item) => filterLanguage === "all" || item.homestay.languages.includes(filterLanguage))
     .filter((item) => filterPets === "all" || (filterPets === "yes" ? item.homestay.hasPet : !item.homestay.hasPet))
     .filter((item) => filterBed === "all" || (filterBed === "yes" ? item.homestay.hasBed : !item.homestay.hasBed))
+    .filter((item) => filterDistrict === "all" || item.district?.no === filterDistrict)
+    .filter((item) => filterDistrictBan === "all" || item.district?.ban === filterDistrictBan)
     .sort((a, b) => {
       let result = 0;
       if (sortField === "capacity") result = a.homestay.capacity - b.homestay.capacity;
       if (sortField === "name") result = a.representative.name.localeCompare(b.representative.name);
       if (sortField === "members") result = a.members.length - b.members.length;
+      if (sortField === "district") result = String(a.district?.ban ?? "99-99").localeCompare(String(b.district?.ban ?? "99-99"), "ko-KR", { numeric: true });
       if (sortField === "applicationNo") result = String(a.applicationNo ?? "").localeCompare(String(b.applicationNo ?? ""));
       return sortOrder === "asc" ? result : -result;
     });
@@ -504,7 +531,7 @@ export function AdminConsoleZip() {
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-7 gap-3 pt-2">
             <select
               className="w-full px-2 py-2 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none text-xs"
               value={filterGender}
@@ -535,6 +562,30 @@ export function AdminConsoleZip() {
             </select>
             <select
               className="w-full px-2 py-2 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none text-xs"
+              value={filterDistrict}
+              onChange={(e) => setFilterDistrict(e.target.value)}
+            >
+              <option value="all">구역 전체</option>
+              {districtOptions.map((no) => (
+                <option key={no} value={no}>
+                  {districtOptionLabel(no)}
+                </option>
+              ))}
+            </select>
+            <select
+              className="w-full px-2 py-2 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none text-xs"
+              value={filterDistrictBan}
+              onChange={(e) => setFilterDistrictBan(e.target.value)}
+            >
+              <option value="all">반 전체</option>
+              {districtBanOptions.map((ban) => (
+                <option key={ban} value={ban}>
+                  {ban}반
+                </option>
+              ))}
+            </select>
+            <select
+              className="w-full px-2 py-2 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none text-xs"
               value={sortField}
               onChange={(e) => setSortField(e.target.value)}
             >
@@ -542,6 +593,7 @@ export function AdminConsoleZip() {
               <option value="capacity">👥 수용 가능 인원 정렬</option>
               <option value="name">🔤 대표 성명 정렬</option>
               <option value="members">🏠 가족구성원 수 정렬</option>
+              <option value="district">구역/반 정렬</option>
             </select>
             <button
               type="button"
@@ -568,12 +620,13 @@ export function AdminConsoleZip() {
               <p className="text-xs">다른 검색어나 필터 값을 조절해 보세요.</p>
             </div>
           ) : (
-            <table className="w-full text-left border-collapse text-sm text-gray-700 min-w-[900px]">
+            <table className="w-full text-left border-collapse text-sm text-gray-700 min-w-[1040px]">
               <thead>
                 <tr className="bg-gold-50/40 border-b border-gold-100 text-gray-700 font-bold">
                   <th className="p-4">호스트 성명 (세례명)</th>
                   <th className="p-4">연락처</th>
                   <th className="p-4">거주 주소</th>
+                  <th className="p-4 text-center">구역/반</th>
                   <th className="p-4 text-center">가능 인원</th>
                   <th className="p-4">동반언어</th>
                   <th className="p-4 text-center">침대 / 애완</th>
@@ -590,6 +643,11 @@ export function AdminConsoleZip() {
                     </td>
                     <td className="p-4 font-mono text-xs">{item.representative.phone}</td>
                     <td className="p-4 max-w-xs truncate text-xs">{item.representative.address}</td>
+                    <td className="p-4 text-center text-xs">
+                      <span className="inline-flex items-center justify-center px-2 py-1 rounded-lg border border-gold-200 bg-gold-50 text-gold-800 font-bold">
+                        {item.district?.label ?? "구역외 (13구역)"}
+                      </span>
+                    </td>
                     <td className="p-4 text-center font-bold text-gold-700 font-mono">
                       {item.homestay.capacity}명<span className="text-[10px] text-gray-400 block font-normal">({item.homestay.preferredGender})</span>
                     </td>
@@ -787,6 +845,7 @@ export function AdminConsoleZip() {
                 <Metric icon={<Users />} label="가족 구성" value={`${selected.members.length}명`} />
                 <Metric icon={<Home />} label="수용 인원" value={`${selected.homestay.capacity}명`} />
                 <Metric icon={<BedDouble />} label="침대" value={selected.homestay.hasBed ? "제공 가능" : "제공 어려움"} />
+                <Metric icon={<MapPinned />} label="구역/반" value={selected.district?.label ?? "구역외 (13구역)"} />
               </div>
               <div className="flex flex-wrap gap-2">
                 {["submitted", "confirmed", "canceled"].map((next) => (

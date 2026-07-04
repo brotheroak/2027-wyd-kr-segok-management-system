@@ -10,6 +10,7 @@ import { decryptText, encryptText, encryptionEnabled, requireEncryptionKeyInProd
 import { notificationStatus, sendVerificationMessage } from "./notifications.js";
 import { applicationSchema, volunteerSchema } from "./validators.js";
 import type { ApplicationPayload, FamilyMember, VolunteerPayload } from "./types.js";
+import { assignDistrict } from "./districts.js";
 import { verifyTotp } from "./totp.js";
 import { verifyPassword } from "./password.js";
 import { sql, eq, and, or, like, desc } from "drizzle-orm";
@@ -371,6 +372,7 @@ async function upsertApplication(payload: ApplicationPayload, existingId?: strin
   const timestamp = nowIso();
   const applicantPin = parsed.representative.applicantPin ?? "";
   const applicantPinHash = applicantPin ? hashApplicantPin(id, applicantPin) : "";
+  const district = assignDistrict(parsed.representative.address, parsed.representative.addressDetail ?? "");
   if (!existingId && !/^\d{4}$/.test(applicantPin)) {
     throw new Error("신청 확인용 숫자 비밀번호 4자리를 입력해 주세요.");
   }
@@ -389,6 +391,12 @@ async function upsertApplication(payload: ApplicationPayload, existingId?: strin
       postcode: parsed.representative.postcode ?? "",
       address: pii(parsed.representative.address),
       addressDetail: pii(parsed.representative.addressDetail ?? ""),
+      districtNo: district.no,
+      districtName: district.name,
+      districtBan: district.ban,
+      districtLabel: district.label,
+      districtConfidence: district.confidence,
+      districtReason: district.reason,
       householdTotal: parsed.homestay.householdTotal,
       housingType: parsed.homestay.housingType,
       housingTypeOther: parsed.homestay.housingTypeOther ?? "",
@@ -465,6 +473,19 @@ async function rowToApplication(row: any) {
 
   // Handle boolean field compatibility from DB (SQLite returns 0/1, PG returns true/false)
   const castBool = (val: any) => val === true || val === 1 || val === "1";
+  const address = plain(row.address);
+  const addressDetail = plain(row.addressDetail);
+  const computedDistrict = assignDistrict(address, addressDetail);
+  const district = computedDistrict.no === "13" && row.districtNo
+    ? {
+        no: row.districtNo,
+        name: row.districtName ?? (row.districtNo === "13" ? "구역외" : `${row.districtNo}구역`),
+        ban: row.districtBan ?? `${row.districtNo}-1`,
+        label: row.districtLabel ?? (row.districtNo === "13" ? "구역외 (13구역)" : `${row.districtNo}구역 ${row.districtBan ?? `${row.districtNo}-1`}반`),
+        confidence: row.districtConfidence ?? "low",
+        reason: row.districtReason ?? ""
+      }
+    : computedDistrict;
 
   return {
     id: row.id,
@@ -478,9 +499,10 @@ async function rowToApplication(row: any) {
       phone: plain(row.phone),
       email: plain(row.email),
       postcode: row.postcode,
-      address: plain(row.address),
-      addressDetail: plain(row.addressDetail)
+      address,
+      addressDetail
     },
+    district,
     members,
     homestay: {
       householdTotal: row.householdTotal,
@@ -820,12 +842,16 @@ function matchesApplicationFilters(appData: any, query: express.Request["query"]
   const language = String(query.language ?? "all");
   const pets = String(query.pets ?? "all");
   const bed = String(query.bed ?? "all");
+  const district = String(query.district ?? "all");
+  const ban = String(query.ban ?? "all");
 
   if (status !== "all" && appData.status !== status) return false;
   if (gender !== "all" && appData.homestay.preferredGender !== gender) return false;
   if (language !== "all" && !appData.homestay.languages.includes(language)) return false;
   if (pets !== "all" && (pets === "yes") !== appData.homestay.hasPet) return false;
   if (bed !== "all" && (bed === "yes") !== appData.homestay.hasBed) return false;
+  if (district !== "all" && appData.district?.no !== district) return false;
+  if (ban !== "all" && appData.district?.ban !== ban) return false;
   if (!q) return true;
 
   return [
@@ -833,7 +859,9 @@ function matchesApplicationFilters(appData: any, query: express.Request["query"]
     appData.representative.name,
     appData.representative.phone,
     appData.representative.email,
-    appData.representative.address
+    appData.representative.address,
+    appData.district?.label,
+    appData.district?.ban
   ].some((value) => String(value ?? "").toLowerCase().includes(q));
 }
 
@@ -845,6 +873,7 @@ function sortApplications(list: any[], query: express.Request["query"]) {
     if (sortField === "capacity") result = a.homestay.capacity - b.homestay.capacity;
     if (sortField === "name") result = a.representative.name.localeCompare(b.representative.name);
     if (sortField === "members") result = a.members.length - b.members.length;
+    if (sortField === "district") result = String(a.district?.ban ?? "99-99").localeCompare(String(b.district?.ban ?? "99-99"), "ko-KR", { numeric: true });
     if (sortField === "applicationNo") result = String(a.applicationNo ?? "").localeCompare(String(b.applicationNo ?? ""));
     return sortOrder === "asc" ? result : -result;
   });
@@ -899,7 +928,7 @@ async function filteredVolunteersForAdmin(session: Session, query: express.Reque
 
 function applicationExcelRows(applications: any[]) {
   return [
-    ["접수번호", "상태", "대표 성명", "세례명", "성별", "생년월일", "연락처", "이메일", "우편번호", "주소", "상세주소", "가구원 수", "가족 구성", "주거형태", "반려동물", "가능 언어", "희망 성별", "수용 인원", "침대 제공", "공간 설명", "신청일", "서명", "접수일", "수정일"],
+    ["접수번호", "상태", "대표 성명", "세례명", "성별", "생년월일", "연락처", "이메일", "우편번호", "주소", "상세주소", "구역", "반", "구역반 판별", "가구원 수", "가족 구성", "주거형태", "반려동물", "가능 언어", "희망 성별", "수용 인원", "침대 제공", "공간 설명", "신청일", "서명", "접수일", "수정일"],
     ...applications.map((item) => [
       item.applicationNo,
       item.status,
@@ -912,6 +941,9 @@ function applicationExcelRows(applications: any[]) {
       item.representative.postcode,
       item.representative.address,
       item.representative.addressDetail,
+      item.district?.name ?? "",
+      item.district?.ban ?? "",
+      item.district?.reason ?? item.district?.label ?? "",
       item.homestay.householdTotal,
       item.members.map((member: any) => `${member.relationship}:${member.name}${member.baptismalName ? `(${member.baptismalName})` : ""}/${member.gender}/${member.birthDate}`).join("\n"),
       item.homestay.housingType === "기타" ? item.homestay.housingTypeOther : item.homestay.housingType,

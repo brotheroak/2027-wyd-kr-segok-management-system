@@ -71,6 +71,12 @@ async function setupPg() {
         postcode TEXT,
         address TEXT NOT NULL,
         address_detail TEXT,
+        district_no TEXT NOT NULL DEFAULT '13',
+        district_name TEXT NOT NULL DEFAULT '구역외',
+        district_ban TEXT NOT NULL DEFAULT '13-1',
+        district_label TEXT NOT NULL DEFAULT '구역외 (13구역)',
+        district_confidence TEXT NOT NULL DEFAULT 'low',
+        district_reason TEXT,
         household_total INTEGER NOT NULL,
         housing_type TEXT NOT NULL,
         housing_type_other TEXT,
@@ -170,10 +176,17 @@ async function setupPg() {
       );
 
       ALTER TABLE verification_codes ADD COLUMN IF NOT EXISTS email_hash TEXT;
+      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_no TEXT NOT NULL DEFAULT '13';
+      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_name TEXT NOT NULL DEFAULT '구역외';
+      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_ban TEXT NOT NULL DEFAULT '13-1';
+      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_label TEXT NOT NULL DEFAULT '구역외 (13구역)';
+      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_confidence TEXT NOT NULL DEFAULT 'low';
+      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_reason TEXT;
 
       CREATE INDEX IF NOT EXISTS idx_homestay_applications_email ON homestay_applications(email);
       CREATE INDEX IF NOT EXISTS idx_homestay_applications_lookup ON homestay_applications(rep_name, phone);
       CREATE INDEX IF NOT EXISTS idx_homestay_applications_status ON homestay_applications(status);
+      CREATE INDEX IF NOT EXISTS idx_homestay_applications_district ON homestay_applications(district_no, district_ban);
       CREATE INDEX IF NOT EXISTS idx_capabilities_lookup ON host_capabilities(capability_key, capability_value);
       CREATE INDEX IF NOT EXISTS idx_volunteers_status ON volunteers(status);
       CREATE INDEX IF NOT EXISTS idx_volunteers_lookup ON volunteers(name, phone);
@@ -245,6 +258,12 @@ function setupSqlite() {
         postcode TEXT,
         address TEXT NOT NULL,
         address_detail TEXT,
+        district_no TEXT NOT NULL DEFAULT '13',
+        district_name TEXT NOT NULL DEFAULT '구역외',
+        district_ban TEXT NOT NULL DEFAULT '13-1',
+        district_label TEXT NOT NULL DEFAULT '구역외 (13구역)',
+        district_confidence TEXT NOT NULL DEFAULT 'low',
+        district_reason TEXT,
         household_total INTEGER NOT NULL,
         housing_type TEXT NOT NULL,
         housing_type_other TEXT,
@@ -358,6 +377,19 @@ function setupSqlite() {
     if (!applicationColumns.some((column) => column.name === "applicant_pin")) {
       db.exec("ALTER TABLE homestay_applications ADD COLUMN applicant_pin TEXT NOT NULL DEFAULT ''");
     }
+    const districtColumns = [
+      ["district_no", "TEXT NOT NULL DEFAULT '13'"],
+      ["district_name", "TEXT NOT NULL DEFAULT '구역외'"],
+      ["district_ban", "TEXT NOT NULL DEFAULT '13-1'"],
+      ["district_label", "TEXT NOT NULL DEFAULT '구역외 (13구역)'"],
+      ["district_confidence", "TEXT NOT NULL DEFAULT 'low'"],
+      ["district_reason", "TEXT"]
+    ];
+    for (const [name, definition] of districtColumns) {
+      if (!applicationColumns.some((column) => column.name === name)) {
+        db.exec(`ALTER TABLE homestay_applications ADD COLUMN ${name} ${definition}`);
+      }
+    }
     const volunteerColumns = db.prepare("PRAGMA table_info(volunteers)").all();
     if (!volunteerColumns.some((column) => column.name === "applicant_pin")) {
       db.exec("ALTER TABLE volunteers ADD COLUMN applicant_pin TEXT NOT NULL DEFAULT ''");
@@ -366,6 +398,7 @@ function setupSqlite() {
     if (!verificationColumns.some((column) => column.name === "email_hash")) {
       db.exec("ALTER TABLE verification_codes ADD COLUMN email_hash TEXT");
     }
+    db.exec("CREATE INDEX IF NOT EXISTS idx_homestay_applications_district ON homestay_applications(district_no, district_ban)");
     db.exec("CREATE INDEX IF NOT EXISTS idx_verification_codes_email_hash ON verification_codes(email_hash)");
 
     // Check if initial admin exists

@@ -7,6 +7,15 @@ export type FamilyMember = {
   gender: string;
 };
 
+export type DistrictInfo = {
+  no: string;
+  name: string;
+  ban: string;
+  label: string;
+  confidence?: string;
+  reason?: string;
+};
+
 export type ApplicationPayload = {
   id?: string;
   applicationNo?: string;
@@ -43,6 +52,7 @@ export type ApplicationPayload = {
     appliedDate: string;
     signatureName: string;
   };
+  district?: DistrictInfo;
   updatedAt?: string;
 };
 

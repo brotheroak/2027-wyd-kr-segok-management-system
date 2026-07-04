@@ -78,6 +78,15 @@ export async function initDb() {
         throw new Error("The 'admins' table does not exist in PostgreSQL. Please run 'npm run db:setup' first.");
       }
       await client.query("ALTER TABLE verification_codes ADD COLUMN IF NOT EXISTS email_hash TEXT");
+      await client.query(`
+        ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_no TEXT NOT NULL DEFAULT '13';
+        ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_name TEXT NOT NULL DEFAULT '구역외';
+        ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_ban TEXT NOT NULL DEFAULT '13-1';
+        ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_label TEXT NOT NULL DEFAULT '구역외 (13구역)';
+        ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_confidence TEXT NOT NULL DEFAULT 'low';
+        ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_reason TEXT;
+        CREATE INDEX IF NOT EXISTS idx_homestay_applications_district ON homestay_applications(district_no, district_ban);
+      `);
       await client.query("CREATE INDEX IF NOT EXISTS idx_verification_codes_email_hash ON verification_codes(email_hash)");
       console.log("[DB] PostgreSQL database is ready and schema validation passed.");
     } catch (err) {
@@ -102,6 +111,21 @@ export async function initDb() {
       if (!verificationColumns.some((column) => column.name === "email_hash")) {
         sqliteDbInstance.exec("ALTER TABLE verification_codes ADD COLUMN email_hash TEXT");
       }
+      const applicationColumns = sqliteDbInstance.prepare("PRAGMA table_info(homestay_applications)").all() as Array<{ name: string }>;
+      const districtColumns: Array<[string, string]> = [
+        ["district_no", "TEXT NOT NULL DEFAULT '13'"],
+        ["district_name", "TEXT NOT NULL DEFAULT '구역외'"],
+        ["district_ban", "TEXT NOT NULL DEFAULT '13-1'"],
+        ["district_label", "TEXT NOT NULL DEFAULT '구역외 (13구역)'"],
+        ["district_confidence", "TEXT NOT NULL DEFAULT 'low'"],
+        ["district_reason", "TEXT"]
+      ];
+      for (const [name, definition] of districtColumns) {
+        if (!applicationColumns.some((column) => column.name === name)) {
+          sqliteDbInstance.exec(`ALTER TABLE homestay_applications ADD COLUMN ${name} ${definition}`);
+        }
+      }
+      sqliteDbInstance.exec("CREATE INDEX IF NOT EXISTS idx_homestay_applications_district ON homestay_applications(district_no, district_ban)");
       sqliteDbInstance.exec("CREATE INDEX IF NOT EXISTS idx_verification_codes_email_hash ON verification_codes(email_hash)");
       console.log("[DB] SQLite database is ready and schema validation passed.");
     } catch (err) {

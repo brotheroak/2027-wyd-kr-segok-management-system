@@ -7,6 +7,15 @@ export type FamilyMember = {
   gender: string;
 };
 
+export type DistrictInfo = {
+  no: string;
+  name: string;
+  ban: string;
+  label: string;
+  confidence?: string;
+  reason?: string;
+};
+
 export type ApplicationPayload = {
   representative: {
     name: string;
@@ -40,6 +49,7 @@ export type ApplicationPayload = {
     appliedDate: string;
     signatureName: string;
   };
+  district?: DistrictInfo;
 };
 
 export type VolunteerPayload = {
