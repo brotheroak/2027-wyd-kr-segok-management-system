@@ -1887,6 +1887,197 @@ input:focus, select:focus, textarea:focus {
   background: rgba(255, 255, 255, 0.94);
 }
 
+.admin-console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(232, 226, 216, 0.76);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--soft-shadow-sm);
+}
+
+.admin-console-header > div {
+  display: grid;
+  gap: 3px;
+  min-width: 180px;
+}
+
+.admin-console-header span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.admin-console-header strong {
+  color: var(--blue);
+  font-family: var(--display-font);
+  font-size: 1.1rem;
+}
+
+.admin-console-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-console-header nav button {
+  position: relative;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid rgba(232, 226, 216, 0.92);
+  border-radius: 10px;
+  color: #344058;
+  background: #fff;
+  font-size: 0.92rem;
+  font-weight: 900;
+  box-shadow: 0 6px 14px rgba(28, 36, 52, 0.04);
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.admin-console-header nav button:hover {
+  border-color: rgba(197, 168, 92, 0.62);
+  transform: translateY(-1px);
+}
+
+.admin-console-header nav button.active {
+  color: #fff;
+  border-color: #182238;
+  background: #182238;
+}
+
+.admin-menu-alert {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  color: #fff;
+  background: #c7324a;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 1000;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(199, 50, 74, 0.28);
+}
+
+.admin-password-form {
+  max-width: 480px;
+  display: grid;
+  gap: 14px;
+}
+
+.admin-password-form input {
+  min-height: 50px;
+  padding: 0 16px;
+}
+
+.admin-password-form .primary {
+  justify-self: start;
+  min-width: 180px;
+}
+
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(18, 30, 49, 0.68);
+  backdrop-filter: blur(5px);
+}
+
+.admin-register-modal {
+  width: min(100%, 460px);
+  overflow: hidden;
+  border: 1px solid rgba(197, 168, 92, 0.34);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 28px 70px rgba(18, 30, 49, 0.34);
+}
+
+.admin-register-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 22px 24px;
+  color: #fff;
+  background: #182238;
+}
+
+.admin-register-modal-head span {
+  color: var(--gold-light);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.admin-register-modal-head h3 {
+  margin: 4px 0 0;
+  font-family: var(--display-font);
+  font-size: 1.5rem;
+}
+
+.admin-register-modal-head .ghost {
+  min-width: 42px;
+  padding: 0;
+  color: #fff;
+}
+
+.admin-register-form {
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+}
+
+.admin-register-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-register-form label span {
+  color: #344058;
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.admin-register-form input {
+  min-height: 50px;
+  padding: 0 16px;
+  border: 2px solid rgba(232, 226, 216, 0.92);
+  border-radius: 12px;
+}
+
+.admin-form-message {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.admin-form-message.error {
+  color: #c7324a;
+}
+
+.admin-form-message.success {
+  color: #2f7d58;
+}
+
 .admin-search-label {
   display: block;
   position: relative;
@@ -3111,6 +3302,27 @@ td small {
   }
   .admin-mode-tabs button {
     justify-content: center;
+  }
+  .admin-console-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .admin-console-header nav {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+  }
+  .admin-console-header nav button,
+  .admin-password-form .primary,
+  .admin-register-form .primary,
+  .admin-register-form .secondary {
+    width: 100%;
+  }
+  .admin-register-modal-head {
+    padding: 18px 20px;
+  }
+  .admin-register-form {
+    padding: 20px;
   }
   .footer-links {
     grid-template-columns: 1fr;

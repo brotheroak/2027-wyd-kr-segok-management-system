@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, XCircle, BedDouble, Sparkles, MapPinned, UserPlus, KeyRound, Crown } from "lucide-react";
+import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, XCircle, BedDouble, Sparkles, MapPinned, UserPlus, KeyRound, Crown, ClipboardList } from "lucide-react";
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { AdminRole, ApplicationPayload } from "../../types.js";
 import { api } from "../../api.js";
@@ -31,6 +31,8 @@ type AdminUser = {
   updatedAt: string;
 };
 
+type AdminConsoleMenu = "applications" | "accounts" | "password";
+
 const ADMIN_TOKEN_KEY = "wydAdminToken";
 const ADMIN_ROLE_KEY = "wydAdminRole";
 
@@ -53,7 +55,7 @@ export function AdminConsoleZip() {
   const [otpCode, setOtpCode] = useState("");
   const [loginState, setLoginState] = useState<LoginState>({ mfaRequired: false });
   const [loginError, setLoginError] = useState("");
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerPasswordConfirm, setRegisterPasswordConfirm] = useState("");
@@ -77,6 +79,7 @@ export function AdminConsoleZip() {
   const [sortField, setSortField] = useState("applicationNo");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [activeAdminTab, setActiveAdminTab] = useState<"homestay" | "volunteer">("homestay");
+  const [activeConsoleMenu, setActiveConsoleMenu] = useState<AdminConsoleMenu>("applications");
   
   const [data, setData] = useState<{ role: AdminRole; canViewPersonalData: boolean; stats: any; applications: ApplicationPayload[] } | null>(null);
   const [selected, setSelected] = useState<ApplicationPayload | null>(null);
@@ -229,6 +232,8 @@ export function AdminConsoleZip() {
     setNextPasswordConfirm("");
     setAdminUsers([]);
     setAccountMessage("");
+    setRegisterModalOpen(false);
+    setActiveConsoleMenu("applications");
     resetLoginState();
   };
 
@@ -311,6 +316,15 @@ export function AdminConsoleZip() {
     return downloadAdminFile(`/api/admin/applications.xls?${params}`, "wyd-homestay-hosts.xls");
   };
 
+  const closeRegisterModal = () => {
+    setRegisterModalOpen(false);
+    setRegisterEmail("");
+    setRegisterPassword("");
+    setRegisterPasswordConfirm("");
+    setRegisterMessage("");
+    setLoginError("");
+  };
+
   if (!token) {
     return (
       <section className="single">
@@ -323,58 +337,7 @@ export function AdminConsoleZip() {
             </p>
           </div>
           <div className="p-8 space-y-5">
-            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-gray-50 p-1 text-sm font-bold">
-              <button type="button" className={authMode === "login" ? "primary" : "ghost"} onClick={() => { setAuthMode("login"); setLoginError(""); }}>
-                로그인
-              </button>
-              <button type="button" className={authMode === "register" ? "primary" : "ghost"} onClick={() => { setAuthMode("register"); resetLoginState(); }}>
-                가입 신청
-              </button>
-            </div>
-            {authMode === "register" ? (
-              <form onSubmit={handleRegister} className="space-y-4">
-                <label className="block space-y-1">
-                  <span className="font-bold text-gray-700 text-sm">운영자 이메일</span>
-                  <input
-                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 focus:border-gold-500 focus:outline-none"
-                    type="email"
-                    required
-                    value={registerEmail}
-                    onChange={(e) => setRegisterEmail(e.target.value)}
-                    placeholder="operator@example.org"
-                  />
-                </label>
-                <label className="block space-y-1">
-                  <span className="font-bold text-gray-700 text-sm">비밀번호</span>
-                  <input
-                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 focus:border-gold-500 focus:outline-none"
-                    type="password"
-                    required
-                    minLength={10}
-                    value={registerPassword}
-                    onChange={(e) => setRegisterPassword(e.target.value)}
-                    placeholder="10자 이상"
-                  />
-                </label>
-                <label className="block space-y-1">
-                  <span className="font-bold text-gray-700 text-sm">비밀번호 확인</span>
-                  <input
-                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 focus:border-gold-500 focus:outline-none"
-                    type="password"
-                    required
-                    minLength={10}
-                    value={registerPasswordConfirm}
-                    onChange={(e) => setRegisterPasswordConfirm(e.target.value)}
-                    placeholder="다시 입력"
-                  />
-                </label>
-                {loginError && <p className="text-rose-600 text-xs font-bold">{loginError}</p>}
-                {registerMessage && <p className="text-emerald-700 text-xs font-bold">{registerMessage}</p>}
-                <button type="submit" className="primary w-full justify-center" disabled={busy}>
-                  <UserPlus size={18} /> 승인 요청
-                </button>
-              </form>
-            ) : !loginState.mfaRequired ? (
+            {!loginState.mfaRequired ? (
               <form onSubmit={handleLoginStep1} className="space-y-4">
                 <label className="block space-y-1">
                   <span className="font-bold text-gray-700 text-sm">운영자 이메일</span>
@@ -445,8 +408,77 @@ export function AdminConsoleZip() {
                 </div>
               </form>
             )}
+            <div className="border-t border-gray-100 pt-5">
+              <button
+                type="button"
+                className="secondary w-full justify-center"
+                onClick={() => {
+                  resetLoginState();
+                  setRegisterModalOpen(true);
+                }}
+              >
+                <UserPlus size={18} /> 운영자 가입 신청
+              </button>
+            </div>
           </div>
         </div>
+        {registerModalOpen && (
+          <div className="admin-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="admin-register-title" onClick={closeRegisterModal}>
+            <div className="admin-register-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="admin-register-modal-head">
+                <div>
+                  <span>Admin Registration</span>
+                  <h3 id="admin-register-title">운영자 가입 신청</h3>
+                </div>
+                <button type="button" className="ghost" onClick={closeRegisterModal} aria-label="가입 신청 닫기">
+                  <XCircle size={22} />
+                </button>
+              </div>
+              <form onSubmit={handleRegister} className="admin-register-form">
+                <label>
+                  <span>운영자 이메일</span>
+                  <input
+                    type="email"
+                    required
+                    value={registerEmail}
+                    onChange={(e) => setRegisterEmail(e.target.value)}
+                    placeholder="operator@example.org"
+                  />
+                </label>
+                <label>
+                  <span>비밀번호</span>
+                  <input
+                    type="password"
+                    required
+                    minLength={10}
+                    value={registerPassword}
+                    onChange={(e) => setRegisterPassword(e.target.value)}
+                    placeholder="10자 이상"
+                  />
+                </label>
+                <label>
+                  <span>비밀번호 확인</span>
+                  <input
+                    type="password"
+                    required
+                    minLength={10}
+                    value={registerPasswordConfirm}
+                    onChange={(e) => setRegisterPasswordConfirm(e.target.value)}
+                    placeholder="다시 입력"
+                  />
+                </label>
+                {loginError && <p className="admin-form-message error">{loginError}</p>}
+                {registerMessage && <p className="admin-form-message success">{registerMessage}</p>}
+                <div className="button-row">
+                  <button type="button" className="secondary" onClick={closeRegisterModal}>닫기</button>
+                  <button type="submit" className="primary" disabled={busy}>
+                    <UserPlus size={18} /> 승인 요청
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </section>
     );
   }
@@ -457,23 +489,57 @@ export function AdminConsoleZip() {
   const statusTone = (value?: string) => (value === "confirmed" ? "confirmed" : value === "canceled" ? "canceled" : "submitted");
   const districtSort = (a: string, b: string) => Number(a) - Number(b);
   const districtOptionLabel = (no: string) => (no === "99" ? "구역외 (99구역)" : `${no}구역`);
-  const accountPanel = (
-    <div className="bg-white rounded-3xl border border-gold-100 shadow-sm overflow-hidden">
-      <div className="bg-gold-50/50 border-b border-gold-100 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div>
-          <span className="font-serif font-black text-lg text-catholic-navy flex items-center gap-2">
-            {role === "super_admin" ? <Crown className="w-5 h-5 text-gold-600" /> : <ShieldCheck className="w-5 h-5 text-gold-600" />}
-            운영자 계정 관리
-          </span>
-          <p className="text-xs text-gray-500 mt-1">현재 권한: {roleLabel(role ?? "admin")}</p>
-        </div>
-        <button className="secondary" onClick={logout}>로그아웃</button>
+  const pendingAdminCount = adminUsers.filter((admin) => admin.status === "pending" && !admin.locked).length;
+  const consoleHeader = (
+    <div className="admin-console-header">
+      <div>
+        <span>Admin Console</span>
+        <strong>{roleLabel(role ?? "admin")}</strong>
       </div>
-      <div className="p-6 grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-6">
-        <form onSubmit={changePassword} className="border border-gray-100 rounded-2xl p-5 space-y-4">
-          <div className="flex items-center gap-2 text-catholic-navy font-black">
-            <KeyRound className="w-5 h-5 text-gold-600" /> 비밀번호 변경
-          </div>
+      <nav aria-label="운영자 콘솔 메뉴">
+        <button
+          type="button"
+          className={activeConsoleMenu === "applications" ? "active" : ""}
+          onClick={() => setActiveConsoleMenu("applications")}
+        >
+          <ClipboardList size={18} /> 신청 현황
+        </button>
+        <button
+          type="button"
+          className={activeConsoleMenu === "accounts" ? "active alertable" : "alertable"}
+          onClick={() => {
+            setActiveConsoleMenu("accounts");
+            loadAdminUsers().catch(() => setAdminUsers([]));
+          }}
+        >
+          <Crown size={18} /> 계정 관리
+          {pendingAdminCount > 0 && (
+            <i className="admin-menu-alert" aria-label={`신규 가입 승인 대기 ${pendingAdminCount}건`}>
+              !
+            </i>
+          )}
+        </button>
+        <button
+          type="button"
+          className={activeConsoleMenu === "password" ? "active" : ""}
+          onClick={() => setActiveConsoleMenu("password")}
+        >
+          <KeyRound size={18} /> 비밀번호 변경
+        </button>
+      </nav>
+    </div>
+  );
+
+  const passwordPanel = (
+    <div className="bg-white rounded-3xl border border-gold-100 shadow-sm overflow-hidden">
+      <div className="bg-gold-50/50 border-b border-gold-100 px-6 py-4">
+        <span className="font-serif font-black text-lg text-catholic-navy flex items-center gap-2">
+          <KeyRound className="w-5 h-5 text-gold-600" /> 비밀번호 변경
+        </span>
+        <p className="text-xs text-gray-500 mt-1">현재 로그인한 운영자 계정의 비밀번호를 변경합니다.</p>
+      </div>
+      <div className="p-6">
+        <form onSubmit={changePassword} className="admin-password-form">
           <input
             type="password"
             value={currentPassword}
@@ -498,8 +564,25 @@ export function AdminConsoleZip() {
             required
           />
           {accountMessage && <p className="text-xs font-bold text-catholic-navy">{accountMessage}</p>}
-          <button className="primary w-full" type="submit">비밀번호 변경</button>
+          <button className="primary" type="submit">비밀번호 변경</button>
         </form>
+      </div>
+    </div>
+  );
+
+  const accountPanel = (
+    <div className="bg-white rounded-3xl border border-gold-100 shadow-sm overflow-hidden">
+      <div className="bg-gold-50/50 border-b border-gold-100 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div>
+          <span className="font-serif font-black text-lg text-catholic-navy flex items-center gap-2">
+            {role === "super_admin" ? <Crown className="w-5 h-5 text-gold-600" /> : <ShieldCheck className="w-5 h-5 text-gold-600" />}
+            운영자 계정 관리
+          </span>
+          <p className="text-xs text-gray-500 mt-1">현재 권한: {roleLabel(role ?? "admin")}</p>
+        </div>
+        <button className="secondary" onClick={logout}>로그아웃</button>
+      </div>
+      <div className="p-6">
         {role === "super_admin" ? (
           <div className="border border-gray-100 rounded-2xl overflow-hidden">
             <div className="px-5 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between gap-3">
@@ -573,10 +656,28 @@ export function AdminConsoleZip() {
     </div>
   );
 
+  if (activeConsoleMenu === "accounts") {
+    return (
+      <div className="space-y-8" id="admin-dashboard">
+        {consoleHeader}
+        {accountPanel}
+      </div>
+    );
+  }
+
+  if (activeConsoleMenu === "password") {
+    return (
+      <div className="space-y-8" id="admin-dashboard">
+        {consoleHeader}
+        {passwordPanel}
+      </div>
+    );
+  }
+
   if (activeAdminTab === "volunteer") {
     return (
       <div className="space-y-8" id="admin-dashboard">
-        {accountPanel}
+        {consoleHeader}
         <AdminModeTabs active={activeAdminTab} onChange={setActiveAdminTab} />
         <VolunteerAdminPanel token={token} canViewPersonalData={canViewPersonalData} statusLabel={statusLabel} statusTone={statusTone} />
       </div>
@@ -656,7 +757,7 @@ export function AdminConsoleZip() {
 
   return (
     <div className="space-y-8" id="admin-dashboard">
-      {accountPanel}
+      {consoleHeader}
       <AdminModeTabs active={activeAdminTab} onChange={setActiveAdminTab} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" id="stats-dashboard">
         <div className="bg-white p-6 rounded-2xl border border-gold-100 shadow-sm flex items-center gap-4">
