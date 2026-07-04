@@ -14,8 +14,14 @@ export function PrivacyPage() {
     <main className="single policy-page">
       <div className="page-heading">
         <span>Privacy & Cookies</span>
-        <h2>개인정보처리방침 및 쿠키정책</h2>
-        <p>2027 서울 WYD 세곡동 성당 홈스테이 신청과 운영 과정에서 개인정보를 어떻게 수집, 이용, 보관, 보호하는지 안내합니다.</p>
+        <h2>
+          <span className="title-line">개인정보처리방침 및</span>
+          <span className="title-line">쿠키정책</span>
+        </h2>
+        <p>
+          2027 서울 WYD 세곡동 성당 홈스테이 신청과 운영 과정에서 개인정보를 어떻게 수집, 이용, 보관, 보호하는지
+          <span className="keep-phrase"> 안내합니다.</span>
+        </p>
       </div>
 
       <section className="policy-summary">

@@ -249,7 +249,10 @@ export function App() {
           <section className="applicant-main">
             <div className="page-heading">
               <span>World Youth Day Seoul 2027</span>
-              <h2>2027 서울 WYD 세곡동 성당 홈스테이 신청</h2>
+              <h2>
+                <span className="title-line">2027 서울 WYD</span>
+                <span className="title-line">세곡동 성당 홈스테이 신청</span>
+              </h2>
               <p>홈스테이 예정 기간: 2027년 8월 1일(일)부터 8월 9일(월)까지</p>
               <small>주제 성구: “용기를 내어라. 내가 세상을 이겼다.” (요한 16,33)</small>
             </div>
@@ -284,7 +287,10 @@ export function App() {
           <section className="applicant-main">
             <div className="page-heading">
               <span>World Youth Day Seoul 2027</span>
-              <h2>2027 서울 WYD 자원봉사자 신청</h2>
+              <h2>
+                <span className="title-line">2027 서울 WYD</span>
+                <span className="title-line">자원봉사자 신청</span>
+              </h2>
               <p>세곡동성당 WYD 본당 위원회와 함께 순례자를 맞이할 봉사자를 모집합니다.</p>
             </div>
             <div className="content">

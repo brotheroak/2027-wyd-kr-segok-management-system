@@ -10,7 +10,10 @@ export function ApplyChoice({ navigate }: ApplyChoiceProps) {
     <section className="single apply-choice-page">
       <div className="page-heading">
         <span>Application Center</span>
-        <h2>2027 서울 WYD 세곡동 성당 신청</h2>
+        <h2>
+          <span className="title-line">2027 서울 WYD</span>
+          <span className="title-line">세곡동 성당 신청</span>
+        </h2>
         <p>참여하실 신청 유형을 선택해 주세요.</p>
       </div>
       <div className="apply-choice-grid">

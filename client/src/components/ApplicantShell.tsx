@@ -37,7 +37,10 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
             </div>
             <div>
               <p>2027 서울 WYD 세곡동 성당 위원회</p>
-              <h1>홈스테이 / 자원봉사 신청</h1>
+              <h1>
+                <span className="brand-title-unit">홈스테이 / 자원봉사</span>
+                <span className="brand-title-unit"> 신청</span>
+              </h1>
             </div>
           </button>
           <nav className="site-nav" aria-label="신청자 메뉴">

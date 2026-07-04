@@ -15,7 +15,10 @@ export function TermsPage() {
       <div className="page-heading">
         <span>Terms of Use</span>
         <h2>이용정책</h2>
-        <p>2027 서울 WYD 세곡동 성당 홈스테이 및 자원봉사 신청 시스템의 이용 조건과 운영 기준을 안내합니다.</p>
+        <p>
+          2027 서울 WYD 세곡동 성당 홈스테이 및 자원봉사 신청 시스템의 이용 조건과
+          <span className="keep-phrase"> 운영 기준을 안내합니다.</span>
+        </p>
       </div>
 
       <section className="policy-summary">
