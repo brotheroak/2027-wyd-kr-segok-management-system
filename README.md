@@ -59,7 +59,7 @@ node scripts/create-admin.mjs operator@example.org StrongPassword123! admin
 node scripts/create-admin.mjs privacy@example.org StrongPassword123! privacy_admin
 ```
 
-초기 DB 생성 시 `scripts/setup-db.mjs`가 기본 개인정보 관리자 계정을 시딩할 수 있습니다. 운영 배포 직후에는 반드시 별도 계정을 만들고 임시 계정/비밀번호를 교체하거나 비활성화하십시오.
+`scripts/setup-db.mjs`는 기본 관리자 비밀번호를 만들지 않습니다. 자동 시딩이 꼭 필요한 일회성 환경에서는 `INITIAL_ADMIN_EMAIL`과 `INITIAL_ADMIN_PASSWORD`를 명시하고 실행하거나, 배포 후 `scripts/create-admin.mjs`로 개별 운영자 계정을 생성합니다.
 
 ## 문서 구조
 

@@ -2,7 +2,6 @@ import pg from "pg";
 import { drizzle as pgDrizzle } from "drizzle-orm/node-postgres";
 import { drizzle as sqliteDrizzle } from "drizzle-orm/node-sqlite";
 import { DatabaseSync } from "node:sqlite";
-import { pbkdf2Sync, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

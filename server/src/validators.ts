@@ -67,6 +67,15 @@ export const applicationSchema = z.object({
 }, {
   message: "1번 구성원은 가족대표여야 하며, 가족대표는 단 한 명만 지정할 수 있습니다.",
   path: ["members"]
+}).refine((data) => data.homestay.householdTotal === data.members.length, {
+  message: "가족 구성원 수와 가구원 수가 일치해야 합니다.",
+  path: ["homestay", "householdTotal"]
+}).refine((data) => data.homestay.housingType !== "기타" || Boolean(data.homestay.housingTypeOther?.trim()), {
+  message: "기타 주거형태를 입력해 주세요.",
+  path: ["homestay", "housingTypeOther"]
+}).refine((data) => !data.homestay.hasPet || Boolean(data.homestay.petDescription?.trim()), {
+  message: "반려동물이 있는 경우 설명을 입력해 주세요.",
+  path: ["homestay", "petDescription"]
 });
 
 export const volunteerSchema = z.object({
@@ -86,4 +95,7 @@ export const volunteerSchema = z.object({
   privacyConsent: z.literal(true),
   appliedDate: dateSchema,
   signatureName: z.string().min(2)
+}).refine((data) => !data.supportFields.includes("통역 및 언어 지원") || Boolean(data.supportLanguage?.trim()), {
+  message: "통역 및 언어 지원을 선택한 경우 지원 언어를 입력해 주세요.",
+  path: ["supportLanguage"]
 });

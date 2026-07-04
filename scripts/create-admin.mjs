@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const passwordIterations = 210_000;
 
 // Simple base32 encoder for TOTP secret generation
 function generateTotpSecret() {
@@ -30,8 +31,8 @@ function generateTotpSecret() {
 
 function hashPassword(password) {
   const salt = randomBytes(16).toString("hex");
-  const hash = pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
-  return `${salt}:${hash}`;
+  const hash = pbkdf2Sync(password, salt, passwordIterations, 64, "sha512").toString("hex");
+  return `pbkdf2-sha512$${passwordIterations}$${salt}$${hash}`;
 }
 
 async function main() {

@@ -1,7 +1,7 @@
 import cors from "cors";
 import express from "express";
 import fs from "node:fs";
-import { createHash, randomInt, pbkdf2Sync, randomBytes } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { nanoid } from "nanoid";
@@ -11,6 +11,7 @@ import { notificationStatus, sendVerificationMessage } from "./notifications.js"
 import { applicationSchema, volunteerSchema } from "./validators.js";
 import type { ApplicationPayload, FamilyMember, VolunteerPayload } from "./types.js";
 import { verifyTotp } from "./totp.js";
+import { verifyPassword } from "./password.js";
 import { sql, eq, and, or, like, desc } from "drizzle-orm";
 
 const app = express();
@@ -183,6 +184,7 @@ const nowIso = () => new Date().toISOString();
 const addMinutes = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
 const stableHash = (value: string) => createHash("sha256").update(value.trim().toLowerCase()).digest("hex");
+const hashVerificationCode = (emailHash: string, code: string) => stableHash(`${emailHash}:${code}`);
 const hashApplicantPin = (applicationId: string, pin: string) => createHash("sha256").update(`${applicationId}:${pin}`).digest("hex");
 const verifyApplicantPin = (applicationId: string, pin: string, stored: string) => {
   if (!stored) return false;
@@ -199,13 +201,6 @@ const seoulDateKey = () => {
   const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
   return `${value("year")}${value("month")}${value("day")}`;
 };
-
-function verifyPassword(password: string, stored: string): boolean {
-  const [salt, hash] = stored.split(":");
-  if (!salt || !hash) return false;
-  const testHash = pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
-  return hash === testHash;
-}
 
 async function logAudit(actor: string, action: string, applicationId?: string, detail?: unknown) {
   try {
@@ -800,7 +795,7 @@ app.post("/api/auth/request-code", async (req, res) => {
   await db.insert(tables.verificationCodes).values({
     email: emailHash,
     emailHash,
-    code,
+    code: hashVerificationCode(emailHash, code),
     expiresAt: addMinutes(10),
     attempts: 0,
     createdAt: nowIso()
@@ -828,7 +823,8 @@ app.post("/api/auth/verify-code", async (req, res) => {
   
   const rows = await db.select().from(tables.verificationCodes).where(eq(tables.verificationCodes.email, emailHash));
   const row = rows[0];
-  if (!row || row.expiresAt < nowIso() || row.attempts >= 5 || row.code !== code) {
+  const codeMatches = row?.code === hashVerificationCode(emailHash, code) || row?.code === code;
+  if (!row || row.expiresAt < nowIso() || row.attempts >= 5 || !codeMatches) {
     if (row) {
       await db.update(tables.verificationCodes).set({
         attempts: row.attempts + 1

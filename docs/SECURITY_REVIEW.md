@@ -7,8 +7,8 @@
 | 운영 암호화 | `NODE_ENV=production`에서 `DATA_ENCRYPTION_KEY`가 없으면 서버 시작 차단 |
 | 개인정보 저장 | 이름, 연락처, 이메일, 주소, 서명 등 주요 PII AES-256-GCM 암호화 |
 | 신청자 PIN | 신청서 ID와 조합한 SHA-256 해시로 저장 |
-| 인증번호 | 이메일은 안정 해시로 조회, 인증 성공 후 코드 삭제 |
-| 관리자 인증 | 개별 계정, 비밀번호 PBKDF2-SHA512, TOTP MFA |
+| 인증번호 | 이메일은 안정 해시로 조회, 코드는 이메일 해시와 조합해 해시 저장, 인증 성공 후 삭제 |
+| 관리자 인증 | 개별 계정, PBKDF2-SHA512 210,000회 비밀번호 해시, TOTP MFA |
 | 권한 분리 | `admin`은 마스킹 데이터, `privacy_admin`은 원본 개인정보 |
 | 감사 로그 | 관리자 로그인, 상태 변경, 개인정보 수정, CSV 다운로드 기록 |
 | 보안 헤더 | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP, HSTS |
@@ -23,8 +23,7 @@
 - `DATA_ENCRYPTION_KEY`를 운영 난수로 교체했습니다.
 - 운영 도메인을 `ALLOWED_ORIGINS`에 등록했습니다.
 - HTTPS는 CDN, 로드밸런서, reverse proxy 중 한 곳에서 강제합니다.
-- 기본 시딩 계정은 운영 계정 생성 후 비활성화하거나 비밀번호를 교체했습니다.
-- 운영자별 개별 계정을 만들고 MFA 등록을 완료했습니다.
+- 저장소 기본 관리자 계정은 없으며, 운영자별 개별 계정을 만들고 MFA 등록을 완료했습니다.
 - SMTP 또는 SMS 인증번호 발송이 실제로 동작합니다.
 - `/api/ready` 응답에서 `encryption:true`가 확인됩니다.
 - `/admin`은 가능하면 WAF 또는 reverse proxy에서 운영자 IP 제한을 적용합니다.

@@ -6,11 +6,19 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const passwordIterations = 210_000;
 
 function hashPassword(password) {
   const salt = randomBytes(16).toString("hex");
-  const hash = pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
-  return `${salt}:${hash}`;
+  const hash = pbkdf2Sync(password, salt, passwordIterations, 64, "sha512").toString("hex");
+  return `pbkdf2-sha512$${passwordIterations}$${salt}$${hash}`;
+}
+
+function initialAdminConfig() {
+  const email = process.env.INITIAL_ADMIN_EMAIL;
+  const password = process.env.INITIAL_ADMIN_PASSWORD;
+  if (email && password) return { email, password };
+  return null;
 }
 
 function generateTotpSecret() {
@@ -181,20 +189,22 @@ async function setupPg() {
     const checkRes = await client.query("SELECT COUNT(*) FROM admins");
     const count = parseInt(checkRes.rows[0].count, 10);
     if (count === 0) {
-      const email = "brotheroak@gmail.com";
-      const defaultPassword = "admin2027!";
-      const passwordHash = hashPassword(defaultPassword);
+      const initialAdmin = initialAdminConfig();
+      if (!initialAdmin) {
+        console.log("[SEED] No admin found, but INITIAL_ADMIN_EMAIL/PASSWORD are not set. Production admin seeding skipped.");
+        return;
+      }
+      const passwordHash = hashPassword(initialAdmin.password);
       const mfaSecret = generateTotpSecret();
       const id = randomBytes(16).toString("hex");
       const now = new Date().toISOString();
 
       await client.query(
         "INSERT INTO admins (id, email, password_hash, role, mfa_secret, mfa_enabled, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-        [id, email, passwordHash, "privacy_admin", mfaSecret, false, now, now]
+        [id, initialAdmin.email, passwordHash, "privacy_admin", mfaSecret, false, now, now]
       );
       console.log(`[SEED] Seeded initial administrator account:`);
-      console.log(`[SEED] Email: ${email}`);
-      console.log(`[SEED] Temp Password: ${defaultPassword}`);
+      console.log(`[SEED] Email: ${initialAdmin.email}`);
       console.log(`[SEED] MFA Secret (Scan in Authenticator on first login): ${mfaSecret}`);
     } else {
       console.log("[SEED] Administrator table is not empty. Seeding skipped.");
@@ -361,19 +371,21 @@ function setupSqlite() {
     // Check if initial admin exists
     const checkRes = db.prepare("SELECT COUNT(*) as count FROM admins").get();
     if (checkRes.count === 0) {
-      const email = "brotheroak@gmail.com";
-      const defaultPassword = "admin2027!";
-      const passwordHash = hashPassword(defaultPassword);
+      const initialAdmin = initialAdminConfig();
+      if (!initialAdmin) {
+        console.log("[SEED] No admin found, but INITIAL_ADMIN_EMAIL/PASSWORD are not set. Production admin seeding skipped.");
+        return;
+      }
+      const passwordHash = hashPassword(initialAdmin.password);
       const mfaSecret = generateTotpSecret();
       const id = randomBytes(16).toString("hex");
       const now = new Date().toISOString();
 
       db.prepare(
         "INSERT INTO admins (id, email, password_hash, role, mfa_secret, mfa_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-      ).run(id, email, passwordHash, "privacy_admin", mfaSecret, 0, now, now);
+      ).run(id, initialAdmin.email, passwordHash, "privacy_admin", mfaSecret, 0, now, now);
       console.log(`[SEED] Seeded initial administrator account:`);
-      console.log(`[SEED] Email: ${email}`);
-      console.log(`[SEED] Temp Password: ${defaultPassword}`);
+      console.log(`[SEED] Email: ${initialAdmin.email}`);
       console.log(`[SEED] MFA Secret (Scan in Authenticator on first login): ${mfaSecret}`);
     } else {
       console.log("[SEED] Administrator table is not empty. Seeding skipped.");
