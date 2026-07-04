@@ -668,6 +668,8 @@ async function findVolunteerByLookup(name: string, phone: string) {
 
 function rowToVolunteer(row: any) {
   const castBool = (val: any) => val === true || val === 1 || val === "1";
+  const address = plain(row.address);
+  const addressDetail = plain(row.addressDetail);
   return {
     id: row.id,
     volunteerNo: row.volunteerNo,
@@ -679,8 +681,9 @@ function rowToVolunteer(row: any) {
     phone: plain(row.phone),
     email: plain(row.email),
     postcode: row.postcode,
-    address: plain(row.address),
-    addressDetail: plain(row.addressDetail),
+    address,
+    addressDetail,
+    district: assignDistrict(address, addressDetail),
     supportFields: JSON.parse(row.supportFields),
     supportLanguage: row.supportLanguage,
     availability: row.availability,
@@ -1032,7 +1035,7 @@ function applicationExcelRows(applications: any[]) {
 
 function volunteerExcelRows(volunteers: any[]) {
   return [
-    ["접수번호", "상태", "성명", "세례명", "성별", "생년월일", "연락처", "이메일", "우편번호", "주소", "상세주소", "지원 분야", "지원 언어", "활동 가능 시간", "봉사 경력 및 재능", "개인정보 동의", "신청일", "서명", "접수일", "수정일"],
+    ["접수번호", "상태", "성명", "세례명", "성별", "생년월일", "연락처", "이메일", "우편번호", "주소", "상세주소", "구역", "반", "구역반 판별", "지원 분야", "지원 언어", "활동 가능 시간", "봉사 경력 및 재능", "개인정보 동의", "신청일", "서명", "접수일", "수정일"],
     ...volunteers.map((item) => [
       item.volunteerNo,
       item.status,
@@ -1045,6 +1048,9 @@ function volunteerExcelRows(volunteers: any[]) {
       item.postcode,
       item.address,
       item.addressDetail,
+      item.district?.name ?? "",
+      item.district?.ban ?? "",
+      item.district?.reason ?? item.district?.label ?? "",
       item.supportFields.join(", "),
       item.supportLanguage,
       item.availability,

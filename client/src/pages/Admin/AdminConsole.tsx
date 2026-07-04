@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, XCircle, BedDouble, Sparkles, MapPinned, UserPlus, KeyRound, Crown, ClipboardList } from "lucide-react";
+import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, XCircle, BedDouble, Sparkles, MapPinned, UserPlus, KeyRound, Crown, ClipboardList, PawPrint } from "lucide-react";
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { AdminRole, ApplicationPayload } from "../../types.js";
 import { api } from "../../api.js";
@@ -38,9 +38,17 @@ type AdminUser = {
 };
 
 type AdminConsoleMenu = "applications" | "accounts" | "password";
+type HomestayDashboardTab = "summary" | "district" | "bed" | "pet";
+type DistributionDatum = {
+  name: string;
+  count: number;
+  percent: number;
+};
 
 const ADMIN_TOKEN_KEY = "wydAdminToken";
 const ADMIN_ROLE_KEY = "wydAdminRole";
+
+const percentOf = (count: number, total: number) => (total > 0 ? Math.round((count / total) * 100) : 0);
 
 function revokeAdminSession(token: string | null) {
   if (!token) return;
@@ -86,6 +94,7 @@ export function AdminConsoleZip() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [activeAdminTab, setActiveAdminTab] = useState<"homestay" | "volunteer">("homestay");
   const [activeConsoleMenu, setActiveConsoleMenu] = useState<AdminConsoleMenu>("applications");
+  const [homestayDashboardTab, setHomestayDashboardTab] = useState<HomestayDashboardTab>("summary");
   
   const [data, setData] = useState<{ role: AdminRole; canViewPersonalData: boolean; stats: any; applications: ApplicationPayload[] } | null>(null);
   const [selected, setSelected] = useState<ApplicationPayload | null>(null);
@@ -713,6 +722,42 @@ export function AdminConsoleZip() {
     name,
     value: applications.filter((item) => item.homestay.housingType === name).length
   }));
+  const districtCounts = applications.reduce<Record<string, number>>((acc, item) => {
+    const no = item.district?.no ?? "99";
+    acc[no] = (acc[no] ?? 0) + 1;
+    return acc;
+  }, {});
+  const districtData: DistributionDatum[] = Object.entries(districtCounts)
+    .sort(([a], [b]) => districtSort(a, b))
+    .map(([no, count]) => ({
+      name: districtOptionLabel(no),
+      count,
+      percent: percentOf(count, applications.length)
+    }));
+  const bedData: DistributionDatum[] = [
+    {
+      name: "침대방 제공",
+      count: applications.filter((item) => item.homestay.hasBed).length,
+      percent: percentOf(applications.filter((item) => item.homestay.hasBed).length, applications.length)
+    },
+    {
+      name: "침대방 미제공",
+      count: applications.filter((item) => !item.homestay.hasBed).length,
+      percent: percentOf(applications.filter((item) => !item.homestay.hasBed).length, applications.length)
+    }
+  ];
+  const petData: DistributionDatum[] = [
+    {
+      name: "반려동물 있음",
+      count: applications.filter((item) => item.homestay.hasPet).length,
+      percent: percentOf(applications.filter((item) => item.homestay.hasPet).length, applications.length)
+    },
+    {
+      name: "반려동물 없음",
+      count: applications.filter((item) => !item.homestay.hasPet).length,
+      percent: percentOf(applications.filter((item) => !item.homestay.hasPet).length, applications.length)
+    }
+  ];
   const districtOptions = Array.from(new Set(applications.map((item) => item.district?.no).filter(Boolean) as string[]))
     .sort(districtSort);
   const districtBanOptions = Array.from(new Set(applications
@@ -765,6 +810,23 @@ export function AdminConsoleZip() {
     await load();
   };
 
+  const renderDistributionList = (items: DistributionDatum[], unit: string) => (
+    <div className="dashboard-breakdown">
+      {items.map((item, index) => (
+        <div className="dashboard-breakdown-row" key={item.name}>
+          <div>
+            <strong>{item.name}</strong>
+            <span>{item.percent}%</span>
+          </div>
+          <b>{item.count.toLocaleString()} {unit}</b>
+          <div className="dashboard-breakdown-bar">
+            <span style={{ width: `${item.percent}%`, background: chartColors[index % chartColors.length] }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className="space-y-8" id="admin-dashboard">
       {adminHeaderMenu}
@@ -810,37 +872,134 @@ export function AdminConsoleZip() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="dashboard-charts">
-        <div className="bg-white p-6 rounded-3xl border border-gold-100 shadow-sm space-y-4">
-          <span className="font-serif font-bold text-gray-800 text-base block">가정별 소통 언어 분포</span>
-          <div className="h-64 text-xs">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={languageData}>
-                <XAxis dataKey="name" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#c5a85c" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+      <section className="dashboard-tabs-card" id="dashboard-charts">
+        <div className="dashboard-tabs-head">
+          <div>
+            <span className="dashboard-eyebrow">Homestay dashboard</span>
+            <h2>홈스테이 신청 현황 분석</h2>
+          </div>
+          <div className="dashboard-tabs" role="tablist" aria-label="홈스테이 대시보드 보기">
+            <button className={homestayDashboardTab === "summary" ? "active" : ""} onClick={() => setHomestayDashboardTab("summary")} type="button">
+              <Languages size={16} /> 요약
+            </button>
+            <button className={homestayDashboardTab === "district" ? "active" : ""} onClick={() => setHomestayDashboardTab("district")} type="button">
+              <MapPinned size={16} /> 구역
+            </button>
+            <button className={homestayDashboardTab === "bed" ? "active" : ""} onClick={() => setHomestayDashboardTab("bed")} type="button">
+              <BedDouble size={16} /> 침대방
+            </button>
+            <button className={homestayDashboardTab === "pet" ? "active" : ""} onClick={() => setHomestayDashboardTab("pet")} type="button">
+              <PawPrint size={16} /> 반려동물
+            </button>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-3xl border border-gold-100 shadow-sm space-y-4">
-          <span className="font-serif font-bold text-gray-800 text-base block">신청가정 주택유형 비율</span>
-          <div className="h-64 text-xs flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={housingData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {housingData.map((entry, index) => (
-                    <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+
+        {homestayDashboardTab === "summary" && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">가정별 소통 언어 분포</span>
+              <div className="h-64 text-xs">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={languageData}>
+                    <XAxis dataKey="name" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#c5a85c" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">신청가정 주택유형 비율</span>
+              <div className="h-64 text-xs flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={housingData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                      {housingData.map((entry, index) => (
+                        <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        )}
+
+        {homestayDashboardTab === "district" && (
+          <div className="dashboard-analysis-grid">
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">구역별 신청 비율 및 건수</span>
+              <div className="h-72 text-xs">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={districtData}>
+                    <XAxis dataKey="name" interval={0} tick={{ fontSize: 11 }} />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#2f5f98" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">구역별 상세 분포</span>
+              {renderDistributionList(districtData, "건")}
+            </div>
+          </div>
+        )}
+
+        {homestayDashboardTab === "bed" && (
+          <div className="dashboard-analysis-grid">
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">침대방 제공 여부 비율</span>
+              <div className="h-72 text-xs flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={bedData} cx="50%" cy="50%" innerRadius={68} outerRadius={92} paddingAngle={5} dataKey="count">
+                      {bedData.map((entry, index) => (
+                        <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">침대방 상세 분포</span>
+              {renderDistributionList(bedData, "건")}
+            </div>
+          </div>
+        )}
+
+        {homestayDashboardTab === "pet" && (
+          <div className="dashboard-analysis-grid">
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">반려동물 유무 비율</span>
+              <div className="h-72 text-xs flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={petData} cx="50%" cy="50%" innerRadius={68} outerRadius={92} paddingAngle={5} dataKey="count">
+                      {petData.map((entry, index) => (
+                        <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">반려동물 상세 분포</span>
+              {renderDistributionList(petData, "건")}
+            </div>
+          </div>
+        )}
+      </section>
 
       <div className="bg-catholic-navy p-6 rounded-3xl text-white flex flex-col sm:flex-row items-center justify-between gap-4 border border-gold-200/20 shadow-lg">
         <div className="flex items-center gap-3">

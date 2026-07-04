@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Heart, ClipboardList, Languages, ShieldCheck, Search, AlertCircle, XCircle, User, Sparkles, Download } from "lucide-react";
+import { Heart, ClipboardList, Languages, ShieldCheck, Search, AlertCircle, XCircle, User, Sparkles, Download, MapPinned } from "lucide-react";
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { VolunteerPayload } from "../../types.js";
 import { api } from "../../api.js";
@@ -14,12 +14,24 @@ type VolunteerAdminPanelProps = {
   statusTone: (value?: string) => string;
 };
 
+type VolunteerDashboardTab = "summary" | "district";
+type DistributionDatum = {
+  name: string;
+  count: number;
+  percent: number;
+};
+
+const percentOf = (count: number, total: number) => (total > 0 ? Math.round((count / total) * 100) : 0);
+const districtOptionLabel = (no?: string) => (!no || no === "99" ? "구역외 (99구역)" : `${no}구역`);
+const districtSort = (a: string, b: string) => Number(a) - Number(b);
+
 export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, statusTone }: VolunteerAdminPanelProps) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [fieldFilter, setFieldFilter] = useState("all");
   const [availabilityFilter, setAvailabilityFilter] = useState("all");
   const [languageFilter, setLanguageFilter] = useState("all");
+  const [dashboardTab, setDashboardTab] = useState<VolunteerDashboardTab>("summary");
   const [data, setData] = useState<{ stats: any; volunteers: VolunteerPayload[] } | null>(null);
   const [selected, setSelected] = useState<VolunteerPayload | null>(null);
 
@@ -64,6 +76,18 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
     name,
     value: volunteers.filter((volunteer) => volunteer.supportFields.includes(name)).length
   }));
+  const volunteerDistrictCounts = volunteers.reduce<Record<string, number>>((acc, volunteer) => {
+    const no = volunteer.district?.no ?? "99";
+    acc[no] = (acc[no] ?? 0) + 1;
+    return acc;
+  }, {});
+  const volunteerDistrictData: DistributionDatum[] = Object.entries(volunteerDistrictCounts)
+    .sort(([a], [b]) => districtSort(a, b))
+    .map(([no, count]) => ({
+      name: districtOptionLabel(no),
+      count,
+      percent: percentOf(count, volunteers.length)
+    }));
 
   const updateStatus = async (volunteer: VolunteerPayload, nextStatus: string) => {
     if (!volunteer.id) return;
@@ -100,6 +124,23 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
     URL.revokeObjectURL(link.href);
     link.remove();
   };
+
+  const renderDistributionList = (items: DistributionDatum[], unit: string) => (
+    <div className="dashboard-breakdown">
+      {items.map((item, index) => (
+        <div className="dashboard-breakdown-row" key={item.name}>
+          <div>
+            <strong>{item.name}</strong>
+            <span>{item.percent}%</span>
+          </div>
+          <b>{item.count.toLocaleString()} {unit}</b>
+          <div className="dashboard-breakdown-bar">
+            <span style={{ width: `${item.percent}%`, background: chartColors[index % chartColors.length] }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <>
@@ -142,37 +183,78 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-gold-100 shadow-sm space-y-4">
-          <span className="font-serif font-bold text-gray-800 text-base block">자원봉사자 소통 언어 분포</span>
-          <div className="h-64 text-xs">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={volunteerLanguageData}>
-                <XAxis dataKey="name" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#c5a85c" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+      <section className="dashboard-tabs-card">
+        <div className="dashboard-tabs-head">
+          <div>
+            <span className="dashboard-eyebrow">Volunteer dashboard</span>
+            <h2>자원봉사자 신청 현황 분석</h2>
+          </div>
+          <div className="dashboard-tabs" role="tablist" aria-label="자원봉사자 대시보드 보기">
+            <button className={dashboardTab === "summary" ? "active" : ""} onClick={() => setDashboardTab("summary")} type="button">
+              <Languages size={16} /> 요약
+            </button>
+            <button className={dashboardTab === "district" ? "active" : ""} onClick={() => setDashboardTab("district")} type="button">
+              <MapPinned size={16} /> 구역
+            </button>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-3xl border border-gold-100 shadow-sm space-y-4">
-          <span className="font-serif font-bold text-gray-800 text-base block">자원봉사 지원 유형 비율</span>
-          <div className="h-64 text-xs flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={volunteerFieldCounts} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {volunteerFieldCounts.map((entry, index) => (
-                    <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+
+        {dashboardTab === "summary" && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">자원봉사자 소통 언어 분포</span>
+              <div className="h-64 text-xs">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={volunteerLanguageData}>
+                    <XAxis dataKey="name" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#c5a85c" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">자원봉사 지원 유형 비율</span>
+              <div className="h-64 text-xs flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={volunteerFieldCounts} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                      {volunteerFieldCounts.map((entry, index) => (
+                        <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        )}
+
+        {dashboardTab === "district" && (
+          <div className="dashboard-analysis-grid">
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">구역별 자원봉사자 비율 및 인원</span>
+              <div className="h-72 text-xs">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={volunteerDistrictData}>
+                    <XAxis dataKey="name" interval={0} tick={{ fontSize: 11 }} />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#2f5f98" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">구역별 상세 분포</span>
+              {renderDistributionList(volunteerDistrictData, "명")}
+            </div>
+          </div>
+        )}
+      </section>
 
       <div className="bg-white rounded-3xl border border-gold-100 overflow-hidden shadow-xl">
         <div className="bg-gold-50/50 border-b border-gold-100 flex overflow-x-auto">
@@ -294,6 +376,8 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
                   <dd>{volunteer.availability}</dd>
                   <dt>언어</dt>
                   <dd>{volunteer.supportLanguage || "-"}</dd>
+                  <dt>구역</dt>
+                  <dd>{volunteer.district?.label ?? "-"}</dd>
                 </dl>
                 <button className="secondary" onClick={() => setSelected(volunteer)}>
                   상세조회
@@ -355,6 +439,8 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
                 <dd>
                   {selected.address} {selected.addressDetail}
                 </dd>
+                <dt>구역</dt>
+                <dd>{selected.district?.label ?? "-"}</dd>
                 <dt>지원 언어</dt>
                 <dd>{selected.supportLanguage || "-"}</dd>
                 <dt>봉사 경력 및 재능</dt>
