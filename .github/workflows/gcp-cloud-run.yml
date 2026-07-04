@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -42,6 +44,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # 1. Google Cloud 인증 (Service Account Key 사용)
       - name: Authenticate to Google Cloud
@@ -75,9 +79,26 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Detect database setup changes
+        id: db_changes
+        shell: bash
+        run: |
+          BASE="${{ github.event.before }}"
+          if [[ -z "$BASE" || "$BASE" =~ ^0+$ ]]; then
+            BASE="HEAD~1"
+          fi
+          CHANGED_FILES="$(git diff --name-only "$BASE" "${{ github.sha }}" || true)"
+          echo "$CHANGED_FILES"
+          if echo "$CHANGED_FILES" | grep -Eq '^(server/src/db/|server/src/db\.ts|scripts/setup-db\.mjs|package-lock\.json|package\.json)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # 4. Cloud Run Job 실행하여 DB 마이그레이션 및 시딩 (선택사항)
       # 환경변수나 Cloud SQL 커넥션이 설정된 Job이 미리 GCP 상에 존재해야 작동합니다.
       - name: Run Database Migration Job
+        if: steps.db_changes.outputs.changed == 'true'
         run: |
           # 기존 wyh-db-setup Job의 컨테이너 이미지를 최신으로 교체 후 실행
           gcloud run jobs update wyh-db-setup \
