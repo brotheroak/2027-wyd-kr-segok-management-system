@@ -65,8 +65,8 @@ jobs:
           context: .
           push: true
           tags: |
-            asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/wyd-homestay:${{ github.sha }}
-            asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/wyd-homestay:latest
+            asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/2027-wyd-kr-segok-management-system:${{ github.sha }}
+            asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/2027-wyd-kr-segok-management-system:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -76,7 +76,7 @@ jobs:
         run: |
           # 기존 wyh-db-setup Job의 컨테이너 이미지를 최신으로 교체 후 실행
           gcloud run jobs update wyh-db-setup \
-            --image asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/wyd-homestay:${{ github.sha }} \
+            --image asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/2027-wyd-kr-segok-management-system:${{ github.sha }} \
             --region asia-northeast3 --quiet
           
           gcloud run jobs execute wyh-db-setup --region asia-northeast3 --wait
@@ -85,6 +85,6 @@ jobs:
       - name: Deploy to GCP Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
-          service: wyd-homestay
-          image: asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/wyd-homestay:${{ github.sha }}
+          service: 2027-wyd-kr-segok-management-system
+          image: asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/2027-wyd-kr-segok-management-system:${{ github.sha }}
           region: asia-northeast3
