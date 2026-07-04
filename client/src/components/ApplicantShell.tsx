@@ -13,22 +13,24 @@ type ApplicantShellProps = {
 
 export function ApplicantShell({ children, fontScale, setFontScale, view, navigate }: ApplicantShellProps) {
   const title =
-    view === "apply"
-      ? "신청서 작성"
-      : view === "homestay"
-        ? "홈스테이 신청"
-        : view === "volunteer"
-          ? "자원봉사자 신청"
-          : view === "check"
-            ? "접수 확인"
-            : view === "privacy"
-              ? "개인정보처리방침"
-              : "이용정책";
+    view === "intro"
+      ? "대회 소개"
+      : view === "apply"
+        ? "신청서 작성"
+        : view === "homestay"
+          ? "홈스테이 신청"
+          : view === "volunteer"
+            ? "자원봉사자 신청"
+            : view === "check"
+              ? "접수 확인"
+              : view === "privacy"
+                ? "개인정보처리방침"
+                : "이용정책";
 
   return (
     <div className="shell applicant-shell">
       <header className="topbar applicant-topbar">
-        <button type="button" className="brand" onClick={() => navigate("/apply")} aria-label="신청 첫 화면으로 이동">
+        <button type="button" className="brand" onClick={() => navigate("/")} aria-label="신청 첫 화면으로 이동">
           <div className="brand-mark">
             <Church size={28} />
           </div>
@@ -38,6 +40,16 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
           </div>
         </button>
         <nav className="site-nav" aria-label="신청자 메뉴">
+          <a
+            className={view === "intro" ? "active" : ""}
+            href="/"
+            onClick={(event) => {
+              event.preventDefault();
+              navigate("/");
+            }}
+          >
+            대회 소개
+          </a>
           <a
             className={["apply", "homestay", "volunteer"].includes(view) ? "active" : ""}
             href="/apply"

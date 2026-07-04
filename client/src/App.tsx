@@ -4,6 +4,7 @@ import { ApplyView, ApplicationPayload, VolunteerPayload, AdminRole } from "./ty
 import { emptyApplication } from "./utils/constants.js";
 import { api } from "./api.js";
 import { ApplicantShell } from "./components/ApplicantShell.js";
+import { WydIntro } from "./pages/WydIntro.js";
 import { ApplyChoice } from "./pages/ApplyChoice.js";
 import { ApplicationForm } from "./pages/ApplicationForm.js";
 import { ApplicationReceipt } from "./pages/ApplicationReceipt.js";
@@ -27,11 +28,14 @@ export function App() {
       ? "volunteer"
       : currentPath.startsWith("/apply/homestay")
         ? "homestay"
-        : "apply";
+        : currentPath.startsWith("/apply")
+          ? "apply"
+          : "intro";
         
   const [fontScale, setFontScale] = useState(Number(localStorage.getItem("fontScale") ?? 1));
   const [userToken, setUserToken] = useState(localStorage.getItem("wydUserToken"));
   const [application, setApplication] = useState<ApplicationPayload | null>(null);
+  const [volunteer, setVolunteer] = useState<VolunteerPayload | null>(null);
   const [volunteerReceipt, setVolunteerReceipt] = useState<VolunteerPayload | null>(null);
 
   useEffect(() => {
@@ -46,14 +50,45 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!userToken) return;
+    if (!userToken) {
+      setApplication(null);
+      setVolunteer(null);
+      return;
+    }
     api<{ application: ApplicationPayload | null }>("/api/my/application", {}, userToken)
-      .then((data) => setApplication(data.application))
+      .then((data) => {
+        if (data.application) {
+          setApplication(data.application);
+          setVolunteer(null);
+        } else {
+          api<{ volunteer: VolunteerPayload | null }>("/api/my/volunteer", {}, userToken)
+            .then((volData) => {
+              if (volData.volunteer) {
+                setVolunteer(volData.volunteer);
+                setApplication(null);
+              } else {
+                localStorage.removeItem("wydUserToken");
+                localStorage.removeItem("wydUserEmail");
+                setUserToken(null);
+                setApplication(null);
+                setVolunteer(null);
+              }
+            })
+            .catch(() => {
+              localStorage.removeItem("wydUserToken");
+              localStorage.removeItem("wydUserEmail");
+              setUserToken(null);
+              setApplication(null);
+              setVolunteer(null);
+            });
+        }
+      })
       .catch(() => {
         localStorage.removeItem("wydUserToken");
         localStorage.removeItem("wydUserEmail");
         setUserToken(null);
         setApplication(null);
+        setVolunteer(null);
       });
   }, [userToken]);
 
@@ -61,6 +96,14 @@ export function App() {
     localStorage.setItem("wydUserToken", token);
     setUserToken(token);
     setApplication(loaded);
+    setVolunteer(null);
+  };
+
+  const onVolunteerAuthorized = (token: string, loaded: VolunteerPayload | null) => {
+    localStorage.setItem("wydUserToken", token);
+    setUserToken(token);
+    setVolunteer(loaded);
+    setApplication(null);
   };
 
   const navigate = (path: string) => {
@@ -154,6 +197,13 @@ export function App() {
   return (
     <ApplicantShell fontScale={fontScale} setFontScale={setFontScale} view={applicantView} navigate={navigate}>
       <main>
+        {applicantView === "intro" && (
+          <WydIntro
+            onStartApply={() => navigate("/apply")}
+            onCheckStatus={() => navigate("/check")}
+          />
+        )}
+
         {applicantView === "apply" && (
           <ApplyChoice navigate={navigate} />
         )}
@@ -201,16 +251,37 @@ export function App() {
             </div>
             <div className="content">
               {volunteerReceipt ? (
-                <VolunteerReceipt volunteer={volunteerReceipt} onNew={() => setVolunteerReceipt(null)} />
+                <VolunteerReceipt
+                  volunteer={volunteerReceipt}
+                  onEdit={() => {
+                    setVolunteer(volunteerReceipt);
+                    setVolunteerReceipt(null);
+                  }}
+                  onCancel={async () => {
+                    const data = await api<{ volunteer: VolunteerPayload }>("/api/my/volunteer", { method: "DELETE" }, userToken!);
+                    setVolunteerReceipt(data.volunteer);
+                  }}
+                />
               ) : (
                 <VolunteerForm
+                  initial={volunteer ?? undefined}
+                  submitLabel={volunteer ? "수정 내용 저장" : "자원봉사자 신청 접수"}
+                  pinRequired={!volunteer}
                   onSubmit={async (payload) => {
-                    const data = await api<{ volunteer: VolunteerPayload }>("/api/volunteers", {
-                      method: "POST",
-                      body: JSON.stringify(payload)
-                    });
-                    setVolunteerReceipt(data.volunteer);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    if (volunteer && userToken) {
+                      const data = await api<{ volunteer: VolunteerPayload }>("/api/my/volunteer", {
+                        method: "POST",
+                        body: JSON.stringify(payload)
+                      }, userToken);
+                      setVolunteer(data.volunteer);
+                    } else {
+                      const data = await api<{ volunteer: VolunteerPayload }>("/api/volunteers", {
+                        method: "POST",
+                        body: JSON.stringify(payload)
+                      });
+                      setVolunteerReceipt(data.volunteer);
+                    }
+                    navigate("/check");
                   }}
                 />
               )}
@@ -227,8 +298,12 @@ export function App() {
             </div>
             {!userToken ? (
               <LookupPanel
-                onFound={(token, loaded) => {
-                  onApplicationAuthorized(token, loaded);
+                onFound={(token, type, loaded) => {
+                  if (type === "homestay") {
+                    onApplicationAuthorized(token, loaded);
+                  } else {
+                    onVolunteerAuthorized(token, loaded);
+                  }
                 }}
               />
             ) : application ? (
@@ -238,6 +313,15 @@ export function App() {
                 onCancel={async () => {
                   const data = await api<{ application: ApplicationPayload }>("/api/my/application", { method: "DELETE" }, userToken);
                   setApplication(data.application);
+                }}
+              />
+            ) : volunteer ? (
+              <VolunteerReceipt
+                volunteer={volunteer}
+                onEdit={() => navigate("/apply/volunteer")}
+                onCancel={async () => {
+                  const data = await api<{ volunteer: VolunteerPayload }>("/api/my/volunteer", { method: "DELETE" }, userToken);
+                  setVolunteer(data.volunteer);
                 }}
               />
             ) : (

@@ -47,7 +47,7 @@ export type ApplicationPayload = {
 };
 
 export type AdminRole = "admin" | "privacy_admin";
-export type ApplyView = "apply" | "homestay" | "volunteer" | "check" | "privacy" | "terms";
+export type ApplyView = "intro" | "apply" | "homestay" | "volunteer" | "check" | "privacy" | "terms";
 
 export type VolunteerPayload = {
   id?: string;
@@ -69,5 +69,6 @@ export type VolunteerPayload = {
   privacyConsent: boolean;
   appliedDate: string;
   signatureName: string;
+  applicantPin?: string;
   updatedAt?: string;
 };

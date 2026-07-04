@@ -85,5 +85,6 @@ export const volunteerSchema = z.object({
   experience: z.string().min(2),
   privacyConsent: z.literal(true),
   appliedDate: dateSchema,
-  signatureName: z.string().min(2)
+  signatureName: z.string().min(2),
+  applicantPin: z.union([z.string().regex(/^\d{4}$/), z.literal("")]).optional()
 });

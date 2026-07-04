@@ -19,6 +19,9 @@ export function AppFooter({ navigate }: AppFooterProps) {
       <div className="footer-links">
         <div>
           <span>신청 안내</span>
+          <a href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>
+            대회 소개
+          </a>
           <a href="/apply" onClick={(event) => { event.preventDefault(); navigate("/apply"); }}>
             신청서 작성
           </a>

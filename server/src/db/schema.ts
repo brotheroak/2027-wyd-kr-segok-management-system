@@ -77,6 +77,7 @@ export const sqliteVolunteers = sqliteTable("volunteers", {
   createdAt: sqliteText("created_at").notNull(),
   updatedAt: sqliteText("updated_at").notNull(),
   canceledAt: sqliteText("canceled_at"),
+  applicantPin: sqliteText("applicant_pin").notNull().default(""),
 });
 
 export const sqliteVerificationCodes = sqliteTable("verification_codes", {
@@ -192,6 +193,7 @@ export const pgVolunteers = pgTable("volunteers", {
   createdAt: pgText("created_at").notNull(),
   updatedAt: pgText("updated_at").notNull(),
   canceledAt: pgText("canceled_at"),
+  applicantPin: pgText("applicant_pin").notNull().default(""),
 });
 
 export const pgVerificationCodes = pgTable("verification_codes", {

@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { Search, ChevronRight } from "lucide-react";
 import { api } from "../api.js";
-import { ApplicationPayload } from "../types.js";
 import { formatKoreanPhoneNumber } from "../utils/constants.js";
 
 type LookupPanelProps = {
-  onFound: (token: string, application: ApplicationPayload) => void;
+  onFound: (token: string, type: "homestay" | "volunteer", data: any) => void;
 };
 
 export function LookupPanel({ onFound }: LookupPanelProps) {
+  const [lookupType, setLookupType] = useState<"homestay" | "volunteer">("homestay");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [applicantPin, setApplicantPin] = useState("");
@@ -20,11 +20,13 @@ export function LookupPanel({ onFound }: LookupPanelProps) {
     setBusy(true);
     setMessage("");
     try {
-      const data = await api<{ token: string; application: ApplicationPayload }>("/api/applications/lookup", {
+      const url = lookupType === "homestay" ? "/api/applications/lookup" : "/api/volunteers/lookup";
+      const data = await api<{ token: string; application?: any; volunteer?: any }>(url, {
         method: "POST",
         body: JSON.stringify({ name, phone, applicantPin })
       });
-      onFound(data.token, data.application);
+      const resultData = lookupType === "homestay" ? data.application : data.volunteer;
+      onFound(data.token, lookupType, resultData);
     } catch (error) {
       setMessage((error as Error).message);
     } finally {
@@ -38,9 +40,27 @@ export function LookupPanel({ onFound }: LookupPanelProps) {
         <Search />
         <div>
           <h3>접수 내역 조회</h3>
-          <p>이메일 없이도 신청자 성명, 연락처, 4자리 비밀번호로 확인합니다.</p>
+          <p>신청자 성명, 연락처, 설정한 비밀번호 4자리로 조회합니다.</p>
         </div>
       </div>
+      
+      <div className="segmented-buttons lookup-type-selector" style={{ marginBottom: "24px" }}>
+        <button
+          type="button"
+          className={lookupType === "homestay" ? "segment-option active" : "segment-option"}
+          onClick={() => { setLookupType("homestay"); setMessage(""); }}
+        >
+          홈스테이 신청 조회
+        </button>
+        <button
+          type="button"
+          className={lookupType === "volunteer" ? "segment-option active" : "segment-option"}
+          onClick={() => { setLookupType("volunteer"); setMessage(""); }}
+        >
+          자원봉사자 신청 조회
+        </button>
+      </div>
+
       <div className="grid three">
         <label>
           성명

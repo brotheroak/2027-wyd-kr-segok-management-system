@@ -77,6 +77,16 @@ button:disabled {
   padding: 0 clamp(18px, 3vw, 48px) 0;
 }
 
+.applicant-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.applicant-shell .page-transition {
+  flex: 1 0 auto;
+}
+
 .topbar, .panel, .metric, .empty {
   border: 1px solid rgba(232, 225, 216, 0.66);
   background: #ffffff;

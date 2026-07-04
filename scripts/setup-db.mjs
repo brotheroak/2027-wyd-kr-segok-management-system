@@ -120,7 +120,8 @@ async function setupPg() {
         signature_name TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        canceled_at TEXT
+        canceled_at TEXT,
+        applicant_pin TEXT NOT NULL DEFAULT ''
       );
 
       CREATE TABLE IF NOT EXISTS verification_codes (
@@ -169,6 +170,11 @@ async function setupPg() {
       CREATE INDEX IF NOT EXISTS idx_volunteers_status ON volunteers(status);
       CREATE INDEX IF NOT EXISTS idx_volunteers_lookup ON volunteers(name, phone);
       CREATE INDEX IF NOT EXISTS idx_verification_codes_email_hash ON verification_codes(email_hash);
+    `);
+
+    // Migration patch for PostgreSQL
+    await client.query(`
+      ALTER TABLE volunteers ADD COLUMN IF NOT EXISTS applicant_pin TEXT NOT NULL DEFAULT '';
     `);
 
     // Check if initial admin exists
@@ -288,7 +294,8 @@ function setupSqlite() {
         signature_name TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        canceled_at TEXT
+        canceled_at TEXT,
+        applicant_pin TEXT NOT NULL DEFAULT ''
       );
 
       CREATE TABLE IF NOT EXISTS verification_codes (
@@ -340,6 +347,10 @@ function setupSqlite() {
     const applicationColumns = db.prepare("PRAGMA table_info(homestay_applications)").all();
     if (!applicationColumns.some((column) => column.name === "applicant_pin")) {
       db.exec("ALTER TABLE homestay_applications ADD COLUMN applicant_pin TEXT NOT NULL DEFAULT ''");
+    }
+    const volunteerColumns = db.prepare("PRAGMA table_info(volunteers)").all();
+    if (!volunteerColumns.some((column) => column.name === "applicant_pin")) {
+      db.exec("ALTER TABLE volunteers ADD COLUMN applicant_pin TEXT NOT NULL DEFAULT ''");
     }
     const verificationColumns = db.prepare("PRAGMA table_info(verification_codes)").all();
     if (!verificationColumns.some((column) => column.name === "email_hash")) {

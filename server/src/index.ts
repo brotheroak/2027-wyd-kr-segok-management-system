@@ -511,6 +511,36 @@ async function findApplicationByLookup(name: string, phone: string, pin: string)
   return row ? rowToApplication(row) : null;
 }
 
+async function volunteerForUserSession(session: Session) {
+  if (session.email.startsWith("vol:")) {
+    return getVolunteer(session.email.slice(4));
+  }
+  return null;
+}
+
+async function createVolunteerSession(volunteerId: string) {
+  const token = nanoid(48);
+  await db.insert(tables.sessions).values({
+    token,
+    email: pii(`vol:${volunteerId}`),
+    role: "user",
+    expiresAt: addDays(14),
+    createdAt: nowIso()
+  });
+  return token;
+}
+
+async function findVolunteerByLookup(name: string, phone: string, pin: string) {
+  const phoneDigits = normalizePhone(phone);
+  const rows = await db.select().from(tables.volunteers).orderBy(desc(tables.volunteers.createdAt));
+  const row = rows.find((candidate: any) => {
+    return plain(candidate.name).trim() === name
+      && normalizePhone(plain(candidate.phone)) === phoneDigits
+      && verifyApplicantPin(candidate.id, pin, candidate.applicantPin);
+  });
+  return row ? rowToVolunteer(row) : null;
+}
+
 function rowToVolunteer(row: any) {
   const castBool = (val: any) => val === true || val === 1 || val === "1";
   return {
@@ -552,6 +582,12 @@ async function upsertVolunteer(payload: VolunteerPayload, existingId?: string) {
     ? (await db.select({ volunteerNo: tables.volunteers.volunteerNo }).from(tables.volunteers).where(eq(tables.volunteers.id, existingId)))[0].volunteerNo
     : await makeVolunteerNo();
 
+  const applicantPin = parsed.applicantPin ?? "";
+  const applicantPinHash = applicantPin ? hashApplicantPin(id, applicantPin) : "";
+  if (!existingId && !/^\d{4}$/.test(applicantPin)) {
+    throw new Error("비밀번호 4자리를 입력해 주세요.");
+  }
+
   const data: any = {
     name: pii(parsed.name),
     baptismalName: pii(parsed.baptismalName ?? ""),
@@ -571,6 +607,10 @@ async function upsertVolunteer(payload: VolunteerPayload, existingId?: string) {
     signatureName: pii(parsed.signatureName),
     updatedAt: timestamp
   };
+
+  if (applicantPinHash) {
+    data.applicantPin = applicantPinHash;
+  }
 
   if (existingId) {
     data.status = sql`CASE WHEN ${tables.volunteers.status} = 'canceled' THEN 'submitted' ELSE ${tables.volunteers.status} END`;
@@ -819,6 +859,20 @@ app.post("/api/volunteers", async (req, res) => {
   }
 });
 
+app.post("/api/volunteers/lookup", async (req, res) => {
+  const name = String(req.body.name ?? "").trim();
+  const phone = String(req.body.phone ?? "").trim();
+  const applicantPin = String(req.body.applicantPin ?? "").trim();
+  if (!name || !phone || !/^\d{4}$/.test(applicantPin)) {
+    return res.status(400).json({ message: "성명, 연락처, 숫자 비밀번호 4자리를 입력해 주세요." });
+  }
+  const volunteer = await findVolunteerByLookup(name, phone, applicantPin);
+  if (!volunteer) return res.status(404).json({ message: "일치하는 접수 내역을 찾을 수 없습니다." });
+  const token = await createVolunteerSession(volunteer.id);
+  await logAudit(phone, "volunteer_lookup_application", volunteer.id);
+  res.json({ token, volunteer });
+});
+
 // 어드민 로그인 및 OTP 검증 통합 핸들러
 app.post("/api/admin/login", async (req, res) => {
   const email = String(req.body.email ?? "").trim().toLowerCase();
@@ -902,6 +956,38 @@ app.delete("/api/my/application", requireSession("user"), async (req, res) => {
   
   await logAudit(session.email, "applicant_canceled_application", existing.id);
   res.json({ application: await getApplication(existing.id) });
+});
+
+app.get("/api/my/volunteer", requireSession("user"), async (req, res) => {
+  const session = res.locals.session as Session;
+  const volData = await volunteerForUserSession(session);
+  res.json({ volunteer: volData });
+});
+
+app.post("/api/my/volunteer", requireSession("user"), async (req, res) => {
+  const session = res.locals.session as Session;
+  const payload = req.body as VolunteerPayload;
+  const existing = await volunteerForUserSession(session);
+  if (!existing) return res.status(404).json({ message: "접수 내역이 없습니다." });
+  if (!payload.email) payload.email = existing.email;
+  const volunteer = await upsertVolunteer(payload, existing.id);
+  await logAudit(session.email, "volunteer_updated_application", volunteer?.id);
+  res.json({ volunteer });
+});
+
+app.delete("/api/my/volunteer", requireSession("user"), async (req, res) => {
+  const session = res.locals.session as Session;
+  const existing = await volunteerForUserSession(session);
+  if (!existing) return res.status(404).json({ message: "접수 내역이 없습니다." });
+  
+  await db.update(tables.volunteers).set({
+    status: "canceled",
+    canceledAt: nowIso(),
+    updatedAt: nowIso()
+  }).where(eq(tables.volunteers.id, existing.id));
+  
+  await logAudit(session.email, "volunteer_canceled_application", existing.id);
+  res.json({ volunteer: await getVolunteer(existing.id) });
 });
 
 app.get("/api/admin/applications", requireAdmin, async (req, res) => {

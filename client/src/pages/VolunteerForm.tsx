@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CheckCircle2, Search, User, ClipboardList, Sparkles, ShieldCheck, ChevronRight } from "lucide-react";
 import { VolunteerPayload } from "../types.js";
 import { calculateAge } from "../utils/age.js";
@@ -9,14 +9,41 @@ import { Toggle } from "../components/Toggle.js";
 
 type VolunteerFormProps = {
   onSubmit: (payload: VolunteerPayload) => Promise<void>;
+  initial?: VolunteerPayload;
+  submitLabel?: string;
+  pinRequired?: boolean;
 };
 
-export function VolunteerForm({ onSubmit }: VolunteerFormProps) {
-  const [form, setForm] = useState<VolunteerPayload>(emptyVolunteer());
+export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사자 신청 접수", pinRequired = true }: VolunteerFormProps) {
+  const [form, setForm] = useState<VolunteerPayload>(initial ?? emptyVolunteer());
+  const [pinConfirm, setPinConfirm] = useState(initial?.applicantPin ?? "");
   const [otherLanguageEnabled, setOtherLanguageEnabled] = useState(false);
   const [otherLanguage, setOtherLanguage] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (initial) {
+      setForm(initial);
+      setPinConfirm(initial.applicantPin ?? "");
+      const langs = splitVolunteerLanguages(initial.supportLanguage);
+      const defaultLangs = new Set(volunteerLanguageOptions);
+      const others = langs.filter(l => !defaultLangs.has(l));
+      if (others.length > 0) {
+        setOtherLanguageEnabled(true);
+        setOtherLanguage(others.join(", "));
+      } else {
+        setOtherLanguageEnabled(false);
+        setOtherLanguage("");
+      }
+    } else {
+      setForm(emptyVolunteer());
+      setPinConfirm("");
+      setOtherLanguageEnabled(false);
+      setOtherLanguage("");
+    }
+  }, [initial]);
+
   const age = calculateAge(form.birthDate);
   const signatureText = `${form.name}${form.baptismalName ? ` (${form.baptismalName})` : ""}`.trim();
   const selectedSupportLanguages = splitVolunteerLanguages(form.supportLanguage);
@@ -96,6 +123,12 @@ export function VolunteerForm({ onSubmit }: VolunteerFormProps) {
     if (!form.experience.trim()) return setError("봉사 경력 및 보유 재능을 입력해 주세요.");
     if (!form.privacyConsent) return setError("개인정보 수집 및 활용에 동의해 주세요.");
     if (!signatureText) return setError("성명을 입력하면 신청인 서명이 자동 생성됩니다.");
+    if (pinRequired && !/^\d{4}$/.test(form.applicantPin ?? "")) {
+      return setError("비밀번호 숫자 4자리를 설정해 주세요.");
+    }
+    if (pinRequired && form.applicantPin !== pinConfirm) {
+      return setError("비밀번호 확인이 일치하지 않습니다.");
+    }
     setBusy(true);
     try {
       await onSubmit({ ...form, supportLanguage: supportLanguageValue, appliedDate: today, signatureName: signatureText });
@@ -175,6 +208,43 @@ export function VolunteerForm({ onSubmit }: VolunteerFormProps) {
           <label>
             <FieldLabel>상세주소</FieldLabel>
             <input id="volunteer-address-detail" value={form.addressDetail} onChange={(e) => update("addressDetail", e.target.value)} placeholder="동/호수 등 상세 주소" />
+          </label>
+        </div>
+        <div className="pin-help-box">
+          <ShieldCheck size={20} />
+          <div>
+            <strong>신청서 수정 및 조회용 비밀번호 설정</strong>
+            <p>
+              이메일 없이도 <b>성명 + 전화번호 + 설정하신 숫자 4자리</b>를 통해 추후 본인의 신청 정보를 자유롭게 확인, 수정 또는 취소할 수 있습니다.
+            </p>
+          </div>
+        </div>
+        <div className="applicant-info-grid">
+          <label>
+            <FieldLabel required={pinRequired}>비밀번호 숫자 4자리</FieldLabel>
+            <input
+              required={pinRequired}
+              inputMode="numeric"
+              maxLength={4}
+              pattern={pinRequired ? "\\d{4}" : undefined}
+              type="password"
+              value={form.applicantPin ?? ""}
+              onChange={(e) => update("applicantPin", e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="••••"
+            />
+          </label>
+          <label>
+            <FieldLabel required={pinRequired}>비밀번호 확인</FieldLabel>
+            <input
+              required={pinRequired}
+              inputMode="numeric"
+              maxLength={4}
+              pattern={pinRequired ? "\\d{4}" : undefined}
+              type="password"
+              value={pinConfirm}
+              onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="••••"
+            />
           </label>
         </div>
       </div>
@@ -286,7 +356,7 @@ export function VolunteerForm({ onSubmit }: VolunteerFormProps) {
       {error && <p className="error">{error}</p>}
       <div className="sticky-actions">
         <button className="primary large" disabled={busy}>
-          자원봉사자 신청 접수 <ChevronRight size={20} />
+          {submitLabel} <ChevronRight size={20} />
         </button>
       </div>
     </form>
