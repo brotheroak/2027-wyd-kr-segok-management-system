@@ -15,6 +15,7 @@ import { PrivacyPage } from "./pages/PrivacyPage.js";
 import { TermsPage } from "./pages/TermsPage.js";
 import { AdminConsoleZip } from "./pages/Admin/AdminConsole.js";
 import { EmptyState } from "./components/FormFields.js";
+import { AppFooter } from "./components/AppFooter.js";
 
 const USER_TOKEN_KEY = "wydUserToken";
 const USER_EMAIL_KEY = "wydUserEmail";
@@ -192,7 +193,7 @@ export function App() {
 
   if (isAdminPage) {
     return (
-      <div className="shell admin-shell">
+      <div className="admin-shell">
         <header className="topbar admin-topbar">
           <div className="topbar-inner admin-topbar-inner">
             <div className="brand">
@@ -213,6 +214,7 @@ export function App() {
         <main className="admin-page">
           <AdminConsoleZip />
         </main>
+        <AppFooter navigate={navigate} />
       </div>
     );
   }
