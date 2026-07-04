@@ -164,11 +164,18 @@ gcloud run deploy wyd-homestay \
   --image asia-northeast3-docker.pkg.dev/your-gcp-project/wyh-registry/wyd-homestay:latest \
   --platform managed \
   --region asia-northeast3 \
+  --min-instances 0 \
+  --max-instances 3 \
+  --concurrency 50 \
+  --cpu 1 \
+  --memory 512Mi \
+  --timeout 30s \
   --allow-unauthenticated \
   --add-cloudsql-instances your-gcp-project:asia-northeast3:your-cloudsql-instance \
-  --set-env-vars NODE_ENV=production,DATA_ENCRYPTION_KEY="replace-with-real-random-secret",ALLOWED_ORIGINS="https://wyd-homestay.your-parish.org" \
-  --set-env-vars DATABASE_URL="postgres://wyd_user:비밀번호@/cloudsql/your-gcp-project:asia-northeast3:your-cloudsql-instance/wyh_2027_kr"
+  --set-env-vars NODE_ENV=production,DATA_ENCRYPTION_KEY="replace-with-real-random-secret",ALLOWED_ORIGINS="https://wyd-homestay.your-parish.org",DATABASE_URL="postgres://wyd_user:비밀번호@/cloudsql/your-gcp-project:asia-northeast3:your-cloudsql-instance/wyh_2027_kr",MAX_CONCURRENT_REQUESTS=120,RATE_LIMIT_WINDOW_MS=60000,RATE_LIMIT_MAX=120,USER_SESSION_MINUTES=5,ADMIN_SESSION_MINUTES=5,TRUST_PROXY=1
 ```
+
+GitHub Actions 자동 배포는 기존 운영 Secret과 Cloud SQL 연결을 유지하기 위해 `--update-env-vars`를 사용합니다. 수동 배포에서 `--set-env-vars`를 사용할 경우 기존 환경변수를 모두 재정의하므로 누락된 Secret이 없는지 먼저 확인합니다.
 
 ## 7. 운영자 계정 생성
 

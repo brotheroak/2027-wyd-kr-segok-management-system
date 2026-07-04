@@ -23,7 +23,7 @@ export function LookupPanel({ onFound }: LookupPanelProps) {
       const url = lookupType === "homestay" ? "/api/applications/lookup" : "/api/volunteers/lookup";
       const data = await api<{ token: string; application?: any; volunteer?: any }>(url, {
         method: "POST",
-        body: JSON.stringify({ name, phone, applicantPin })
+        body: JSON.stringify(lookupType === "homestay" ? { name, phone, applicantPin } : { name, phone })
       });
       const resultData = lookupType === "homestay" ? data.application : data.volunteer;
       onFound(data.token, lookupType, resultData);
@@ -40,7 +40,11 @@ export function LookupPanel({ onFound }: LookupPanelProps) {
         <Search />
         <div>
           <h3>접수 내역 조회</h3>
-          <p>신청자 성명, 연락처, 설정한 비밀번호 4자리로 조회합니다.</p>
+          <p>
+            {lookupType === "homestay"
+              ? "홈스테이는 신청자 성명, 연락처, 설정한 비밀번호 4자리로 조회합니다."
+              : "자원봉사자는 신청자 성명과 연락처로 조회합니다."}
+          </p>
         </div>
       </div>
       
@@ -61,7 +65,7 @@ export function LookupPanel({ onFound }: LookupPanelProps) {
         </button>
       </div>
 
-      <div className="grid three">
+      <div className={lookupType === "homestay" ? "grid three" : "grid two"}>
         <label>
           성명
           <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="홍길동" />
@@ -70,23 +74,27 @@ export function LookupPanel({ onFound }: LookupPanelProps) {
           연락처
           <input required inputMode="tel" value={phone} onChange={(event) => setPhone(formatKoreanPhoneNumber(event.target.value))} placeholder="010-0000-0000" />
         </label>
-        <label>
-          비밀번호 4자리
-          <input
-            required
-            inputMode="numeric"
-            maxLength={4}
-            pattern="\d{4}"
-            type="password"
-            value={applicantPin}
-            onChange={(event) => setApplicantPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
-            placeholder="숫자 4자리"
-          />
-        </label>
+        {lookupType === "homestay" && (
+          <label>
+            비밀번호 4자리
+            <input
+              required
+              inputMode="numeric"
+              maxLength={4}
+              pattern="\d{4}"
+              type="password"
+              value={applicantPin}
+              onChange={(event) => setApplicantPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="숫자 4자리"
+            />
+          </label>
+        )}
       </div>
       {message && <p className="error">{message}</p>}
       <div className="lookup-actions">
-        <button className="primary large" disabled={busy || applicantPin.length !== 4}>접수 내역 확인 <ChevronRight size={20} /></button>
+        <button className="primary large" disabled={busy || (lookupType === "homestay" && applicantPin.length !== 4)}>
+          접수 내역 확인 <ChevronRight size={20} />
+        </button>
       </div>
     </form>
   );

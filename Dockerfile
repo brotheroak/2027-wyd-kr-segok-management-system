@@ -16,7 +16,11 @@ FROM node:24-bookworm-slim AS runtime
 ENV NODE_ENV=production \
     PORT=4177 \
     DATA_DIR=/app/data \
-    MAX_CONCURRENT_REQUESTS=500
+    MAX_CONCURRENT_REQUESTS=120 \
+    RATE_LIMIT_WINDOW_MS=60000 \
+    RATE_LIMIT_MAX=120 \
+    USER_SESSION_MINUTES=5 \
+    ADMIN_SESSION_MINUTES=5
 
 WORKDIR /app
 COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./

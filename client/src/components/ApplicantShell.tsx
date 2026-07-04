@@ -28,67 +28,71 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
                 : "이용정책";
 
   return (
-    <div className="shell applicant-shell">
+    <div className="applicant-shell">
       <header className="topbar applicant-topbar">
-        <button type="button" className="brand" onClick={() => navigate("/")} aria-label="신청 첫 화면으로 이동">
-          <div className="brand-mark">
-            <Church size={28} />
+        <div className="shell topbar-inner">
+          <button type="button" className="brand" onClick={() => navigate("/")} aria-label="신청 첫 화면으로 이동">
+            <div className="brand-mark">
+              <Church size={28} />
+            </div>
+            <div>
+              <p>2027 서울 WYD 세곡동 성당</p>
+              <h1>홈스테이 / 자원봉사 신청</h1>
+            </div>
+          </button>
+          <nav className="site-nav" aria-label="신청자 메뉴">
+            <a
+              className={view === "intro" ? "active" : ""}
+              href="/"
+              onClick={(event) => {
+                event.preventDefault();
+                navigate("/");
+              }}
+            >
+              대회 소개
+            </a>
+            <a
+              className={["apply", "homestay", "volunteer"].includes(view) ? "active" : ""}
+              href="/apply"
+              onClick={(event) => {
+                event.preventDefault();
+                navigate("/apply");
+              }}
+            >
+              신청서 작성
+            </a>
+            <a
+              className={view === "check" ? "active" : ""}
+              href="/check"
+              onClick={(event) => {
+                event.preventDefault();
+                navigate("/check");
+              }}
+            >
+              접수 확인
+            </a>
+          </nav>
+          <div className="accessibility" aria-label="글자 크기 조절">
+            <Accessibility size={20} />
+            <button onClick={() => setFontScale(0.95)} className={fontScale === 0.95 ? "active" : ""}>
+              가
+            </button>
+            <button onClick={() => setFontScale(1)} className={fontScale === 1 ? "active" : ""}>
+              가
+            </button>
+            <button onClick={() => setFontScale(1.12)} className={fontScale === 1.12 ? "active" : ""}>
+              가
+            </button>
           </div>
-          <div>
-            <p>2027 서울 WYD 세곡동 성당</p>
-            <h1>홈스테이 / 자원봉사 신청</h1>
-          </div>
-        </button>
-        <nav className="site-nav" aria-label="신청자 메뉴">
-          <a
-            className={view === "intro" ? "active" : ""}
-            href="/"
-            onClick={(event) => {
-              event.preventDefault();
-              navigate("/");
-            }}
-          >
-            대회 소개
-          </a>
-          <a
-            className={["apply", "homestay", "volunteer"].includes(view) ? "active" : ""}
-            href="/apply"
-            onClick={(event) => {
-              event.preventDefault();
-              navigate("/apply");
-            }}
-          >
-            신청서 작성
-          </a>
-          <a
-            className={view === "check" ? "active" : ""}
-            href="/check"
-            onClick={(event) => {
-              event.preventDefault();
-              navigate("/check");
-            }}
-          >
-            접수 확인
-          </a>
-        </nav>
-        <div className="accessibility" aria-label="글자 크기 조절">
-          <Accessibility size={20} />
-          <button onClick={() => setFontScale(0.95)} className={fontScale === 0.95 ? "active" : ""}>
-            가
-          </button>
-          <button onClick={() => setFontScale(1)} className={fontScale === 1 ? "active" : ""}>
-            가
-          </button>
-          <button onClick={() => setFontScale(1.12)} className={fontScale === 1.12 ? "active" : ""}>
-            가
-          </button>
         </div>
       </header>
       <section className="page-visual" aria-label="2027 서울 WYD 세곡동 성당 신청">
         <h2>{title}</h2>
       </section>
-      <div className="breadcrumb">HOME / 2027 서울 WYD 세곡동 성당 / {title}</div>
-      <div className="page-transition" key={view}>
+      <div className="shell breadcrumb-wrapper">
+        <div className="breadcrumb">HOME / 2027 서울 WYD 세곡동 성당 / {title}</div>
+      </div>
+      <div className="shell page-transition" key={view}>
         {children}
       </div>
       <AppFooter navigate={navigate} />

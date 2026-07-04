@@ -18,9 +18,21 @@ type LoginState = {
   mfaSecret?: string;
 };
 
+const ADMIN_TOKEN_KEY = "wydAdminToken";
+const ADMIN_ROLE_KEY = "wydAdminRole";
+
+function revokeAdminSession(token: string | null) {
+  if (!token) return;
+  fetch("/api/admin/logout", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    keepalive: true
+  }).catch(() => undefined);
+}
+
 export function AdminConsoleZip() {
-  const [token, setToken] = useState<string | null>(localStorage.getItem("wydAdminToken"));
-  const [role, setRole] = useState<AdminRole | null>((localStorage.getItem("wydAdminRole") as AdminRole | null) ?? null);
+  const [token, setToken] = useState<string | null>(sessionStorage.getItem(ADMIN_TOKEN_KEY));
+  const [role, setRole] = useState<AdminRole | null>((sessionStorage.getItem(ADMIN_ROLE_KEY) as AdminRole | null) ?? null);
   
   // New login states
   const [email, setEmail] = useState("");
@@ -51,9 +63,27 @@ export function AdminConsoleZip() {
     const params = new URLSearchParams({ q: query, status });
     const response = await api<{ role: AdminRole; canViewPersonalData: boolean; stats: any; applications: ApplicationPayload[] }>(`/api/admin/applications?${params}`, {}, nextToken);
     setRole(response.role);
-    localStorage.setItem("wydAdminRole", response.role);
+    sessionStorage.setItem(ADMIN_ROLE_KEY, response.role);
     setData(response);
   };
+
+  useEffect(() => {
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_ROLE_KEY);
+
+    const expireAdminSession = () => {
+      const currentToken = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+      revokeAdminSession(currentToken);
+      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+      sessionStorage.removeItem(ADMIN_ROLE_KEY);
+    };
+
+    window.addEventListener("pagehide", expireAdminSession);
+    return () => {
+      window.removeEventListener("pagehide", expireAdminSession);
+      expireAdminSession();
+    };
+  }, []);
 
   useEffect(() => {
     load().catch(() => {
@@ -89,8 +119,8 @@ export function AdminConsoleZip() {
         method: "POST",
         body: JSON.stringify({ email, password, code: otpCode })
       });
-      localStorage.setItem("wydAdminToken", response.token);
-      localStorage.setItem("wydAdminRole", response.role);
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, response.token);
+      sessionStorage.setItem(ADMIN_ROLE_KEY, response.role);
       setToken(response.token);
       setRole(response.role);
       resetLoginState();
@@ -108,8 +138,9 @@ export function AdminConsoleZip() {
   };
 
   const logout = () => {
-    localStorage.removeItem("wydAdminToken");
-    localStorage.removeItem("wydAdminRole");
+    revokeAdminSession(token ?? sessionStorage.getItem(ADMIN_TOKEN_KEY));
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    sessionStorage.removeItem(ADMIN_ROLE_KEY);
     setToken(null);
     setRole(null);
     setData(null);

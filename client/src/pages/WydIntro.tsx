@@ -6,6 +6,8 @@ type WydIntroProps = {
   onCheckStatus: () => void;
 };
 
+const wydSeoulLogo = "/images/logo-wyd-seoul-2027.png";
+
 export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
   const [tab, setTab] = useState<"what" | "symbol" | "schedule">("what");
 
@@ -15,7 +17,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
       <section className="intro-hero-section text-center max-w-3xl mx-auto my-12 space-y-6">
         <div className="flex justify-center mb-6">
           <img
-            src="https://objectstorage.ap-seoul-1.oraclecloud.com/n/cnkf9bkeu8eq/b/wydseoul-public-resources/o/assets/logo_wyd_seoul_2027-20251224113702214.png"
+            src={wydSeoulLogo}
             alt="WYD Seoul 2027 Official Logo"
             className="w-40 sm:w-48 object-contain"
           />
@@ -96,7 +98,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
             <div className="logo-concept-content flex flex-col md:flex-row items-center md:items-start gap-8">
               <div className="logo-visual-container shrink-0 p-6 bg-[var(--gold-50)] rounded-2xl border border-[var(--control-border-soft)] flex items-center justify-center">
                 <img
-                  src="https://objectstorage.ap-seoul-1.oraclecloud.com/n/cnkf9bkeu8eq/b/wydseoul-public-resources/o/assets/logo_wyd_seoul_2027-20251224113702214.png"
+                  src={wydSeoulLogo}
                   alt="Official Logo Detail"
                   className="w-32 h-32 object-contain"
                 />

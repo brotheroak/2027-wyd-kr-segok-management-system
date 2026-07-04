@@ -4,28 +4,28 @@
 
 - 예상 최대 동시접속: 100명
 - 주요 트래픽: 신청서 조회/작성, 관리자 조회, 정적 React 파일 제공
-- 현재 DB: SQLite 파일 DB
+- 현재 운영 DB: Cloud Run 배포 시 Cloud SQL PostgreSQL 권장, 로컬/단일 서버는 SQLite 가능
 - 개인정보 포함 시스템이므로 백업, 접근 제어, TLS, rate limit이 필수
-- 현재 앱에는 서버 내부 웹퍼널이 있으며 기본값은 `MAX_CONCURRENT_REQUESTS=500`
+- 현재 앱에는 서버 내부 웹퍼널이 있으며 운영 기본값은 `MAX_CONCURRENT_REQUESTS=120`
 
 ## 권장 결론
 
-현재 코드 그대로 안정 운영하려면 “단일 Docker 서버 + 영속 디스크 + 자동 백업”이 가장 적합합니다.
+현재 Google Cloud Run 운영 기준에서는 “Cloud Run 0~3 인스턴스 + Cloud SQL PostgreSQL + 앱 내부 웹퍼널” 구성이 비용 통제와 운영 단순성의 균형이 가장 좋습니다.
 
-- 추천: Lightsail 또는 EC2 단일 VM
-- 서버: 2 vCPU / 4 GB RAM
-- 디스크: SSD 80 GB 이상
-- 앱 실행: Docker Compose
-- Reverse proxy: Caddy 또는 Nginx
-- TLS: Let's Encrypt 또는 로드밸런서 인증서
-- 백업: 매일 DB 파일 스냅샷 + 주 1회 외부 보관
+- 추천: Cloud Run `min-instances=0`, `max-instances=3`, `concurrency=50`
+- 서버: 인스턴스당 1 vCPU / 512 MiB RAM
+- DB: Cloud SQL PostgreSQL, 단일 리전, 자동 백업 활성화
+- TLS: Cloud Run 기본 HTTPS 또는 HTTPS Load Balancer
+- 백업: Cloud SQL 자동 백업 7~14일, 필요 시 PITR
 - 앱 설정:
-  - `MAX_CONCURRENT_REQUESTS=150`
+  - `MAX_CONCURRENT_REQUESTS=120`
   - `RATE_LIMIT_WINDOW_MS=60000`
   - `RATE_LIMIT_MAX=120`
+  - `USER_SESSION_MINUTES=5`
+  - `ADMIN_SESSION_MINUTES=5`
   - `ALLOWED_ORIGINS=https://운영도메인`
 
-100명 기준으로 2 vCPU / 2 GB도 동작 가능성이 높지만, 빌드/로그/백업/운영 여유를 생각하면 4 GB RAM을 권장합니다.
+이 값은 예상 최대 동시접속 100명에 약간의 여유를 둔 시작점입니다. 접수 개시 직후 429가 많으면 rate limit을 먼저 조정하고, 503이 늘면 Cloud SQL 연결/CPU/메모리를 확인한 뒤 `max-instances` 증설을 검토합니다.
 
 ## DB 사이즈 및 RDS 필요 여부
 

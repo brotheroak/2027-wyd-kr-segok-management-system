@@ -69,6 +69,5 @@ export type VolunteerPayload = {
   privacyConsent: boolean;
   appliedDate: string;
   signatureName: string;
-  applicantPin?: string;
   updatedAt?: string;
 };

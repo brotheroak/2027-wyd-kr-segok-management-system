@@ -16,11 +16,24 @@ import { TermsPage } from "./pages/TermsPage.js";
 import { AdminConsoleZip } from "./pages/Admin/AdminConsole.js";
 import { EmptyState } from "./components/FormFields.js";
 
+const USER_TOKEN_KEY = "wydUserToken";
+const USER_EMAIL_KEY = "wydUserEmail";
+
+function revokeUserSession(token: string | null) {
+  if (!token) return;
+  fetch("/api/logout", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    keepalive: true
+  }).catch(() => undefined);
+}
+
 export function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const isAdminPage = currentPath.startsWith("/admin");
   const isPrivacyPage = currentPath.startsWith("/privacy");
   const isTermsPage = currentPath.startsWith("/terms");
+  const keepsApplicantSession = currentPath.startsWith("/check") || currentPath.startsWith("/apply");
   
   const applicantView: ApplyView = currentPath.startsWith("/check")
     ? "check"
@@ -33,7 +46,7 @@ export function App() {
           : "intro";
         
   const [fontScale, setFontScale] = useState(Number(localStorage.getItem("fontScale") ?? 1));
-  const [userToken, setUserToken] = useState(localStorage.getItem("wydUserToken"));
+  const [userToken, setUserToken] = useState(sessionStorage.getItem(USER_TOKEN_KEY));
   const [application, setApplication] = useState<ApplicationPayload | null>(null);
   const [volunteer, setVolunteer] = useState<VolunteerPayload | null>(null);
   const [volunteerReceipt, setVolunteerReceipt] = useState<VolunteerPayload | null>(null);
@@ -48,6 +61,21 @@ export function App() {
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
+
+  useEffect(() => {
+    localStorage.removeItem(USER_TOKEN_KEY);
+    localStorage.removeItem(USER_EMAIL_KEY);
+  }, []);
+
+  useEffect(() => {
+    if (!userToken || keepsApplicantSession) return;
+    revokeUserSession(userToken);
+    sessionStorage.removeItem(USER_TOKEN_KEY);
+    sessionStorage.removeItem(USER_EMAIL_KEY);
+    setUserToken(null);
+    setApplication(null);
+    setVolunteer(null);
+  }, [keepsApplicantSession, userToken]);
 
   useEffect(() => {
     if (!userToken) {
@@ -67,16 +95,16 @@ export function App() {
                 setVolunteer(volData.volunteer);
                 setApplication(null);
               } else {
-                localStorage.removeItem("wydUserToken");
-                localStorage.removeItem("wydUserEmail");
+                sessionStorage.removeItem(USER_TOKEN_KEY);
+                sessionStorage.removeItem(USER_EMAIL_KEY);
                 setUserToken(null);
                 setApplication(null);
                 setVolunteer(null);
               }
             })
             .catch(() => {
-              localStorage.removeItem("wydUserToken");
-              localStorage.removeItem("wydUserEmail");
+              sessionStorage.removeItem(USER_TOKEN_KEY);
+              sessionStorage.removeItem(USER_EMAIL_KEY);
               setUserToken(null);
               setApplication(null);
               setVolunteer(null);
@@ -84,8 +112,8 @@ export function App() {
         }
       })
       .catch(() => {
-        localStorage.removeItem("wydUserToken");
-        localStorage.removeItem("wydUserEmail");
+        sessionStorage.removeItem(USER_TOKEN_KEY);
+        sessionStorage.removeItem(USER_EMAIL_KEY);
         setUserToken(null);
         setApplication(null);
         setVolunteer(null);
@@ -93,22 +121,23 @@ export function App() {
   }, [userToken]);
 
   const onApplicationAuthorized = (token: string, loaded: ApplicationPayload | null) => {
-    localStorage.setItem("wydUserToken", token);
+    sessionStorage.setItem(USER_TOKEN_KEY, token);
     setUserToken(token);
     setApplication(loaded);
     setVolunteer(null);
   };
 
   const onVolunteerAuthorized = (token: string, loaded: VolunteerPayload | null) => {
-    localStorage.setItem("wydUserToken", token);
+    sessionStorage.setItem(USER_TOKEN_KEY, token);
     setUserToken(token);
     setVolunteer(loaded);
     setApplication(null);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("wydUserToken");
-    localStorage.removeItem("wydUserEmail");
+    revokeUserSession(userToken);
+    sessionStorage.removeItem(USER_TOKEN_KEY);
+    sessionStorage.removeItem(USER_EMAIL_KEY);
     setUserToken(null);
     setApplication(null);
     setVolunteer(null);
@@ -274,7 +303,6 @@ export function App() {
                 <VolunteerForm
                   initial={volunteer ?? undefined}
                   submitLabel={volunteer ? "수정 내용 저장" : "자원봉사자 신청 접수"}
-                  pinRequired={!volunteer}
                   onSubmit={async (payload) => {
                     if (volunteer && userToken) {
                       const data = await api<{ volunteer: VolunteerPayload }>("/api/my/volunteer", {
@@ -302,7 +330,7 @@ export function App() {
             <div className="page-heading">
               <span>Application Status</span>
               <h2>접수 확인</h2>
-              <p>신청 시 입력한 성명, 연락처, 4자리 비밀번호로 접수 내역을 확인하거나 수정, 취소할 수 있습니다.</p>
+              <p>홈스테이는 성명, 연락처, 4자리 비밀번호로 조회하고 자원봉사자는 성명과 연락처로 조회합니다.</p>
             </div>
             {!userToken ? (
               <LookupPanel

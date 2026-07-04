@@ -17,9 +17,11 @@ const app = express();
 const port = Number(process.env.PORT ?? 4177);
 
 const isProd = process.env.NODE_ENV === "production";
-const maxConcurrentRequests = Number(process.env.MAX_CONCURRENT_REQUESTS ?? 500);
+const maxConcurrentRequests = Number(process.env.MAX_CONCURRENT_REQUESTS ?? 120);
 const rateLimitWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000);
-const rateLimitMax = Number(process.env.RATE_LIMIT_MAX ?? 240);
+const rateLimitMax = Number(process.env.RATE_LIMIT_MAX ?? 120);
+const userSessionMinutes = Number(process.env.USER_SESSION_MINUTES ?? 5);
+const adminSessionMinutes = Number(process.env.ADMIN_SESSION_MINUTES ?? 5);
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
   .split(",")
   .map((origin) => origin.trim())
@@ -67,6 +69,13 @@ function isFunnelExempt(pathname: string) {
     || /\.(?:js|css|png|jpg|jpeg|gif|svg|ico|webp|woff2?)$/i.test(pathname);
 }
 
+function isStaticAsset(pathname: string) {
+  return pathname.startsWith("/assets/")
+    || pathname.startsWith("/images/")
+    || pathname === "/favicon.svg"
+    || /\.(?:js|css|png|jpg|jpeg|gif|svg|ico|webp|woff2?)$/i.test(pathname);
+}
+
 function funnelHtml() {
   return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>잠시만 기다려 주세요</title><style>body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#121e31;color:#fff;display:grid;min-height:100vh;place-items:center}main{max-width:520px;padding:32px;text-align:center}h1{font-size:28px;margin:0 0 12px}p{color:rgba(255,255,255,.78);line-height:1.7}.mark{width:64px;height:64px;border:2px solid #d7bc76;border-radius:50%;display:grid;place-items:center;margin:0 auto 22px;color:#d7bc76}</style><script>setTimeout(function(){location.reload()},10000)</script></head><body><main><div class="mark">WYD</div><h1>현재 접속자가 많습니다</h1><p>안정적인 신청 접수를 위해 잠시 대기 중입니다. 약 10초 뒤 자동으로 다시 시도합니다.</p></main></body></html>`;
 }
@@ -105,7 +114,11 @@ const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 
 function rateLimit(req: express.Request, res: express.Response, next: express.NextFunction) {
   const pathname = req.originalUrl.split("?")[0];
-  if (rateLimitMax <= 0 || pathname === "/api/health" || pathname === "/api/ready" || pathname === "/api/funnel/status") {
+  if (rateLimitMax <= 0
+    || pathname === "/api/health"
+    || pathname === "/api/ready"
+    || pathname === "/api/funnel/status"
+    || isStaticAsset(pathname)) {
     return next();
   }
   const now = Date.now();
@@ -120,6 +133,24 @@ function rateLimit(req: express.Request, res: express.Response, next: express.Ne
     const retrySeconds = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
     res.setHeader("Retry-After", String(retrySeconds));
     return res.status(429).json({ message: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." });
+  }
+  next();
+}
+
+const blockedScanPathPatterns = [
+  /^\/\.env(?:$|[/?#])/i,
+  /^\/\.git(?:$|\/)/i,
+  /^\/wp-admin(?:$|\/)/i,
+  /^\/wp-login\.php$/i,
+  /^\/phpmyadmin(?:$|\/)/i,
+  /^\/server-status$/i,
+  /^\/actuator(?:$|\/)/i
+];
+
+function blockKnownScanPaths(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const pathname = req.originalUrl.split("?")[0];
+  if (blockedScanPathPatterns.some((pattern) => pattern.test(pathname))) {
+    return res.status(404).json({ message: "Not found" });
   }
   next();
 }
@@ -141,15 +172,15 @@ app.use(cors({
     return callback(null, false);
   }
 }));
+app.use(rateLimit);
+app.use(blockKnownScanPaths);
 app.use(express.json({ limit: "1mb" }));
-app.use("/api", rateLimit);
 
 type Role = "user" | "admin" | "privacy_admin";
 type Session = { email: string; role: Role };
 
 const nowIso = () => new Date().toISOString();
 const addMinutes = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
-const addDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
 const stableHash = (value: string) => createHash("sha256").update(value.trim().toLowerCase()).digest("hex");
 const hashApplicantPin = (applicationId: string, pin: string) => createHash("sha256").update(`${applicationId}:${pin}`).digest("hex");
@@ -192,7 +223,7 @@ async function logAudit(actor: string, action: string, applicationId?: string, d
 }
 
 async function sessionFrom(req: express.Request, roles?: Role | Role[]): Promise<Session | null> {
-  const token = req.headers.authorization?.replace(/^Bearer\s+/i, "");
+  const token = tokenFrom(req);
   if (!token) return null;
   
   const rows = await db.select({
@@ -208,6 +239,15 @@ async function sessionFrom(req: express.Request, roles?: Role | Role[]): Promise
   const allowed = Array.isArray(roles) ? roles : roles ? [roles] : null;
   if (allowed && !allowed.includes(row.role)) return null;
   return { email: plain(row.email), role: row.role };
+}
+
+function tokenFrom(req: express.Request) {
+  return req.headers.authorization?.replace(/^Bearer\s+/i, "");
+}
+
+async function revokeSession(token?: string) {
+  if (!token) return;
+  await db.delete(tables.sessions).where(eq(tables.sessions.token, token));
 }
 
 function requireSession(roles?: Role | Role[]) {
@@ -487,7 +527,7 @@ async function createApplicantSession(applicationId: string) {
     token,
     email: pii(`app:${applicationId}`),
     role: "user",
-    expiresAt: addDays(14),
+    expiresAt: addMinutes(userSessionMinutes),
     createdAt: nowIso()
   });
   return token;
@@ -524,19 +564,18 @@ async function createVolunteerSession(volunteerId: string) {
     token,
     email: pii(`vol:${volunteerId}`),
     role: "user",
-    expiresAt: addDays(14),
+    expiresAt: addMinutes(userSessionMinutes),
     createdAt: nowIso()
   });
   return token;
 }
 
-async function findVolunteerByLookup(name: string, phone: string, pin: string) {
+async function findVolunteerByLookup(name: string, phone: string) {
   const phoneDigits = normalizePhone(phone);
   const rows = await db.select().from(tables.volunteers).orderBy(desc(tables.volunteers.createdAt));
   const row = rows.find((candidate: any) => {
     return plain(candidate.name).trim() === name
-      && normalizePhone(plain(candidate.phone)) === phoneDigits
-      && verifyApplicantPin(candidate.id, pin, candidate.applicantPin);
+      && normalizePhone(plain(candidate.phone)) === phoneDigits;
   });
   return row ? rowToVolunteer(row) : null;
 }
@@ -582,12 +621,6 @@ async function upsertVolunteer(payload: VolunteerPayload, existingId?: string) {
     ? (await db.select({ volunteerNo: tables.volunteers.volunteerNo }).from(tables.volunteers).where(eq(tables.volunteers.id, existingId)))[0].volunteerNo
     : await makeVolunteerNo();
 
-  const applicantPin = parsed.applicantPin ?? "";
-  const applicantPinHash = applicantPin ? hashApplicantPin(id, applicantPin) : "";
-  if (!existingId && !/^\d{4}$/.test(applicantPin)) {
-    throw new Error("비밀번호 4자리를 입력해 주세요.");
-  }
-
   const data: any = {
     name: pii(parsed.name),
     baptismalName: pii(parsed.baptismalName ?? ""),
@@ -607,10 +640,6 @@ async function upsertVolunteer(payload: VolunteerPayload, existingId?: string) {
     signatureName: pii(parsed.signatureName),
     updatedAt: timestamp
   };
-
-  if (applicantPinHash) {
-    data.applicantPin = applicantPinHash;
-  }
 
   if (existingId) {
     data.status = sql`CASE WHEN ${tables.volunteers.status} = 'canceled' THEN 'submitted' ELSE ${tables.volunteers.status} END`;
@@ -814,7 +843,7 @@ app.post("/api/auth/verify-code", async (req, res) => {
     token,
     email: pii(email),
     role: "user",
-    expiresAt: addDays(14),
+    expiresAt: addMinutes(userSessionMinutes),
     createdAt: nowIso()
   });
   
@@ -863,11 +892,10 @@ app.post("/api/volunteers", async (req, res) => {
 app.post("/api/volunteers/lookup", async (req, res) => {
   const name = String(req.body.name ?? "").trim();
   const phone = String(req.body.phone ?? "").trim();
-  const applicantPin = String(req.body.applicantPin ?? "").trim();
-  if (!name || !phone || !/^\d{4}$/.test(applicantPin)) {
-    return res.status(400).json({ message: "성명, 연락처, 숫자 비밀번호 4자리를 입력해 주세요." });
+  if (!name || !phone) {
+    return res.status(400).json({ message: "성명과 연락처를 입력해 주세요." });
   }
-  const volunteer = await findVolunteerByLookup(name, phone, applicantPin);
+  const volunteer = await findVolunteerByLookup(name, phone);
   if (!volunteer) return res.status(404).json({ message: "일치하는 접수 내역을 찾을 수 없습니다." });
   const token = await createVolunteerSession(volunteer.id);
   await logAudit(phone, "volunteer_lookup_application", volunteer.id);
@@ -919,12 +947,25 @@ app.post("/api/admin/login", async (req, res) => {
     token,
     email: pii(admin.email),
     role: admin.role,
-    expiresAt: addDays(1),
+    expiresAt: addMinutes(adminSessionMinutes),
     createdAt: nowIso()
   });
 
   await logAudit(admin.role, "admin_login");
   res.json({ token, role: admin.role });
+});
+
+app.post("/api/logout", async (req, res) => {
+  await revokeSession(tokenFrom(req));
+  res.status(204).end();
+});
+
+app.post("/api/admin/logout", async (req, res) => {
+  const token = tokenFrom(req);
+  const session = token ? await sessionFrom(req, ["admin", "privacy_admin"]) : null;
+  await revokeSession(token);
+  if (session) await logAudit(actorFrom(session), "admin_logout");
+  res.status(204).end();
 });
 
 app.get("/api/my/application", requireSession("user"), async (req, res) => {

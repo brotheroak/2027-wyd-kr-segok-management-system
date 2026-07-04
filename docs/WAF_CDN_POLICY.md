@@ -3,12 +3,13 @@
 ## 권장 구조
 
 ```text
-사용자 -> CDN/ALB + WAF -> 앱 서버
+사용자 -> CDN/HTTPS Load Balancer + WAF/Cloud Armor -> Cloud Run
 ```
 
 정적 파일 캐시, TLS 종료, 국가/봇/비정상 트래픽 차단은 앱 서버보다 CDN/WAF 계층에서 처리합니다.
 
 AWS WAFv2 예시 템플릿은 `infra/aws-waf-regional.example.yaml`에 포함되어 있습니다.
+GCP Cloud Run 단독 URL로 운영하면 앱 내부 rate limit과 Cloud Run 최대 인스턴스 제한이 1차 방어선입니다. 더 강한 DDoS 방어가 필요하면 HTTPS Load Balancer의 serverless NEG 앞단에 Cloud Armor 정책을 붙입니다.
 
 ## 기본 WAF 규칙
 
@@ -30,7 +31,7 @@ AWS WAFv2 예시 템플릿은 `infra/aws-waf-regional.example.yaml`에 포함되
 - API: IP별 5분 300~600 요청
 - 관리자 경로: IP별 5분 100~200 요청
 
-앱 내부 rate limit은 `RATE_LIMIT_MAX=120`으로 시작하고, WAF에서는 더 넓은 외곽 차단망으로 운영합니다.
+앱 내부 rate limit은 `RATE_LIMIT_MAX=120`으로 시작하고, WAF에서는 더 넓은 외곽 차단망으로 운영합니다. Cloud Run 배포는 `max-instances=3`, `concurrency=50`으로 비용 상한을 둡니다.
 
 ## 국가 차단 정책
 

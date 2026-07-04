@@ -17,6 +17,8 @@
 
 :root {
   --font-scale: 1;
+  --page-gutter: clamp(18px, 3vw, 48px);
+  --content-max: 1440px;
   --display-font: "Noto Serif KR", Georgia, serif;
   --body-font: "Noto Sans KR", "Apple SD Gothic Neo", "Segoe UI", system-ui, sans-serif;
   --ink: #252525;
@@ -33,7 +35,7 @@
   --green: #4f694e;
   --paper: #fbfaf8;
   --surface: #ffffff;
-  --bg: #ffffff;
+  --bg: #faf9f6;
   --control-border: #e8e2d8;
   --control-border-soft: #f1ede7;
   --soft-shadow: 0 16px 40px rgba(18, 30, 49, 0.07);
@@ -72,9 +74,9 @@ button:disabled {
 }
 
 .shell {
-  width: min(1440px, 100%);
+  width: min(var(--content-max), calc(100% - (var(--page-gutter) * 2)));
   margin: 0 auto;
-  padding: 0 clamp(18px, 3vw, 48px) 0;
+  padding: 0;
 }
 
 .applicant-shell {
@@ -94,16 +96,21 @@ button:disabled {
 }
 
 .topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
   min-height: 72px;
   padding: 0;
   border: 0;
-  border-bottom: 1px solid #efefef;
+  border-bottom: 1px solid var(--control-border);
   border-radius: 0;
-  background: transparent;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(18, 30, 49, 0.02);
+}
+
+.topbar-inner {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .brand, .accessibility, .site-nav, .section-title, .field-row, .address-row, .receipt-head, .receipt-actions, .button-row {
@@ -217,7 +224,8 @@ button.brand:focus-visible .brand-mark {
 
 .page-visual {
   min-height: 190px;
-  margin: 0 calc(clamp(18px, 3vw, 48px) * -1);
+  margin: 0;
+  width: 100%;
   display: grid;
   place-items: center;
   background-color: #121e31;
@@ -2224,15 +2232,20 @@ td small {
 }
 
 .app-footer {
-  margin: clamp(70px, 10vw, 120px) calc(clamp(18px, 3vw, 48px) * -1) 0;
-  padding: 42px clamp(18px, 3vw, 48px) 24px;
-  display: grid;
-  grid-template-columns: minmax(240px, 1.1fr) minmax(0, 2fr);
-  gap: clamp(36px, 7vw, 96px);
+  width: 100%;
+  margin: clamp(70px, 10vw, 120px) 0 0;
+  padding: 42px 0 24px;
   color: #8a8e98;
   background: #0a1020;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   font-family: var(--display-font);
+}
+
+.footer-inner {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.1fr) minmax(0, 2fr);
+  align-items: start;
+  gap: clamp(36px, 7vw, 96px);
 }
 
 .app-footer strong {
@@ -2398,15 +2411,21 @@ td small {
 }
 
 @media (max-width: 720px) {
-  .shell {
-    padding: 0 14px;
+  :root {
+    --page-gutter: 14px;
   }
   .topbar, .field-row, .address-row, .receipt-head, .receipt-actions {
     align-items: stretch;
     flex-direction: column;
   }
   .applicant-topbar {
+    min-height: 0;
     padding: 14px 0;
+  }
+  .topbar-inner {
+    min-height: 0;
+    flex-direction: column;
+    align-items: stretch;
     gap: 12px;
   }
   .site-nav {
@@ -2424,7 +2443,7 @@ td small {
   }
   .page-visual {
     min-height: 150px;
-    margin: 0 -14px;
+    margin: 0;
   }
   .breadcrumb {
     padding: 14px 0;
@@ -2568,7 +2587,9 @@ td small {
     width: 100%;
   }
   .app-footer {
-    margin: 64px -14px 0;
+    margin: 64px 0 0;
+  }
+  .footer-inner {
     grid-template-columns: 1fr;
   }
   .apply-choice-grid,
@@ -2604,5 +2625,8 @@ td small {
   }
   .footer-bottom {
     flex-direction: column;
+  }
+  .footer-bottom div {
+    flex-wrap: wrap;
   }
 }
