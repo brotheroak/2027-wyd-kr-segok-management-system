@@ -33,7 +33,19 @@ export function AppFooter({ navigate, mode = "public" }: AppFooterProps) {
           <p>젊은이 순례자를 환영하는 공동체적 신앙 활동입니다.</p>
         </div>
         <div className="footer-links">
-          {mode === "admin" ? (
+          <div>
+            <span>신청 안내</span>
+            <a href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>
+              대회 소개
+            </a>
+            <a href="/apply" onClick={(event) => { event.preventDefault(); navigate("/apply"); }}>
+              신청서 작성
+            </a>
+            <a href="/check" onClick={(event) => { event.preventDefault(); navigate("/check"); }}>
+              접수 확인
+            </a>
+          </div>
+          {mode === "admin" && (
             <div>
               <span>운영자 메뉴</span>
               {adminMenuItems.map((item) => (
@@ -41,19 +53,6 @@ export function AppFooter({ navigate, mode = "public" }: AppFooterProps) {
                   {item.label}
                 </a>
               ))}
-            </div>
-          ) : (
-            <div>
-              <span>신청 안내</span>
-              <a href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>
-                대회 소개
-              </a>
-              <a href="/apply" onClick={(event) => { event.preventDefault(); navigate("/apply"); }}>
-                신청서 작성
-              </a>
-              <a href="/check" onClick={(event) => { event.preventDefault(); navigate("/check"); }}>
-                접수 확인
-              </a>
             </div>
           )}
           <div>
