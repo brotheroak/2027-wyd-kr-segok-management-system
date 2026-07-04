@@ -79,6 +79,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (mode === "wizard" && !validateStep(step)) return;
+    if (mode === "full" && !validateAll()) return;
     setBusy(true);
     setError("");
     try {
@@ -130,6 +131,13 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
     }
     if (currentStep === 5) {
       if (!form.confirmations.signatureName.trim()) return setError("신청자 서명을 입력해 주세요."), false;
+    }
+    return true;
+  };
+
+  const validateAll = () => {
+    for (const currentStep of steps.map((item) => item.id)) {
+      if (!validateStep(currentStep)) return false;
     }
     return true;
   };

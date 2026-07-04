@@ -258,6 +258,7 @@ export function App() {
                 initial={application ?? emptyApplication()}
                 submitLabel={application ? "수정 내용 저장" : "신청 접수"}
                 pinRequired={!application}
+                mode={application ? "full" : "wizard"}
                 onSubmit={async (payload) => {
                   if (application && userToken) {
                     const data = await api<{ application: ApplicationPayload }>("/api/my/application", {
