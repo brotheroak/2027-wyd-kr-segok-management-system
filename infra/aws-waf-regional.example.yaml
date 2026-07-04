@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: WAFv2 regional WebACL example for WYD homestay system.
+
+Parameters:
+  AdminAllowedIpCidr:
+    Type: String
+    Default: "203.0.113.10/32"
+    Description: Replace with the admin office/operator IP CIDR.
+  RateLimitPer5Minutes:
+    Type: Number
+    Default: 800
+
+Resources:
+  AdminAllowedIps:
+    Type: AWS::WAFv2::IPSet
+    Properties:
+      Name: wyd-admin-allowed-ips
+      Scope: REGIONAL
+      IPAddressVersion: IPV4
+      Addresses:
+        - !Ref AdminAllowedIpCidr
+
+  WebAcl:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: wyd-homestay-web-acl
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: wyd-homestay-web-acl
+        SampledRequestsEnabled: true
+      Rules:
+        - Name: block-admin-outside-allowed-ips
+          Priority: 0
+          Action:
+            Block: {}
+          Statement:
+            AndStatement:
+              Statements:
+                - ByteMatchStatement:
+                    SearchString: "/admin"
+                    FieldToMatch:
+                      UriPath: {}
+                    TextTransformations:
+                      - Priority: 0
+                        Type: NONE
+                    PositionalConstraint: STARTS_WITH
+                - NotStatement:
+                    Statement:
+                      IPSetReferenceStatement:
+                        Arn: !GetAtt AdminAllowedIps.Arn
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: block-admin-outside-allowed-ips
+            SampledRequestsEnabled: true
+
+        - Name: block-scanner-paths
+          Priority: 1
+          Action:
+            Block: {}
+          Statement:
+            OrStatement:
+              Statements:
+                - ByteMatchStatement:
+                    SearchString: "/.env"
+                    FieldToMatch:
+                      UriPath: {}
+                    TextTransformations:
+                      - Priority: 0
+                        Type: LOWERCASE
+                    PositionalConstraint: CONTAINS
+                - ByteMatchStatement:
+                    SearchString: "/wp-admin"
+                    FieldToMatch:
+                      UriPath: {}
+                    TextTransformations:
+                      - Priority: 0
+                        Type: LOWERCASE
+                    PositionalConstraint: CONTAINS
+                - ByteMatchStatement:
+                    SearchString: "/phpmyadmin"
+                    FieldToMatch:
+                      UriPath: {}
+                    TextTransformations:
+                      - Priority: 0
+                        Type: LOWERCASE
+                    PositionalConstraint: CONTAINS
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: block-scanner-paths
+            SampledRequestsEnabled: true
+
+        - Name: rate-limit-per-ip
+          Priority: 2
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              Limit: !Ref RateLimitPer5Minutes
+              AggregateKeyType: IP
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: rate-limit-per-ip
+            SampledRequestsEnabled: true
+
+        - Name: aws-common-rules
+          Priority: 10
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: aws-common-rules
+            SampledRequestsEnabled: true
+
+        - Name: aws-known-bad-inputs
+          Priority: 11
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: aws-known-bad-inputs
+            SampledRequestsEnabled: true
+
+Outputs:
+  WebAclArn:
+    Value: !GetAtt WebAcl.Arn

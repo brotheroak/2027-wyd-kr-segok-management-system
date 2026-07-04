@@ -1,0 +1,278 @@
+import React, { useState, useEffect } from "react";
+import { Heart, ClipboardList, Languages, ShieldCheck, Search, AlertCircle, XCircle, User, Sparkles } from "lucide-react";
+import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
+import { VolunteerPayload } from "../../types.js";
+import { api } from "../../api.js";
+import { calculateAge } from "../../utils/age.js";
+import { volunteerFields, chartColors, splitVolunteerLanguages } from "../../utils/constants.js";
+import { Metric } from "../../components/Metric.js";
+
+type VolunteerAdminPanelProps = {
+  token: string;
+  canViewPersonalData: boolean;
+  statusLabel: (value?: string) => string;
+  statusTone: (value?: string) => string;
+};
+
+export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, statusTone }: VolunteerAdminPanelProps) {
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("all");
+  const [data, setData] = useState<{ stats: any; volunteers: VolunteerPayload[] } | null>(null);
+  const [selected, setSelected] = useState<VolunteerPayload | null>(null);
+
+  const load = async () => {
+    const params = new URLSearchParams({ q: query, status });
+    const response = await api<{ stats: any; volunteers: VolunteerPayload[] }>(`/api/admin/volunteers?${params}`, {}, token);
+    setData(response);
+  };
+
+  useEffect(() => {
+    load().catch(() => setData({ stats: {}, volunteers: [] }));
+  }, [status]);
+
+  const volunteers = data?.volunteers ?? [];
+  const volunteerLanguageCounts = volunteers.reduce<Record<string, number>>((acc, volunteer) => {
+    splitVolunteerLanguages(volunteer.supportLanguage).forEach((language) => {
+      acc[language] = (acc[language] ?? 0) + 1;
+    });
+    return acc;
+  }, {});
+  const volunteerLanguageData = Object.entries(volunteerLanguageCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({ name, count }));
+  
+  const volunteerFieldCounts = volunteerFields.map((name) => ({
+    name,
+    value: volunteers.filter((volunteer) => volunteer.supportFields.includes(name)).length
+  }));
+
+  const updateStatus = async (volunteer: VolunteerPayload, nextStatus: string) => {
+    if (!volunteer.id) return;
+    const response = await api<{ volunteer: VolunteerPayload }>(`/api/admin/volunteers/${volunteer.id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: nextStatus })
+    }, token);
+    setSelected((current) => (current?.id === volunteer.id ? response.volunteer : current));
+    await load();
+  };
+
+  const addSampleData = async () => {
+    await api<{ inserted: number; volunteers: VolunteerPayload[] }>("/api/admin/volunteers/sample-data", { method: "POST" }, token);
+    await load();
+  };
+
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="bg-white p-6 rounded-2xl border border-gold-100 shadow-sm flex items-center gap-4">
+          <div className="bg-gold-50 p-3 rounded-xl text-gold-600">
+            <Heart className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-xs text-gray-500 block">총 자원봉사자 신청</span>
+            <strong className="font-serif font-black text-2xl text-catholic-navy">{data?.stats?.total ?? volunteers.length} 명</strong>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-2xl border border-gold-100 shadow-sm flex items-center gap-4">
+          <div className="bg-catholic-navy/5 p-3 rounded-xl text-catholic-navy">
+            <ClipboardList className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-xs text-gray-500 block">승인 대기</span>
+            <strong className="font-serif font-black text-2xl text-gold-600">{data?.stats?.submitted ?? 0} 명</strong>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-2xl border border-gold-100 shadow-sm flex items-center gap-4">
+          <div className="bg-emerald-50 p-3 rounded-xl text-emerald-600">
+            <Languages className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-xs text-gray-500 block">통역 지원 가능</span>
+            <strong className="font-serif font-black text-2xl text-emerald-700">{data?.stats?.languageSupport ?? 0} 명</strong>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-2xl border border-gold-100 shadow-sm flex items-center gap-4">
+          <div className="bg-rose-50 p-3 rounded-xl text-catholic-red">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-xs text-gray-500 block">의료 봉사 가능</span>
+            <strong className="font-serif font-black text-2xl text-catholic-navy">{data?.stats?.medicalSupport ?? 0} 명</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-3xl border border-gold-100 shadow-sm space-y-4">
+          <span className="font-serif font-bold text-gray-800 text-base block">자원봉사자 소통 언어 분포</span>
+          <div className="h-64 text-xs">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={volunteerLanguageData}>
+                <XAxis dataKey="name" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="count" fill="#c5a85c" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-gold-100 shadow-sm space-y-4">
+          <span className="font-serif font-bold text-gray-800 text-base block">자원봉사 지원 유형 비율</span>
+          <div className="h-64 text-xs flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={volunteerFieldCounts} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                  {volunteerFieldCounts.map((entry, index) => (
+                    <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-gold-100 overflow-hidden shadow-xl">
+        <div className="bg-gold-50/50 border-b border-gold-100 flex overflow-x-auto">
+          <span className="py-4 px-6 font-serif font-black text-lg text-catholic-navy flex items-center gap-2 shrink-0">
+            <Heart className="w-5 h-5 text-gold-600" /> 세곡동성당 자원봉사자 신청 일람표
+          </span>
+        </div>
+        <div className="p-6 bg-gray-50/40 border-b border-gold-100 grid grid-cols-1 md:grid-cols-5 gap-4 text-sm">
+          <label className="admin-search-label md:col-span-2 relative">
+            <Search className="w-5 h-5 text-gray-400 absolute left-3.5 top-3" />
+            <input
+              className="admin-search-input w-full bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && load()}
+              placeholder="성명, 연락처, 이메일, 접수번호 통합 검색"
+            />
+          </label>
+          <select
+            className="w-full px-3 py-2.5 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="all">모든 심사 상태</option>
+            <option value="submitted">승인 대기</option>
+            <option value="confirmed">최종 승인</option>
+            <option value="canceled">취소</option>
+          </select>
+          <button className="secondary" onClick={() => load()}>
+            조회
+          </button>
+          <button className="primary" onClick={addSampleData}>
+            샘플 데이터 추가
+          </button>
+        </div>
+        <div className="volunteer-admin-grid">
+          {volunteers.length === 0 ? (
+            <div className="p-16 text-center text-gray-400 space-y-2 md:col-span-2 xl:col-span-3">
+              <AlertCircle className="w-12 h-12 text-gray-300 mx-auto" />
+              <p className="font-bold">등록된 자원봉사자 신청이 없습니다.</p>
+            </div>
+          ) : (
+            volunteers.map((volunteer) => (
+              <article key={volunteer.id} className="volunteer-admin-card">
+                <div className="volunteer-admin-card-head">
+                  <div>
+                    <span>{volunteer.volunteerNo}</span>
+                    <strong>
+                      {volunteer.name} {volunteer.baptismalName ? `(${volunteer.baptismalName})` : ""}
+                    </strong>
+                  </div>
+                  <select
+                    value={volunteer.status}
+                    onChange={(e) => updateStatus(volunteer, e.target.value)}
+                    className={`status-control status-control-${statusTone(volunteer.status)}`}
+                  >
+                    <option value="submitted">대기</option>
+                    <option value="confirmed">승인</option>
+                    <option value="canceled">취소</option>
+                  </select>
+                </div>
+                <div className="volunteer-tags">
+                  {volunteer.supportFields.map((field) => (
+                    <span key={field}>{field}</span>
+                  ))}
+                </div>
+                <dl>
+                  <dt>연락처</dt>
+                  <dd>{volunteer.phone}</dd>
+                  <dt>활동 시간</dt>
+                  <dd>{volunteer.availability}</dd>
+                  <dt>언어</dt>
+                  <dd>{volunteer.supportLanguage || "-"}</dd>
+                </dl>
+                <button className="secondary" onClick={() => setSelected(volunteer)}>
+                  상세조회
+                </button>
+              </article>
+            ))
+          )}
+        </div>
+      </div>
+
+      {selected && (
+        <div className="fixed inset-0 z-50 bg-catholic-navy/70 backdrop-blur-sm p-4 flex items-center justify-center" onClick={() => setSelected(null)}>
+          <div
+            className="bg-white rounded-3xl max-w-3xl w-full border border-gold-200 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="bg-catholic-navy text-white px-6 py-5 flex items-center justify-between">
+              <div>
+                <span className={`status-badge status-badge-${statusTone(selected.status)}`}>{statusLabel(selected.status)}</span>
+                <h3 className="font-serif font-black text-2xl">{selected.name} 자원봉사자 상세</h3>
+                <p className="text-white/60 text-xs mt-1">{selected.volunteerNo}</p>
+              </div>
+              <button className="ghost text-white" onClick={() => setSelected(null)}>
+                <XCircle size={22} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Metric icon={<User />} label="연령" value={`만 ${calculateAge(selected.birthDate) || "XX"}세`} />
+                <Metric icon={<ClipboardList />} label="지원 분야" value={selected.supportFields.join(", ")} />
+                <Metric icon={<Sparkles />} label="활동 시간" value={selected.availability} />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {["submitted", "confirmed", "canceled"].map((next) => (
+                  <button key={next} className={`status-action status-action-${statusTone(next)}`} onClick={() => updateStatus(selected, next)}>
+                    {statusLabel(next)} 처리
+                  </button>
+                ))}
+              </div>
+              <dl className="details">
+                <dt>성명</dt>
+                <dd>
+                  {selected.name} {selected.baptismalName ? `(${selected.baptismalName})` : ""}
+                </dd>
+                <dt>성별</dt>
+                <dd>{selected.gender}</dd>
+                <dt>생년월일</dt>
+                <dd>{selected.birthDate}</dd>
+                <dt>연락처</dt>
+                <dd>{selected.phone}</dd>
+                <dt>이메일</dt>
+                <dd>{selected.email || "-"}</dd>
+                <dt>주소</dt>
+                <dd>
+                  {selected.address} {selected.addressDetail}
+                </dd>
+                <dt>지원 언어</dt>
+                <dd>{selected.supportLanguage || "-"}</dd>
+                <dt>봉사 경력 및 재능</dt>
+                <dd>{selected.experience}</dd>
+                <dt>신청일</dt>
+                <dd>{selected.appliedDate}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

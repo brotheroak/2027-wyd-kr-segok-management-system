@@ -1,0 +1,90 @@
+name: GCP Cloud Run Deploy (Scenario B)
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'k8s/**'
+      - 'argocd/**'
+      - 'docs/**'
+      - 'README.md'
+      - '.gitignore'
+
+jobs:
+  test-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run TypeScript Compiler Check (Typecheck)
+        run: npm run typecheck
+
+      - name: Run Unit Tests
+        run: npm run test
+
+  build-and-deploy:
+    needs: test-and-typecheck
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. Google Cloud 인증 (Service Account Key 사용)
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      # 2. Artifact Registry 로그인
+      - name: Configure Docker to use Artifact Registry
+        run: |
+          gcloud auth configure-docker asia-northeast3-docker.pkg.dev --quiet
+
+      # 3. Docker 이미지 빌드 및 푸시
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/wyd-homestay:${{ github.sha }}
+            asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/wyd-homestay:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 4. Cloud Run Job 실행하여 DB 마이그레이션 및 시딩 (선택사항)
+      # 환경변수나 Cloud SQL 커넥션이 설정된 Job이 미리 GCP 상에 존재해야 작동합니다.
+      - name: Run Database Migration Job
+        run: |
+          # 기존 wyh-db-setup Job의 컨테이너 이미지를 최신으로 교체 후 실행
+          gcloud run jobs update wyh-db-setup \
+            --image asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/wyd-homestay:${{ github.sha }} \
+            --region asia-northeast3 --quiet
+          
+          gcloud run jobs execute wyh-db-setup --region asia-northeast3 --wait
+
+      # 5. Cloud Run Service에 신규 이미지 배포 (기존 환경변수/연결 유지)
+      - name: Deploy to GCP Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: wyd-homestay
+          image: asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/wyd-homestay:${{ github.sha }}
+          region: asia-northeast3
