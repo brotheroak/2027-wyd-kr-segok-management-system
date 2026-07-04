@@ -306,7 +306,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
           <div className="member" key={index}>
             <div className="member-head">
               <strong>{index + 1}번 구성원</strong>
-              {form.members.length > 1 && (
+              {form.members.length > 1 && index > 0 && (
                 <button type="button" className="ghost danger" onClick={() => removeMember(index)}>
                   삭제
                 </button>
@@ -315,7 +315,11 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
             <div className="grid five">
               <label>
                 <FieldLabel required>관계</FieldLabel>
-                <input required value={member.relationship} onChange={(e) => updateMember(index, "relationship", e.target.value)} />
+                {index === 0 ? (
+                  <input required readOnly value="가족대표" className="disabled-input" style={{ backgroundColor: "#f3f4f6", cursor: "not-allowed" }} />
+                ) : (
+                  <Select value={member.relationship} onChange={(value) => updateMember(index, "relationship", value)} options={["배우자", "자녀", "부모", "기타"]} />
+                )}
               </label>
               <label>
                 <FieldLabel required>성명</FieldLabel>

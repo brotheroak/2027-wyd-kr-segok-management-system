@@ -57,6 +57,16 @@ export const applicationSchema = z.object({
     appliedDate: dateSchema,
     signatureName: z.string().min(2)
   })
+}).refine((data) => {
+  if (data.members.length === 0) return true;
+  // 1번 구성원은 '가족대표'로 고정
+  if (data.members[0].relationship !== "가족대표") return false;
+  // 가족대표는 유니크
+  const repCount = data.members.filter((m) => m.relationship === "가족대표").length;
+  return repCount === 1;
+}, {
+  message: "1번 구성원은 가족대표여야 하며, 가족대표는 단 한 명만 지정할 수 있습니다.",
+  path: ["members"]
 });
 
 export const volunteerSchema = z.object({
