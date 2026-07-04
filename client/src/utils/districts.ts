@@ -67,11 +67,11 @@ export const districtGuideSections: DistrictGuideSection[] = [
     name: "4구역",
     areas: ["세곡푸르지오", "효성해링턴코트"],
     bans: [
-      { ban: "4-1", description: "세곡푸르지오 일부 동" },
-      { ban: "4-2", description: "세곡푸르지오 일부 동" },
-      { ban: "4-3", description: "세곡푸르지오 일부 동" },
-      { ban: "4-4", description: "세곡푸르지오 일부 동" },
-      { ban: "4-5", description: "효성해링턴코트" }
+      { ban: "4-1", description: "푸르지오 201-204동" },
+      { ban: "4-2", description: "푸르지오 205-208동" },
+      { ban: "4-3", description: "푸르지오 209-212동" },
+      { ban: "4-4", description: "푸르지오 213-216동" },
+      { ban: "4-5", description: "효성 해링턴" }
     ]
   },
   {
@@ -79,9 +79,9 @@ export const districtGuideSections: DistrictGuideSection[] = [
     name: "5구역",
     areas: ["강남 LH 3단지", "강남브리즈힐"],
     bans: [
-      { ban: "5-1", description: "강남 LH 3단지 일부 동" },
-      { ban: "5-2", description: "강남 LH 3단지 일부 동" },
-      { ban: "5-3", description: "강남브리즈힐" }
+      { ban: "5-1", description: "강남 LH 3단지 301-307동" },
+      { ban: "5-2", description: "강남 LH 3단지 308-315동" },
+      { ban: "5-3", description: "강남브리즈힐 4단지" }
     ]
   },
   {
@@ -89,9 +89,9 @@ export const districtGuideSections: DistrictGuideSection[] = [
     name: "6구역",
     areas: ["강남 LH 강남힐스테이트"],
     bans: [
-      { ban: "6-1", description: "강남힐스테이트 일부 동" },
-      { ban: "6-2", description: "강남힐스테이트 일부 동" },
-      { ban: "6-3", description: "강남힐스테이트 일부 동" }
+      { ban: "6-1", description: "LH 강남힐스테이트 501동" },
+      { ban: "6-2", description: "LH 강남힐스테이트 502-503동" },
+      { ban: "6-3", description: "LH 강남힐스테이트 504-505동" }
     ]
   },
   {
@@ -99,10 +99,10 @@ export const districtGuideSections: DistrictGuideSection[] = [
     name: "7구역",
     areas: ["래미안 강남힐즈", "서울시니어스 강남타워"],
     bans: [
-      { ban: "7-1", description: "래미안 강남힐즈 일부 동" },
-      { ban: "7-2", description: "래미안 강남힐즈 일부 동" },
-      { ban: "7-3", description: "래미안 강남힐즈 일부 동" },
-      { ban: "7-4", description: "래미안 강남힐즈 일부 동 및 서울시니어스 강남타워" }
+      { ban: "7-1", description: "래미안 강남힐즈 601-605동" },
+      { ban: "7-2", description: "래미안 강남힐즈 606-610동" },
+      { ban: "7-3", description: "래미안 강남힐즈 611-615동" },
+      { ban: "7-4", description: "래미안 강남힐즈 616-620동, 서울시니어스강남타워" }
     ]
   },
   {
