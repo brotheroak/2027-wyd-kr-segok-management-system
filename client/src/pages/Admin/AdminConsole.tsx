@@ -179,7 +179,7 @@ export function AdminConsoleZip() {
                   const label = `2027 서울 WYD 세곡동성당:${email}`;
                   const issuer = `2027 서울 WYD 세곡동성당`;
                   const otpauthUri = `otpauth://totp/${encodeURIComponent(label)}?secret=${loginState.mfaSecret}&issuer=${encodeURIComponent(issuer)}`;
-                  const qrCodeUrl = `https://chart.googleapis.com/chart?chs=180x180&cht=qr&chl=${encodeURIComponent(otpauthUri)}&chld=M|0`;
+                  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(otpauthUri)}`;
                   return (
                     <div className="bg-gold-50 border border-gold-200 rounded-2xl p-4 text-xs space-y-2 text-gold-900 leading-relaxed">
                       <strong>⚠️ 구글 OTP(MFA) 초기 설정 안내</strong>
