@@ -18,6 +18,11 @@ type LoginState = {
   mfaSecret?: string;
 };
 
+type AdminLoginResponse = LoginState | {
+  token: string;
+  role: AdminRole;
+};
+
 type AdminUser = {
   id: string;
   email: string;
@@ -92,6 +97,18 @@ export function AdminConsoleZip() {
     return "일반 운영자";
   };
 
+  const completeLogin = async (response: { token: string; role: AdminRole }) => {
+    sessionStorage.setItem(ADMIN_TOKEN_KEY, response.token);
+    sessionStorage.setItem(ADMIN_ROLE_KEY, response.role);
+    setToken(response.token);
+    setRole(response.role);
+    resetLoginState();
+    if (response.role === "super_admin") {
+      const users = await api<{ admins: AdminUser[] }>("/api/admin/users", {}, response.token);
+      setAdminUsers(users.admins);
+    }
+  };
+
   const load = async (nextToken = token) => {
     if (!nextToken) return;
     const params = new URLSearchParams({
@@ -147,11 +164,13 @@ export function AdminConsoleZip() {
     setLoginError("");
     setBusy(true);
     try {
-      const response = await api<LoginState>("/api/admin/login", {
+      const response = await api<AdminLoginResponse>("/api/admin/login", {
         method: "POST",
         body: JSON.stringify({ email, password })
       });
-      if (response.mfaRequired) {
+      if ("token" in response) {
+        await completeLogin(response);
+      } else if (response.mfaRequired) {
         setLoginState(response);
       }
     } catch (error) {
@@ -170,15 +189,7 @@ export function AdminConsoleZip() {
         method: "POST",
         body: JSON.stringify({ email, password, code: otpCode })
       });
-      sessionStorage.setItem(ADMIN_TOKEN_KEY, response.token);
-      sessionStorage.setItem(ADMIN_ROLE_KEY, response.role);
-      setToken(response.token);
-      setRole(response.role);
-      resetLoginState();
-      if (response.role === "super_admin") {
-        const users = await api<{ admins: AdminUser[] }>("/api/admin/users", {}, response.token);
-        setAdminUsers(users.admins);
-      }
+      await completeLogin(response);
     } catch (error) {
       setLoginError((error as Error).message);
     } finally {

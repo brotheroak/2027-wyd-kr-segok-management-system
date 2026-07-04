@@ -5,7 +5,7 @@
 - 운영 전 `DATA_ENCRYPTION_KEY`를 긴 난수로 설정합니다.
 - 운영 중 `DATA_ENCRYPTION_KEY`를 바꾸지 않습니다.
 - 외부 공개 도메인은 `ALLOWED_ORIGINS`에 등록합니다.
-- 운영자 인증은 공용 PIN이 아니라 개별 계정 + TOTP MFA를 사용합니다.
+- 운영자 인증은 공용 PIN이 아니라 개별 계정을 사용하며, 원본 개인정보 접근 역할은 TOTP MFA를 추가로 사용합니다.
 - 새 DB는 앱 서버 시작 전에 `npm run db:setup`으로 초기화합니다.
 
 ## 2. 환경변수

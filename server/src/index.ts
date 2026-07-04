@@ -236,8 +236,24 @@ function canAccessPersonalData(session: Session) {
   return session.role === "privacy_admin" || session.role === "super_admin";
 }
 
+function requiresAdminMfa(role: AdminRole) {
+  return role === "privacy_admin" || role === "super_admin";
+}
+
 function isSuperAdmin(session: Session) {
   return session.role === "super_admin" && superAdminEmails.has(session.email.trim().toLowerCase());
+}
+
+async function createAdminSession(email: string, role: AdminRole) {
+  const token = nanoid(48);
+  await db.insert(tables.sessions).values({
+    token,
+    email: pii(email),
+    role,
+    expiresAt: addMinutes(adminSessionMinutes),
+    createdAt: nowIso()
+  });
+  return token;
 }
 
 async function logAudit(actor: string, action: string, applicationId?: string, detail?: unknown) {
@@ -1249,6 +1265,13 @@ app.post("/api/admin/login", async (req, res) => {
   }
 
   const castMfaEnabled = admin.mfaEnabled === true || admin.mfaEnabled === 1 || admin.mfaEnabled === "1";
+  const mustVerifyMfa = requiresAdminMfa(effectiveRole);
+
+  if (!mustVerifyMfa) {
+    const token = await createAdminSession(admin.email, effectiveRole);
+    await logAudit(effectiveRole, "admin_login", undefined, { email: admin.email, mfa: "not_required" });
+    return res.json({ token, role: effectiveRole });
+  }
 
   // 만약 OTP 코드가 입력되지 않은 경우 -> 1차 검증 성공 후 MFA 상태 반환
   if (!code) {
@@ -1272,16 +1295,9 @@ app.post("/api/admin/login", async (req, res) => {
     }).where(eq(tables.admins.id, admin.id));
   }
 
-  const token = nanoid(48);
-  await db.insert(tables.sessions).values({
-    token,
-    email: pii(admin.email),
-    role: effectiveRole,
-    expiresAt: addMinutes(adminSessionMinutes),
-    createdAt: nowIso()
-  });
+  const token = await createAdminSession(admin.email, effectiveRole);
 
-  await logAudit(effectiveRole, "admin_login", undefined, { email: admin.email });
+  await logAudit(effectiveRole, "admin_login", undefined, { email: admin.email, mfa: "verified" });
   res.json({ token, role: effectiveRole });
 });
 

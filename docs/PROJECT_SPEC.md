@@ -79,8 +79,10 @@
 ### 공통
 
 - URL: `/admin`
-- 관리자 로그인은 이메일, 비밀번호, TOTP MFA를 사용합니다.
-- 최초 MFA 미등록 계정은 로그인 과정에서 `mfa_secret`을 안내하고 OTP 앱 등록 후 6자리 코드를 검증합니다.
+- 관리자 로그인은 이메일과 비밀번호를 기본으로 사용합니다.
+- 가명/마스킹 정보만 보는 일반 운영자 `admin`은 MFA가 필수는 아닙니다.
+- 원본 개인정보에 접근 가능한 `privacy_admin`, `super_admin`은 TOTP MFA가 필수입니다.
+- MFA 필수 계정이 최초 MFA 미등록 상태이면 로그인 과정에서 `mfa_secret`을 안내하고 OTP 앱 등록 후 6자리 코드를 검증합니다.
 - 운영자 회원가입, 비밀번호 변경, 최고 관리자 승인 워크플로우를 제공합니다.
 - `brotheroak@gmail.com`, `livelab21@nate.com`은 고정 최고 관리자이며 다른 운영자가 권한을 변경할 수 없습니다.
 - 홈스테이와 자원봉사자는 탭으로 구분합니다.
@@ -138,7 +140,7 @@
 | POST | `/api/volunteers` | 자원봉사자 신청 생성 |
 | POST | `/api/auth/request-code` | 이메일/SMS 인증번호 요청 |
 | POST | `/api/auth/verify-code` | 인증번호 검증 |
-| POST | `/api/admin/login` | 관리자 로그인 및 MFA 검증 |
+| POST | `/api/admin/login` | 관리자 로그인 및 필요 시 MFA 검증 |
 | POST | `/api/admin/register` | 운영자 회원가입 요청 |
 | POST | `/api/admin/change-password` | 로그인한 운영자 비밀번호 변경 |
 | GET | `/api/admin/users` | 최고 관리자 운영자 목록 조회 |
