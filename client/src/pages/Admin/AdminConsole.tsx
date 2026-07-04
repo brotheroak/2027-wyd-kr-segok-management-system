@@ -456,7 +456,7 @@ export function AdminConsoleZip() {
   const statusLabel = (value?: string) => (value === "confirmed" ? "✅ 승인" : value === "canceled" ? "🚫 취소" : "⏳ 대기");
   const statusTone = (value?: string) => (value === "confirmed" ? "confirmed" : value === "canceled" ? "canceled" : "submitted");
   const districtSort = (a: string, b: string) => Number(a) - Number(b);
-  const districtOptionLabel = (no: string) => (no === "13" ? "구역외 (13구역)" : `${no}구역`);
+  const districtOptionLabel = (no: string) => (no === "99" ? "구역외 (99구역)" : `${no}구역`);
   const accountPanel = (
     <div className="bg-white rounded-3xl border border-gold-100 shadow-sm overflow-hidden">
       <div className="bg-gold-50/50 border-b border-gold-100 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -915,7 +915,7 @@ export function AdminConsoleZip() {
                     <td className="p-4 max-w-xs truncate text-xs">{item.representative.address}</td>
                     <td className="p-4 text-center text-xs">
                       <span className="inline-flex items-center justify-center px-2 py-1 rounded-lg border border-gold-200 bg-gold-50 text-gold-800 font-bold">
-                        {item.district?.label ?? "구역외 (13구역)"}
+                        {item.district?.label ?? "구역외 (99구역)"}
                       </span>
                     </td>
                     <td className="p-4 text-center font-bold text-gold-700 font-mono">
@@ -1115,7 +1115,7 @@ export function AdminConsoleZip() {
                 <Metric icon={<Users />} label="가족 구성" value={`${selected.members.length}명`} />
                 <Metric icon={<Home />} label="수용 인원" value={`${selected.homestay.capacity}명`} />
                 <Metric icon={<BedDouble />} label="침대" value={selected.homestay.hasBed ? "제공 가능" : "제공 어려움"} />
-                <Metric icon={<MapPinned />} label="구역/반" value={selected.district?.label ?? "구역외 (13구역)"} />
+                <Metric icon={<MapPinned />} label="구역/반" value={selected.district?.label ?? "구역외 (99구역)"} />
               </div>
               <div className="flex flex-wrap gap-2">
                 {["submitted", "confirmed", "canceled"].map((next) => (

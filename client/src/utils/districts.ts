@@ -8,12 +8,13 @@ export const districtBansByNo: Record<string, string[]> = {
   "5": ["5-1", "5-2", "5-3"],
   "6": ["6-1", "6-2", "6-3"],
   "7": ["7-1", "7-2", "7-3", "7-4"],
-  "8": ["8-1", "8-2", "8-3", "8-4"],
-  "9": ["9-1", "9-2", "9-3", "9-4"],
-  "10": ["10-1", "10-2"],
-  "11": ["11-1", "11-2", "11-3"],
-  "12": ["12-1", "12-2", "12-3", "12-4"],
-  "13": ["13-1"]
+  "8": ["8-1", "8-2", "8-3"],
+  "9": ["9-1", "9-2", "9-3"],
+  "10": ["10-1", "10-2", "10-3"],
+  "11": ["11-1", "11-2"],
+  "12": ["12-1", "12-2", "12-3"],
+  "13": ["13-1", "13-2", "13-3", "13-4"],
+  "99": ["99-1", "99-2"]
 };
 
 export const districtOptions = Object.keys(districtBansByNo);
@@ -108,75 +109,84 @@ export const districtGuideSections: DistrictGuideSection[] = [
   {
     no: "8",
     name: "8구역",
-    areas: ["못골마을", "교수마을", "쟁골마을", "자곡아이파크", "내강남 8단지", "오피스텔", "디아크리온 강남"],
+    areas: ["교수마을", "쟁골마을", "못골마을"],
     bans: [
-      { ban: "8-1", description: "교수/쟁골/못골마을 및 오피스텔" },
-      { ban: "8-2", description: "자곡아이파크 및 강남 LH 8단지" },
-      { ban: "8-3", description: "LH 행복주택 1단지 및 디아크리온" },
-      { ban: "8-4", description: "LH 행복주택 2단지" }
+      { ban: "8-1", description: "교수마을 밤고개로12길-14길" },
+      { ban: "8-2", description: "자곡로7길 8~16-2, 16-4, 16-8, 16-10, 16-12, 16-14" },
+      { ban: "8-3", description: "자곡로7길 16-1, 16-3, 16-5, 16-9, 16-11, 16-13~36-9" }
     ]
   },
   {
     no: "9",
     name: "9구역",
-    areas: ["율현동 방죽1마을", "한신휴플러스 6단지"],
+    areas: ["강남아이파크 7단지", "강남 LH 8단지", "오피스텔"],
     bans: [
-      { ban: "9-1", description: "한신휴플러스 6단지" },
-      { ban: "9-2", description: "방죽1마을 밤고개로24길 일대" },
-      { ban: "9-3", description: "방죽1마을 일대" },
-      { ban: "9-4", description: "밤고개로26길 일대" }
+      { ban: "9-1", description: "강남아이파크 7단지 701-705동" },
+      { ban: "9-2", description: "강남아이파크 7단지 706-710동" },
+      { ban: "9-3", description: "강남 LH 8단지, 유탑유블래스, 더샵라르고 등 오피스텔" }
     ]
   },
   {
     no: "10",
     name: "10구역",
-    areas: ["율현동 방죽마을", "한신휴플러스 8단지"],
+    areas: ["율현동 방죽1마을", "한신휴플러스 6단지"],
     bans: [
-      { ban: "10-1", description: "방죽마을 밤고개로23길 일대" },
-      { ban: "10-2", description: "한신휴플러스 8단지" }
+      { ban: "10-1", description: "한신휴플러스 6단지" },
+      { ban: "10-2", description: "방죽1마을 밤고개로24길 20~66-18" },
+      { ban: "10-3", description: "방죽1마을 밤고개로24길 75~87" }
     ]
   },
   {
     no: "11",
     name: "11구역",
-    areas: ["자곡동 래미안포레"],
+    areas: ["율현동 방죽마을", "한신휴플러스 8단지"],
     bans: [
-      { ban: "11-1", description: "래미안포레 일부 동" },
-      { ban: "11-2", description: "래미안포레 일부 동" },
-      { ban: "11-3", description: "래미안포레 일부 동" }
+      { ban: "11-1", description: "방죽마을 밤고개로23길 7~20" },
+      { ban: "11-2", description: "한신휴플러스 8단지" }
     ]
   },
   {
     no: "12",
     name: "12구역",
-    areas: ["자곡동 한양수자인", "율현리엔파크"],
+    areas: ["자곡동 래미안포레"],
     bans: [
-      { ban: "12-1", description: "한양수자인 일부 동" },
-      { ban: "12-2", description: "한양수자인 일부 동" },
-      { ban: "12-3", description: "한양수자인 일부 동" },
-      { ban: "12-4", description: "한양수자인 일부 동 및 율현리엔파크" }
+      { ban: "12-1", description: "래미안포레 301-304동" },
+      { ban: "12-2", description: "래미안포레 305-308동" },
+      { ban: "12-3", description: "래미안포레 309-315동" }
     ]
   },
   {
     no: "13",
     name: "13구역",
-    areas: ["구역외"],
+    areas: ["자곡동 한양수자인"],
     bans: [
-      { ban: "13-1", description: "세곡동성당 구역반 편성표에 매칭되지 않는 주소" }
+      { ban: "13-1", description: "한양수자인 401-407동" },
+      { ban: "13-2", description: "한양수자인 408-413동" },
+      { ban: "13-3", description: "한양수자인 414-419동" },
+      { ban: "13-4", description: "한양수자인 420-426동" }
+    ]
+  },
+  {
+    no: "99",
+    name: "99구역",
+    areas: ["구역 외"],
+    bans: [
+      { ban: "99-1", description: "세곡동성당 구역반 편성표에 매칭되지 않는 주소" },
+      { ban: "99-2", description: "구역 외 보조 분류" }
     ]
   }
 ];
 
 export function districtName(no: string) {
-  return no === "13" ? "구역외" : `${no}구역`;
+  return no === "99" ? "구역외" : `${no}구역`;
 }
 
 export function districtLabel(no: string, ban: string) {
-  return no === "13" ? "구역외 (13구역)" : `${districtName(no)} ${ban}반`;
+  return no === "99" ? "구역외 (99구역)" : `${districtName(no)} ${ban}반`;
 }
 
 export function makeManualDistrict(no: string, ban?: string): DistrictInfo {
-  const allowedBans = districtBansByNo[no] ?? districtBansByNo["13"];
+  const allowedBans = districtBansByNo[no] ?? districtBansByNo["99"];
   const selectedBan = ban && allowedBans.includes(ban) ? ban : allowedBans[0];
   return {
     no,

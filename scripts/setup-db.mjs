@@ -71,10 +71,10 @@ async function setupPg() {
         postcode TEXT,
         address TEXT NOT NULL,
         address_detail TEXT,
-        district_no TEXT NOT NULL DEFAULT '13',
+        district_no TEXT NOT NULL DEFAULT '99',
         district_name TEXT NOT NULL DEFAULT '구역외',
-        district_ban TEXT NOT NULL DEFAULT '13-1',
-        district_label TEXT NOT NULL DEFAULT '구역외 (13구역)',
+        district_ban TEXT NOT NULL DEFAULT '99-1',
+        district_label TEXT NOT NULL DEFAULT '구역외 (99구역)',
         district_confidence TEXT NOT NULL DEFAULT 'low',
         district_reason TEXT,
         household_total INTEGER NOT NULL,
@@ -182,12 +182,22 @@ async function setupPg() {
       ALTER TABLE admins ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'approved';
       ALTER TABLE admins ADD COLUMN IF NOT EXISTS approved_by TEXT;
       ALTER TABLE admins ADD COLUMN IF NOT EXISTS approved_at TEXT;
-      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_no TEXT NOT NULL DEFAULT '13';
+      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_no TEXT NOT NULL DEFAULT '99';
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_name TEXT NOT NULL DEFAULT '구역외';
-      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_ban TEXT NOT NULL DEFAULT '13-1';
-      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_label TEXT NOT NULL DEFAULT '구역외 (13구역)';
+      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_ban TEXT NOT NULL DEFAULT '99-1';
+      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_label TEXT NOT NULL DEFAULT '구역외 (99구역)';
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_confidence TEXT NOT NULL DEFAULT 'low';
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_reason TEXT;
+      ALTER TABLE homestay_applications ALTER COLUMN district_no SET DEFAULT '99';
+      ALTER TABLE homestay_applications ALTER COLUMN district_name SET DEFAULT '구역외';
+      ALTER TABLE homestay_applications ALTER COLUMN district_ban SET DEFAULT '99-1';
+      ALTER TABLE homestay_applications ALTER COLUMN district_label SET DEFAULT '구역외 (99구역)';
+      UPDATE homestay_applications
+      SET district_no = '99',
+          district_ban = '99-1',
+          district_label = '구역외 (99구역)'
+      WHERE district_no = '13'
+        AND (district_name = '구역외' OR district_label = '구역외 (13구역)');
 
       CREATE INDEX IF NOT EXISTS idx_homestay_applications_email ON homestay_applications(email);
       CREATE INDEX IF NOT EXISTS idx_homestay_applications_lookup ON homestay_applications(rep_name, phone);
@@ -264,10 +274,10 @@ function setupSqlite() {
         postcode TEXT,
         address TEXT NOT NULL,
         address_detail TEXT,
-        district_no TEXT NOT NULL DEFAULT '13',
+        district_no TEXT NOT NULL DEFAULT '99',
         district_name TEXT NOT NULL DEFAULT '구역외',
-        district_ban TEXT NOT NULL DEFAULT '13-1',
-        district_label TEXT NOT NULL DEFAULT '구역외 (13구역)',
+        district_ban TEXT NOT NULL DEFAULT '99-1',
+        district_label TEXT NOT NULL DEFAULT '구역외 (99구역)',
         district_confidence TEXT NOT NULL DEFAULT 'low',
         district_reason TEXT,
         household_total INTEGER NOT NULL,
@@ -387,10 +397,10 @@ function setupSqlite() {
       db.exec("ALTER TABLE homestay_applications ADD COLUMN applicant_pin TEXT NOT NULL DEFAULT ''");
     }
     const districtColumns = [
-      ["district_no", "TEXT NOT NULL DEFAULT '13'"],
+      ["district_no", "TEXT NOT NULL DEFAULT '99'"],
       ["district_name", "TEXT NOT NULL DEFAULT '구역외'"],
-      ["district_ban", "TEXT NOT NULL DEFAULT '13-1'"],
-      ["district_label", "TEXT NOT NULL DEFAULT '구역외 (13구역)'"],
+      ["district_ban", "TEXT NOT NULL DEFAULT '99-1'"],
+      ["district_label", "TEXT NOT NULL DEFAULT '구역외 (99구역)'"],
       ["district_confidence", "TEXT NOT NULL DEFAULT 'low'"],
       ["district_reason", "TEXT"]
     ];
@@ -399,6 +409,14 @@ function setupSqlite() {
         db.exec(`ALTER TABLE homestay_applications ADD COLUMN ${name} ${definition}`);
       }
     }
+    db.exec(`
+      UPDATE homestay_applications
+      SET district_no = '99',
+          district_ban = '99-1',
+          district_label = '구역외 (99구역)'
+      WHERE district_no = '13'
+        AND (district_name = '구역외' OR district_label = '구역외 (13구역)')
+    `);
     const volunteerColumns = db.prepare("PRAGMA table_info(volunteers)").all();
     if (!volunteerColumns.some((column) => column.name === "applicant_pin")) {
       db.exec("ALTER TABLE volunteers ADD COLUMN applicant_pin TEXT NOT NULL DEFAULT ''");

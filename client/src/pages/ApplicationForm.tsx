@@ -356,7 +356,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
               value={selectedDistrictNo}
               onChange={updateDistrictNo}
               options={districtOptions}
-              renderOption={(no) => (no === "13" ? "구역외 (13구역)" : `${districtName(no)}`)}
+              renderOption={(no) => (no === "99" ? "구역외 (99구역)" : `${districtName(no)}`)}
             />
           </label>
           <label>
@@ -365,7 +365,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
               value={selectedDistrictBan}
               onChange={updateDistrictBan}
               options={selectedDistrictBans}
-              renderOption={(ban) => selectedDistrictNo === "13" ? "구역외" : districtLabel(selectedDistrictNo, ban)}
+              renderOption={(ban) => selectedDistrictNo === "99" ? "구역외" : districtLabel(selectedDistrictNo, ban)}
             />
           </label>
           <button type="button" className="secondary district-auto-button" onClick={resetDistrictAuto}>

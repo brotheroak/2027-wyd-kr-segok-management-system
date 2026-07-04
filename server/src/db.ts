@@ -84,12 +84,22 @@ export async function initDb() {
         ALTER TABLE admins ADD COLUMN IF NOT EXISTS approved_at TEXT;
       `);
       await client.query(`
-        ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_no TEXT NOT NULL DEFAULT '13';
+        ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_no TEXT NOT NULL DEFAULT '99';
         ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_name TEXT NOT NULL DEFAULT '구역외';
-        ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_ban TEXT NOT NULL DEFAULT '13-1';
-        ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_label TEXT NOT NULL DEFAULT '구역외 (13구역)';
+        ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_ban TEXT NOT NULL DEFAULT '99-1';
+        ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_label TEXT NOT NULL DEFAULT '구역외 (99구역)';
         ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_confidence TEXT NOT NULL DEFAULT 'low';
         ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_reason TEXT;
+        ALTER TABLE homestay_applications ALTER COLUMN district_no SET DEFAULT '99';
+        ALTER TABLE homestay_applications ALTER COLUMN district_name SET DEFAULT '구역외';
+        ALTER TABLE homestay_applications ALTER COLUMN district_ban SET DEFAULT '99-1';
+        ALTER TABLE homestay_applications ALTER COLUMN district_label SET DEFAULT '구역외 (99구역)';
+        UPDATE homestay_applications
+        SET district_no = '99',
+            district_ban = '99-1',
+            district_label = '구역외 (99구역)'
+        WHERE district_no = '13'
+          AND (district_name = '구역외' OR district_label = '구역외 (13구역)');
         CREATE INDEX IF NOT EXISTS idx_homestay_applications_district ON homestay_applications(district_no, district_ban);
       `);
       await client.query("CREATE INDEX IF NOT EXISTS idx_verification_codes_email_hash ON verification_codes(email_hash)");
@@ -129,10 +139,10 @@ export async function initDb() {
       }
       const applicationColumns = sqliteDbInstance.prepare("PRAGMA table_info(homestay_applications)").all() as Array<{ name: string }>;
       const districtColumns: Array<[string, string]> = [
-        ["district_no", "TEXT NOT NULL DEFAULT '13'"],
+        ["district_no", "TEXT NOT NULL DEFAULT '99'"],
         ["district_name", "TEXT NOT NULL DEFAULT '구역외'"],
-        ["district_ban", "TEXT NOT NULL DEFAULT '13-1'"],
-        ["district_label", "TEXT NOT NULL DEFAULT '구역외 (13구역)'"],
+        ["district_ban", "TEXT NOT NULL DEFAULT '99-1'"],
+        ["district_label", "TEXT NOT NULL DEFAULT '구역외 (99구역)'"],
         ["district_confidence", "TEXT NOT NULL DEFAULT 'low'"],
         ["district_reason", "TEXT"]
       ];
@@ -141,6 +151,14 @@ export async function initDb() {
           sqliteDbInstance.exec(`ALTER TABLE homestay_applications ADD COLUMN ${name} ${definition}`);
         }
       }
+      sqliteDbInstance.exec(`
+        UPDATE homestay_applications
+        SET district_no = '99',
+            district_ban = '99-1',
+            district_label = '구역외 (99구역)'
+        WHERE district_no = '13'
+          AND (district_name = '구역외' OR district_label = '구역외 (13구역)')
+      `);
       sqliteDbInstance.exec("CREATE INDEX IF NOT EXISTS idx_homestay_applications_district ON homestay_applications(district_no, district_ban)");
       sqliteDbInstance.exec("CREATE INDEX IF NOT EXISTS idx_verification_codes_email_hash ON verification_codes(email_hash)");
       console.log("[DB] SQLite database is ready and schema validation passed.");

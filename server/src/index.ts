@@ -529,12 +529,12 @@ async function rowToApplication(row: any) {
   const address = plain(row.address);
   const addressDetail = plain(row.addressDetail);
   const computedDistrict = assignDistrict(address, addressDetail);
-  const district = (row.districtConfidence === "manual" || computedDistrict.no === "13") && row.districtNo
+  const district = (row.districtConfidence === "manual" || computedDistrict.no === "99") && row.districtNo
     ? {
         no: row.districtNo,
-        name: row.districtName ?? (row.districtNo === "13" ? "구역외" : `${row.districtNo}구역`),
+        name: row.districtName ?? (row.districtNo === "99" ? "구역외" : `${row.districtNo}구역`),
         ban: row.districtBan ?? `${row.districtNo}-1`,
-        label: row.districtLabel ?? (row.districtNo === "13" ? "구역외 (13구역)" : `${row.districtNo}구역 ${row.districtBan ?? `${row.districtNo}-1`}반`),
+        label: row.districtLabel ?? (row.districtNo === "99" ? "구역외 (99구역)" : `${row.districtNo}구역 ${row.districtBan ?? `${row.districtNo}-1`}반`),
         confidence: row.districtConfidence ?? "low",
         reason: row.districtReason ?? ""
       }

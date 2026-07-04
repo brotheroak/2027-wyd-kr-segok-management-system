@@ -18,11 +18,11 @@ export function AdminMaskedDetail({ application }: AdminMaskedDetailProps) {
         <Metric icon={<Home />} label="수용 인원" value={`${application.homestay.capacity}명`} />
         <Metric icon={<BedDouble />} label="침대" value={application.homestay.hasBed ? "제공 가능" : "제공 어려움"} />
         <Metric icon={<Languages />} label="언어" value={application.homestay.languages.join(", ")} />
-        <Metric icon={<MapPinned />} label="구역/반" value={application.district?.label ?? "구역외 (13구역)"} />
+        <Metric icon={<MapPinned />} label="구역/반" value={application.district?.label ?? "구역외 (99구역)"} />
       </div>
       <dl className="details">
         <dt>구역반</dt>
-        <dd>{application.district?.label ?? "구역외 (13구역)"}</dd>
+        <dd>{application.district?.label ?? "구역외 (99구역)"}</dd>
         <dt>대표</dt>
         <dd>{application.representative.name}</dd>
         <dt>연락처</dt>
