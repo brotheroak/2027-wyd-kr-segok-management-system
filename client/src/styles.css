@@ -328,7 +328,7 @@ button.brand:focus-visible .brand-mark {
 }
 
 .admin-shell {
-  width: min(1500px, 100%);
+  width: min(1500px, calc(100% - (var(--page-gutter) * 2)));
   background:
     linear-gradient(180deg, rgba(251, 248, 241, 0.5) 0%, rgba(255, 255, 255, 0) 360px);
 }
@@ -339,6 +339,10 @@ button.brand:focus-visible .brand-mark {
 
 .admin-topbar {
   margin-bottom: 20px;
+}
+
+.admin-topbar-inner {
+  padding: 0 12px;
 }
 
 .rail {

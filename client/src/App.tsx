@@ -194,18 +194,20 @@ export function App() {
     return (
       <div className="shell admin-shell">
         <header className="topbar admin-topbar">
-          <div className="brand">
-            <div className="brand-mark"><Church size={34} /></div>
-            <div>
-              <p>2027 서울 WYD 세곡동 성당 위원회</p>
-              <h1>운영자 콘솔</h1>
+          <div className="topbar-inner admin-topbar-inner">
+            <div className="brand">
+              <div className="brand-mark"><Church size={34} /></div>
+              <div>
+                <p>2027 서울 WYD 세곡동 성당 위원회</p>
+                <h1>운영자 콘솔</h1>
+              </div>
             </div>
-          </div>
-          <div className="accessibility" aria-label="글자 크기 조절">
-            <Accessibility size={20} />
-            <button onClick={() => setFontScale(0.95)} className={fontScale === 0.95 ? "active" : ""}>가</button>
-            <button onClick={() => setFontScale(1)} className={fontScale === 1 ? "active" : ""}>가</button>
-            <button onClick={() => setFontScale(1.12)} className={fontScale === 1.12 ? "active" : ""}>가</button>
+            <div className="accessibility" aria-label="글자 크기 조절">
+              <Accessibility size={20} />
+              <button onClick={() => setFontScale(0.95)} className={fontScale === 0.95 ? "active" : ""}>가</button>
+              <button onClick={() => setFontScale(1)} className={fontScale === 1 ? "active" : ""}>가</button>
+              <button onClick={() => setFontScale(1.12)} className={fontScale === 1.12 ? "active" : ""}>가</button>
+            </div>
           </div>
         </header>
         <main className="admin-page">
