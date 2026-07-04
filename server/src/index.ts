@@ -1839,9 +1839,84 @@ app.get("/api/admin/match-candidates", requireAdmin, async (req, res) => {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const clientDist = path.resolve(__dirname, "../client");
-if (fs.existsSync(path.join(clientDist, "index.html"))) {
-  app.use(express.static(clientDist));
-  app.get("*", (_req, res) => res.sendFile(path.join(clientDist, "index.html")));
+const indexHtmlPath = path.join(clientDist, "index.html");
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function publicOrigin(req: express.Request) {
+  const configured = (process.env.PUBLIC_SITE_URL ?? "").trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  const proto = String(req.headers["x-forwarded-proto"] ?? req.protocol ?? "https").split(",")[0].trim();
+  return `${proto}://${req.get("host")}`;
+}
+
+function absolutePublicUrl(req: express.Request, pathname: string) {
+  return `${publicOrigin(req)}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+}
+
+function buildOgMeta(req: express.Request) {
+  const isAdminRoute = req.path.startsWith("/admin");
+  const pathname = isAdminRoute ? "/admin" : req.path || "/";
+  const profile = isAdminRoute
+    ? {
+        title: "27 서울 WYD 운영자 콘솔",
+        description: "홈스테이와 자원봉사 신청 현황을 안전하게 관리하는 세곡동성당 운영자 화면",
+        image: "/images/og-admin-preview.png",
+        robots: "noindex,nofollow"
+      }
+    : {
+        title: "27 서울 WYD 세곡동성당",
+        description: "홈스테이와 자원봉사 신청을 위한 세곡동성당 공동체 안내",
+        image: "/images/og-preview.png",
+        robots: "index,follow"
+      };
+  const url = absolutePublicUrl(req, pathname);
+  const image = absolutePublicUrl(req, profile.image);
+  const tags = [
+    ["name", "description", profile.description],
+    ["name", "robots", profile.robots],
+    ["property", "og:type", "website"],
+    ["property", "og:locale", "ko_KR"],
+    ["property", "og:site_name", "27 서울 WYD 세곡동성당"],
+    ["property", "og:title", profile.title],
+    ["property", "og:description", profile.description],
+    ["property", "og:url", url],
+    ["property", "og:image", image],
+    ["property", "og:image:secure_url", image],
+    ["property", "og:image:type", "image/png"],
+    ["property", "og:image:width", "1200"],
+    ["property", "og:image:height", "630"],
+    ["property", "og:image:alt", profile.title],
+    ["name", "twitter:card", "summary_large_image"],
+    ["name", "twitter:title", profile.title],
+    ["name", "twitter:description", profile.description],
+    ["name", "twitter:image", image]
+  ];
+  return tags
+    .map(([kind, key, value]) => `<meta ${kind}="${escapeHtml(key)}" content="${escapeHtml(value)}" />`)
+    .join("\n    ");
+}
+
+function sendSpaIndex(req: express.Request, res: express.Response) {
+  const html = fs.readFileSync(indexHtmlPath, "utf8");
+  const title = req.path.startsWith("/admin") ? "27 서울 WYD 운영자 콘솔" : "27 서울 WYD 세곡동성당";
+  const ogMeta = `<!-- OG_META_START -->\n    ${buildOgMeta(req)}\n    <!-- OG_META_END -->`;
+  const rendered = html
+    .replace(/<!-- OG_META_START -->[\s\S]*?<!-- OG_META_END -->/, ogMeta)
+    .replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(title)}</title>`);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(rendered);
+}
+
+if (fs.existsSync(indexHtmlPath)) {
+  app.use(express.static(clientDist, { index: false }));
+  app.get("*", sendSpaIndex);
 }
 
 async function reapExpiredSessions() {
