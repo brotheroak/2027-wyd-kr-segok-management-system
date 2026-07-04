@@ -1479,6 +1479,15 @@ input:focus, select:focus, textarea:focus {
   font-size: 1.02em;
 }
 
+.intro-official-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.intro-official-link {
+  text-decoration: none;
+}
+
 .full {
   width: 100%;
 }

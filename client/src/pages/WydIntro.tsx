@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChevronRight, HeartHandshake, Compass, Users, Sparkles, MapPin, Calendar, Award } from "lucide-react";
+import { ChevronRight, HeartHandshake, Compass, Users, Sparkles, MapPin, Calendar, Award, ExternalLink } from "lucide-react";
 
 type WydIntroProps = {
   onStartApply: (type: "homestay" | "volunteer") => void;
@@ -31,6 +31,11 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
         <p className="hero-verse text-lg font-serif text-[var(--gold-600)] italic">
           (요한 복음서 16장 33절)
         </p>
+        <div className="intro-official-actions">
+          <a className="secondary large intro-official-link" href="https://wydseoul.org/" target="_blank" rel="noreferrer">
+            공식 홈페이지 바로가기 <ExternalLink size={18} />
+          </a>
+        </div>
       </section>
 
       {/* Tabs Selector */}
