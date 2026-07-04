@@ -2591,9 +2591,7 @@ td small {
 }
 
 .footer-brand strong {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
+  display: block;
   margin-bottom: 12px;
   color: #f4f6fb;
   font-size: 1.26rem;
@@ -2602,8 +2600,15 @@ td small {
   word-break: keep-all;
 }
 
-.footer-brand svg {
-  color: var(--gold);
+.footer-parish-logo {
+  display: block;
+  width: min(100%, 286px);
+  height: auto;
+  margin: 0 0 18px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
 }
 
 .footer-links {

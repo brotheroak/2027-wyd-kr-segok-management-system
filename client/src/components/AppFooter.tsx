@@ -1,18 +1,18 @@
 import React from "react";
-import { Church } from "lucide-react";
 
 type AppFooterProps = {
   navigate: (path: string) => void;
 };
+
+const segokParishLogo = "/images/segok-parish-logo.png";
 
 export function AppFooter({ navigate }: AppFooterProps) {
   return (
     <footer className="app-footer">
       <div className="shell footer-inner">
         <div className="footer-brand">
-          <strong>
-            <Church size={28} /> 2027 서울 WYD 세곡동 성당 위원회
-          </strong>
+          <img className="footer-parish-logo" src={segokParishLogo} alt="천주교 서울대교구 세곡동 성당" />
+          <strong>2027 서울 WYD 세곡동 성당 위원회</strong>
           <p>서울특별시 강남구 헌릉로618길 34 세곡동성당</p>
           <p>02-459-8211</p>
           <p>젊은이 순례자를 환영하는 공동체적 신앙 활동입니다.</p>
