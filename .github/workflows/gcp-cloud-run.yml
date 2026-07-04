@@ -1,4 +1,5 @@
 name: GCP Cloud Run Deploy (Scenario B)
+# Force trigger: 2026-07-04 v2
 
 on:
   push:
