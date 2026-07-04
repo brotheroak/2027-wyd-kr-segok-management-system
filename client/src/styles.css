@@ -47,6 +47,11 @@
 
 * { box-sizing: border-box; }
 
+html {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
 body {
   margin: 0;
   font-size: calc(16px * var(--font-scale));
