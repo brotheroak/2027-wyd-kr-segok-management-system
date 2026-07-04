@@ -2,7 +2,7 @@ FROM node:24-bookworm-slim AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --loglevel=error
 
 COPY tsconfig.json tsconfig.server.json vite.config.ts ./
 COPY client ./client
@@ -10,7 +10,7 @@ COPY server ./server
 COPY scripts ./scripts
 RUN npm run build
 
-RUN npm prune --omit=dev
+RUN npm prune --omit=dev --loglevel=error
 
 FROM node:24-bookworm-slim AS runtime
 ENV NODE_ENV=production \
