@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { CheckCircle2, User, Users, Home, FileText, Heart, Search, ChevronLeft, ChevronRight, Church, ShieldCheck } from "lucide-react";
+import { CheckCircle2, User, Users, Home, FileText, Heart, Search, ChevronLeft, ChevronRight, Church, ShieldCheck, MapPinned, XCircle } from "lucide-react";
 import { ApplicationPayload, DistrictInfo, FamilyMember } from "../types.js";
 import { api } from "../api.js";
 import { openKakaoPostcode } from "../utils/postcode.js";
 import { today, languages, formatKoreanPhoneNumber } from "../utils/constants.js";
-import { districtBansByNo, districtLabel, districtOptions, districtName, makeManualDistrict } from "../utils/districts.js";
+import { districtBansByNo, districtGuideSections, districtLabel, districtOptions, districtName, makeManualDistrict } from "../utils/districts.js";
 import { SectionTitle, FieldLabel, DateSelect, RequiredMark, Select } from "../components/FormFields.js";
 import { Toggle } from "../components/Toggle.js";
 
@@ -23,6 +23,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
   const [error, setError] = useState("");
   const [pinConfirm, setPinConfirm] = useState(initial.representative.applicantPin ?? "");
   const [districtManual, setDistrictManual] = useState(initial.district?.confidence === "manual");
+  const [districtGuideOpen, setDistrictGuideOpen] = useState(false);
   const stepBodyRef = useRef<HTMLDivElement>(null);
   const districtRequestId = useRef(0);
 
@@ -372,6 +373,9 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
           </button>
         </div>
         {form.district?.reason && <p>{form.district.reason}</p>}
+        <button type="button" className="district-guide-link" onClick={() => setDistrictGuideOpen(true)}>
+          <MapPinned size={16} /> 구역반 편성 안내 보기
+        </button>
       </div>
       <div className="pin-help-box">
         <ShieldCheck size={20} />
@@ -657,6 +661,47 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
             </button>
           </div>
         </>
+      )}
+      {districtGuideOpen && (
+        <div className="district-guide-modal" role="dialog" aria-modal="true" aria-labelledby="district-guide-title" onClick={() => setDistrictGuideOpen(false)}>
+          <div className="district-guide-dialog" onClick={(event) => event.stopPropagation()}>
+            <div className="district-guide-head">
+              <div>
+                <span>세곡동성당 구역반 편성 기준</span>
+                <h3 id="district-guide-title">구역반 안내</h3>
+              </div>
+              <button type="button" className="ghost" onClick={() => setDistrictGuideOpen(false)} aria-label="구역반 안내 닫기">
+                <XCircle size={22} />
+              </button>
+            </div>
+            <div className="district-guide-current">
+              <MapPinned size={18} />
+              <span>현재 입력 주소 기준</span>
+              <strong>{form.district?.label ?? "주소 입력 후 자동 판별"}</strong>
+            </div>
+            <div className="district-guide-body">
+              {districtGuideSections.map((section) => (
+                <section
+                  key={section.no}
+                  className={section.no === selectedDistrictNo ? "district-guide-section active" : "district-guide-section"}
+                >
+                  <div className="district-guide-section-head">
+                    <strong>{section.name}</strong>
+                    <span>{section.areas.join(" · ")}</span>
+                  </div>
+                  <dl>
+                    {section.bans.map((item) => (
+                      <React.Fragment key={item.ban}>
+                        <dt>{item.ban}반</dt>
+                        <dd>{item.description}</dd>
+                      </React.Fragment>
+                    ))}
+                  </dl>
+                </section>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </form>
   );
