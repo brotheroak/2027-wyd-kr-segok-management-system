@@ -109,15 +109,23 @@ jobs:
 
       # 5. Cloud Run Service에 신규 이미지 배포 (기존 환경변수/연결 유지)
       - name: Deploy to GCP Cloud Run
+        shell: bash
         run: |
-          gcloud run deploy wyd-2027-kr-segok-mgmt \
-            --image asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/wyd-2027-kr-segok-mgmt:${{ github.sha }} \
-            --region asia-northeast3 \
-            --min-instances 0 \
-            --max-instances 3 \
-            --concurrency 50 \
-            --cpu 1 \
-            --memory 512Mi \
-            --timeout 30s \
-            --update-env-vars MAX_CONCURRENT_REQUESTS=120,RATE_LIMIT_WINDOW_MS=60000,RATE_LIMIT_MAX=120,USER_SESSION_MINUTES=5,ADMIN_SESSION_MINUTES=5,TRUST_PROXY=1 \
-            --quiet
+          for attempt in 1 2 3; do
+            echo "Cloud Run deploy attempt ${attempt}/3"
+            if gcloud run deploy wyd-2027-kr-segok-mgmt \
+              --image asia-northeast3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}/wyd-2027-kr-segok-mgmt:${{ github.sha }} \
+              --region asia-northeast3 \
+              --min-instances 0 \
+              --max-instances 3 \
+              --concurrency 50 \
+              --cpu 1 \
+              --memory 512Mi \
+              --timeout 30s \
+              --update-env-vars MAX_CONCURRENT_REQUESTS=120,RATE_LIMIT_WINDOW_MS=60000,RATE_LIMIT_MAX=120,USER_SESSION_MINUTES=5,ADMIN_SESSION_MINUTES=5,TRUST_PROXY=1 \
+              --quiet; then
+              exit 0
+            fi
+            sleep 30
+          done
+          exit 1
