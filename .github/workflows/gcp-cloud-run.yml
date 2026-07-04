@@ -12,6 +12,10 @@ on:
       - 'README.md'
       - '.gitignore'
 
+concurrency:
+  group: gcp-cloud-run-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-and-typecheck:
     runs-on: ubuntu-latest
