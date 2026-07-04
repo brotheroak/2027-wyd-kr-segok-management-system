@@ -470,7 +470,7 @@ export function AdminConsoleZip() {
             <span className="font-serif font-bold text-lg block">
               개인정보 보호 감시 장치
               <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full font-sans font-bold ${canViewPersonalData ? "bg-amber-500/20 text-amber-300" : "bg-white/10 text-gold-200"}`}>
-                {canViewPersonalData ? "비가면 정보 노출 중" : "1급 마스킹 가동 중"}
+                {canViewPersonalData ? "비가명 정보 노출 중" : "1급 마스킹 가동 중"}
               </span>
             </span>
             <p className="text-white/70 text-xs mt-1 max-w-xl">
