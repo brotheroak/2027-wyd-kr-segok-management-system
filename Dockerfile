@@ -7,6 +7,7 @@ RUN npm ci
 COPY tsconfig.json tsconfig.server.json vite.config.ts ./
 COPY client ./client
 COPY server ./server
+COPY scripts ./scripts
 RUN npm run build
 
 RUN npm prune --omit=dev
@@ -21,6 +22,7 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/scripts ./scripts
 
 RUN mkdir -p /app/data && chown -R node:node /app
 USER node
