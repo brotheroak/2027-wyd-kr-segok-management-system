@@ -1481,12 +1481,12 @@ input:focus, select:focus, textarea:focus {
 
 .intro-official-actions {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .intro-hero-section {
   width: 100%;
-  text-align: center;
+  text-align: left;
 }
 
 .intro-official-link {
