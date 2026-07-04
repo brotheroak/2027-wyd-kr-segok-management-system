@@ -1,15 +1,7 @@
-name: CI/CD Pipeline
+name: Kubernetes GitOps Pipeline (Manual)
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - 'k8s/**'
-      - 'argocd/**'
-      - 'docs/**'
-      - 'README.md'
-      - '.gitignore'
+  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -39,7 +31,7 @@ jobs:
   build-and-deploy:
     needs: test-and-typecheck
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
       packages: write
