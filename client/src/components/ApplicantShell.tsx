@@ -33,10 +33,10 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
         <div className="shell topbar-inner">
           <button type="button" className="brand" onClick={() => navigate("/")} aria-label="신청 첫 화면으로 이동">
             <div className="brand-mark">
-              <Church size={28} />
+              <Church size={34} />
             </div>
             <div>
-              <p>2027 서울 WYD 세곡동 성당</p>
+              <p>2027 서울 WYD 세곡동 성당 위원회</p>
               <h1>홈스테이 / 자원봉사 신청</h1>
             </div>
           </button>

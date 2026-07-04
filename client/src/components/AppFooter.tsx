@@ -11,7 +11,7 @@ export function AppFooter({ navigate }: AppFooterProps) {
       <div className="shell footer-inner">
         <div className="footer-brand">
           <strong>
-            <Church size={22} /> 2027 서울 WYD 세곡동 성당
+            <Church size={28} /> 2027 서울 WYD 세곡동 성당 위원회
           </strong>
           <p>서울특별시 강남구 헌릉로618길 34 세곡동성당</p>
           <p>02-459-8211</p>
@@ -32,11 +32,16 @@ export function AppFooter({ navigate }: AppFooterProps) {
           </div>
           <div>
             <span>운영 기간</span>
-            <strong>
-              WYD 예정 기간
-              <br />
-              2027.08.01 - 2027.08.09
-            </strong>
+            <dl className="footer-schedule">
+              <div>
+                <dt>운영 시작</dt>
+                <dd>2026.07.03</dd>
+              </div>
+              <div>
+                <dt>WYD 예정 기간</dt>
+                <dd>2027.08.01 - 2027.08.09</dd>
+              </div>
+            </dl>
           </div>
         </div>
         <div className="footer-bottom">

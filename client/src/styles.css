@@ -137,8 +137,8 @@ button.brand:focus-visible .brand-mark {
 .brand-mark {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 42px;
+  width: 42px;
+  height: 48px;
   border-radius: 999px;
   color: var(--gold);
   background: transparent;
@@ -2315,6 +2315,30 @@ td small {
   color: #d8dce6;
   font-size: 0.92rem;
   font-weight: 600;
+}
+
+.footer-schedule {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.footer-schedule div {
+  display: grid;
+  gap: 4px;
+}
+
+.footer-schedule dt {
+  color: #d8dce6;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.footer-schedule dd {
+  margin: 0;
+  color: #a3a8b4;
+  font-size: 0.92rem;
+  font-weight: 500;
 }
 
 .footer-bottom {

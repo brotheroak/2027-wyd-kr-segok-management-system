@@ -195,9 +195,9 @@ export function App() {
       <div className="shell admin-shell">
         <header className="topbar admin-topbar">
           <div className="brand">
-            <div className="brand-mark"><Church size={28} /></div>
+            <div className="brand-mark"><Church size={34} /></div>
             <div>
-              <p>2027 서울 WYD 세곡동 성당</p>
+              <p>2027 서울 WYD 세곡동 성당 위원회</p>
               <h1>운영자 콘솔</h1>
             </div>
           </div>
