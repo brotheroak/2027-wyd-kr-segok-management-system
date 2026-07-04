@@ -2604,11 +2604,22 @@ td small {
   display: block;
   width: min(100%, 286px);
   height: auto;
-  margin: 0 0 18px;
   padding: 8px 10px;
   border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+}
+
+.footer-parish-logo-link {
+  display: inline-block;
+  width: min(100%, 286px);
+  margin: 0 0 18px;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.app-footer .footer-parish-logo-link:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
 }
 
 .footer-links {

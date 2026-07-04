@@ -11,7 +11,9 @@ export function AppFooter({ navigate }: AppFooterProps) {
     <footer className="app-footer">
       <div className="shell footer-inner">
         <div className="footer-brand">
-          <img className="footer-parish-logo" src={segokParishLogo} alt="천주교 서울대교구 세곡동 성당" />
+          <a className="footer-parish-logo-link" href="https://www.segokc.or.kr/" target="_blank" rel="noreferrer" aria-label="세곡동성당 홈페이지 열기">
+            <img className="footer-parish-logo" src={segokParishLogo} alt="천주교 서울대교구 세곡동 성당" />
+          </a>
           <strong>2027 서울 WYD 세곡동 성당 위원회</strong>
           <p>서울특별시 강남구 헌릉로618길 34 세곡동성당</p>
           <p>02-459-8211</p>
