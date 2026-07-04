@@ -1,5 +1,5 @@
 import React from "react";
-import { Pencil, XCircle, Users, Home, BedDouble, Languages } from "lucide-react";
+import { Pencil, XCircle, Users, Home, BedDouble, Languages, Search } from "lucide-react";
 import { ApplicationPayload } from "../types.js";
 import { Metric } from "../components/Metric.js";
 
@@ -12,6 +12,11 @@ type ApplicationReceiptProps = {
 
 export function ApplicationReceipt({ application, onEdit, onCancel, onLogout }: ApplicationReceiptProps) {
   const statusLabel = application.status === "confirmed" ? "확정" : application.status === "canceled" ? "취소" : "접수";
+  const confirmCancel = () => {
+    const confirmed = window.confirm("홈스테이 신청을 취소하시겠습니까?\n취소 후에는 운영자가 취소 상태로 확인하게 됩니다.");
+    if (confirmed) onCancel();
+  };
+
   return (
     <div className="panel receipt">
       <div className="receipt-head">
@@ -24,14 +29,9 @@ export function ApplicationReceipt({ application, onEdit, onCancel, onLogout }: 
           <button className="secondary" onClick={onEdit}>
             <Pencil size={18} /> 수정
           </button>
-          <button className="ghost danger" onClick={onCancel} disabled={application.status === "canceled"}>
+          <button className="ghost danger" onClick={confirmCancel} disabled={application.status === "canceled"}>
             <XCircle size={18} /> 취소
           </button>
-          {onLogout && (
-            <button className="ghost" onClick={onLogout} style={{ border: "1px solid #ddd", color: "#555" }}>
-              다른 신청 조회
-            </button>
-          )}
         </div>
       </div>
       <div className="summary-grid">
@@ -50,6 +50,14 @@ export function ApplicationReceipt({ application, onEdit, onCancel, onLogout }: 
         <dt>공간 설명</dt>
         <dd>{application.homestay.spaceDescription}</dd>
       </dl>
+      {onLogout && (
+        <div className="receipt-secondary-actions">
+          <p>현재 접수 내역 확인을 마치고 다른 신청을 조회할 수 있습니다.</p>
+          <button className="ghost" onClick={onLogout}>
+            <Search size={18} /> 다른 신청 조회
+          </button>
+        </div>
+      )}
     </div>
   );
 }

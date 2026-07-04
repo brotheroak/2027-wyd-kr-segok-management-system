@@ -1,5 +1,5 @@
 import React from "react";
-import { User, ClipboardList, Sparkles, Pencil, XCircle } from "lucide-react";
+import { User, ClipboardList, Sparkles, Pencil, XCircle, Search } from "lucide-react";
 import { VolunteerPayload } from "../types.js";
 import { Metric } from "../components/Metric.js";
 
@@ -12,6 +12,11 @@ type VolunteerReceiptProps = {
 
 export function VolunteerReceipt({ volunteer, onEdit, onCancel, onLogout }: VolunteerReceiptProps) {
   const statusLabel = volunteer.status === "confirmed" ? "확정" : volunteer.status === "canceled" ? "취소" : "접수";
+  const confirmCancel = () => {
+    const confirmed = window.confirm("자원봉사자 신청을 취소하시겠습니까?\n취소 후에는 운영자가 취소 상태로 확인하게 됩니다.");
+    if (confirmed) onCancel();
+  };
+
   return (
     <div className="panel receipt volunteer-receipt">
       <div className="receipt-head">
@@ -24,14 +29,9 @@ export function VolunteerReceipt({ volunteer, onEdit, onCancel, onLogout }: Volu
           <button className="secondary" onClick={onEdit}>
             <Pencil size={18} /> 수정
           </button>
-          <button className="ghost danger" onClick={onCancel} disabled={volunteer.status === "canceled"}>
+          <button className="ghost danger" onClick={confirmCancel} disabled={volunteer.status === "canceled"}>
             <XCircle size={18} /> 취소
           </button>
-          {onLogout && (
-            <button className="ghost" onClick={onLogout} style={{ border: "1px solid #ddd", color: "#555" }}>
-              다른 신청 조회
-            </button>
-          )}
         </div>
       </div>
       <div className="summary-grid">
@@ -49,6 +49,14 @@ export function VolunteerReceipt({ volunteer, onEdit, onCancel, onLogout }: Volu
         <dt>봉사 경력 및 보유 재능</dt>
         <dd>{volunteer.experience}</dd>
       </dl>
+      {onLogout && (
+        <div className="receipt-secondary-actions">
+          <p>현재 접수 내역 확인을 마치고 다른 신청을 조회할 수 있습니다.</p>
+          <button className="ghost" onClick={onLogout}>
+            <Search size={18} /> 다른 신청 조회
+          </button>
+        </div>
+      )}
     </div>
   );
 }
