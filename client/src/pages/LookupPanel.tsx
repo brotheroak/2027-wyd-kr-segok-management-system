@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Search, ChevronRight } from "lucide-react";
 import { api } from "../api.js";
 import { ApplicationPayload } from "../types.js";
+import { formatKoreanPhoneNumber } from "../utils/constants.js";
 
 type LookupPanelProps = {
   onFound: (token: string, application: ApplicationPayload) => void;
@@ -47,7 +48,7 @@ export function LookupPanel({ onFound }: LookupPanelProps) {
         </label>
         <label>
           연락처
-          <input required inputMode="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="010-0000-0000" />
+          <input required inputMode="tel" value={phone} onChange={(event) => setPhone(formatKoreanPhoneNumber(event.target.value))} placeholder="010-0000-0000" />
         </label>
         <label>
           비밀번호 4자리

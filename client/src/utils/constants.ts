@@ -80,3 +80,19 @@ export const emptyVolunteer = (): VolunteerPayload => ({
 
 export const splitVolunteerLanguages = (value = "") => 
   value.split(",").map((item) => item.trim()).filter(Boolean);
+
+export function formatKoreanPhoneNumber(value: string): string {
+  const clean = value.replace(/\D/g, "");
+  const truncated = clean.slice(0, 11);
+  if (truncated.startsWith("02")) {
+    if (truncated.length <= 2) return truncated;
+    if (truncated.length <= 5) return `${truncated.slice(0, 2)}-${truncated.slice(2)}`;
+    if (truncated.length <= 9) return `${truncated.slice(0, 2)}-${truncated.slice(2, 5)}-${truncated.slice(5)}`;
+    return `${truncated.slice(0, 2)}-${truncated.slice(2, 6)}-${truncated.slice(6)}`;
+  }
+  if (truncated.length <= 3) return truncated;
+  if (truncated.length <= 7) return `${truncated.slice(0, 3)}-${truncated.slice(3)}`;
+  if (truncated.length <= 10) return `${truncated.slice(0, 3)}-${truncated.slice(3, 6)}-${truncated.slice(6)}`;
+  return `${truncated.slice(0, 3)}-${truncated.slice(3, 7)}-${truncated.slice(7)}`;
+}
+

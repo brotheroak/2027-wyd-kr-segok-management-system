@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { CheckCircle2, User, Users, Home, FileText, Heart, Search, ChevronLeft, ChevronRight, Church, ShieldCheck } from "lucide-react";
 import { ApplicationPayload, FamilyMember } from "../types.js";
 import { openKakaoPostcode } from "../utils/postcode.js";
-import { today, languages } from "../utils/constants.js";
+import { today, languages, formatKoreanPhoneNumber } from "../utils/constants.js";
 import { SectionTitle, FieldLabel, DateSelect, RequiredMark, Select } from "../components/FormFields.js";
 import { Toggle } from "../components/Toggle.js";
 
@@ -220,7 +220,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
         </label>
         <label>
           <FieldLabel required>연락처 (휴대전화)</FieldLabel>
-          <input required inputMode="tel" value={form.representative.phone} onChange={(e) => update("representative.phone", e.target.value)} placeholder="010-1234-5678" />
+          <input required inputMode="tel" value={form.representative.phone} onChange={(e) => update("representative.phone", formatKoreanPhoneNumber(e.target.value))} placeholder="010-1234-5678" />
           <small>번호만 입력하시면 조회시에도 사용됩니다.</small>
         </label>
         <label>

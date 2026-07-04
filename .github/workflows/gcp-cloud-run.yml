@@ -58,7 +58,11 @@ jobs:
         run: |
           gcloud auth configure-docker asia-northeast3-docker.pkg.dev --quiet
 
-      # 3. Docker 이미지 빌드 및 푸시
+      # 3. Buildx 설정 (GHA 캐싱 작동을 위해 필수)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 4. Docker 이미지 빌드 및 푸시
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:

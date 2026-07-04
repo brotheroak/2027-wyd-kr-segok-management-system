@@ -3,7 +3,7 @@ import { CheckCircle2, Search, User, ClipboardList, Sparkles, ShieldCheck, Chevr
 import { VolunteerPayload } from "../types.js";
 import { calculateAge } from "../utils/age.js";
 import { openKakaoPostcode } from "../utils/postcode.js";
-import { today, emptyVolunteer, volunteerFields, volunteerLanguageOptions, availabilityOptions, splitVolunteerLanguages } from "../utils/constants.js";
+import { today, emptyVolunteer, volunteerFields, volunteerLanguageOptions, availabilityOptions, splitVolunteerLanguages, formatKoreanPhoneNumber } from "../utils/constants.js";
 import { SectionTitle, FieldLabel, DateSelect, RequiredMark } from "../components/FormFields.js";
 import { Toggle } from "../components/Toggle.js";
 
@@ -75,6 +75,13 @@ export function VolunteerForm({ onSubmit }: VolunteerFormProps) {
     if (!form.gender) return setError("성별을 선택해 주세요.");
     if (!form.birthDate) return setError("생년월일을 입력해 주세요.");
     if (!form.phone.trim()) return setError("연락처를 입력해 주세요.");
+    const phoneDigits = form.phone.replace(/\D/g, "");
+    if (phoneDigits.length < 9 || phoneDigits.length > 11) {
+      return setError("연락처는 9자리에서 11자리의 숫자여야 합니다.");
+    }
+    if (form.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      return setError("올바른 이메일 주소 형식을 입력해 주세요.");
+    }
     if (!form.address.trim()) return setError("주소를 입력해 주세요.");
     if (!form.supportFields.length) return setError("지원 분야를 1개 이상 선택해 주세요.");
     const supportLanguageValue = [
@@ -139,7 +146,7 @@ export function VolunteerForm({ onSubmit }: VolunteerFormProps) {
           </label>
           <label>
             <FieldLabel required>연락처</FieldLabel>
-            <input required inputMode="tel" value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="010-1234-5678" />
+            <input required inputMode="tel" value={form.phone} onChange={(e) => update("phone", formatKoreanPhoneNumber(e.target.value))} placeholder="010-1234-5678" />
           </label>
           <label>
             <FieldLabel optional>이메일</FieldLabel>
