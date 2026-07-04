@@ -16,6 +16,14 @@ const phoneSchema = z.string()
 const genderSchema = z.enum(["남성", "여성"]);
 const supportFieldSchema = z.enum(["행사 진행 및 안내", "통역 및 언어 지원", "의료 봉사"]);
 const availabilitySchema = z.enum(["주간", "야간", "주간,야간 관계 없음"]);
+const districtSchema = z.object({
+  no: z.string().regex(/^(?:[1-9]|1[0-3])$/),
+  name: z.string().min(1),
+  ban: z.string().regex(/^(?:[1-9]|1[0-3])-\d+$/),
+  label: z.string().min(1),
+  confidence: z.string().optional(),
+  reason: z.string().optional()
+}).optional();
 
 export const applicationSchema = z.object({
   representative: z.object({
@@ -56,7 +64,8 @@ export const applicationSchema = z.object({
     faithCommunity: z.literal(true),
     appliedDate: dateSchema,
     signatureName: z.string().min(2)
-  })
+  }),
+  district: districtSchema
 }).refine((data) => {
   if (data.members.length === 0) return true;
   // 1번 구성원은 '가족대표'로 고정

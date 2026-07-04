@@ -1,4 +1,4 @@
-export type DistrictConfidence = "high" | "medium" | "low";
+export type DistrictConfidence = "high" | "medium" | "low" | "manual";
 
 export type DistrictAssignment = {
   no: string;
@@ -25,6 +25,48 @@ const OUTSIDE_DISTRICT: DistrictAssignment = {
   confidence: "low",
   reason: "구역반 편성표에 매칭되는 주소 키워드가 없습니다."
 };
+
+export const districtBansByNo: Record<string, string[]> = {
+  "1": ["1-1", "1-2", "1-3", "1-4"],
+  "2": ["2-1", "2-2", "2-3", "2-4"],
+  "3": ["3-1", "3-2", "3-3", "3-4"],
+  "4": ["4-1", "4-2", "4-3", "4-4", "4-5"],
+  "5": ["5-1", "5-2", "5-3"],
+  "6": ["6-1", "6-2", "6-3"],
+  "7": ["7-1", "7-2", "7-3", "7-4"],
+  "8": ["8-1", "8-2", "8-3", "8-4"],
+  "9": ["9-1", "9-2", "9-3", "9-4"],
+  "10": ["10-1", "10-2"],
+  "11": ["11-1", "11-2", "11-3"],
+  "12": ["12-1", "12-2", "12-3", "12-4"],
+  "13": ["13-1"]
+};
+
+export function districtName(no: string) {
+  return no === "13" ? "구역외" : `${no}구역`;
+}
+
+export function districtLabel(no: string, ban: string) {
+  return no === "13" ? "구역외 (13구역)" : `${districtName(no)} ${ban}반`;
+}
+
+type DistrictOverrideInput = Partial<Omit<DistrictAssignment, "confidence">> & { confidence?: string };
+
+export function normalizeDistrictOverride(input: DistrictOverrideInput | undefined, fallback: DistrictAssignment): DistrictAssignment {
+  if (!input?.no) return fallback;
+  const bans = districtBansByNo[input.no];
+  if (!bans) return fallback;
+
+  const ban = input.ban && bans.includes(input.ban) ? input.ban : bans[0];
+  return {
+    no: input.no,
+    name: districtName(input.no),
+    ban,
+    label: districtLabel(input.no, ban),
+    confidence: "manual",
+    reason: input.reason?.trim() || "신청서에서 구역/반을 수동 선택했습니다."
+  };
+}
 
 function normalizeAddress(value = "") {
   return value
@@ -55,7 +97,7 @@ function makeAssignment(rule: DistrictRule, rawText: string, matchedKeyword: str
     no,
     name,
     ban,
-    label: `${name} ${ban}반`,
+    label: districtLabel(no, ban),
     confidence,
     reason: building
       ? `${rule.reason}, ${building}동 기준`

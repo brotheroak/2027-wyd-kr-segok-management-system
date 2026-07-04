@@ -22,15 +22,16 @@ type SelectProps = {
   value: string;
   onChange: (value: string) => void;
   options: string[];
+  renderOption?: (option: string) => React.ReactNode;
 };
 
-export function Select({ value, onChange, options }: SelectProps) {
+export function Select({ value, onChange, options, renderOption }: SelectProps) {
   return (
     <select required value={value} onChange={(event) => onChange(event.target.value)}>
       <option value="">선택</option>
       {options.map((option) => (
         <option key={option} value={option}>
-          {option}
+          {renderOption ? renderOption(option) : option}
         </option>
       ))}
     </select>

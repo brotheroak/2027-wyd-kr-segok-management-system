@@ -10,7 +10,7 @@ import { decryptText, encryptText, encryptionEnabled, requireEncryptionKeyInProd
 import { notificationStatus, sendVerificationMessage } from "./notifications.js";
 import { applicationSchema, volunteerSchema } from "./validators.js";
 import type { ApplicationPayload, FamilyMember, VolunteerPayload } from "./types.js";
-import { assignDistrict } from "./districts.js";
+import { assignDistrict, normalizeDistrictOverride } from "./districts.js";
 import { verifyTotp } from "./totp.js";
 import { verifyPassword } from "./password.js";
 import { sql, eq, and, or, like, desc } from "drizzle-orm";
@@ -372,7 +372,8 @@ async function upsertApplication(payload: ApplicationPayload, existingId?: strin
   const timestamp = nowIso();
   const applicantPin = parsed.representative.applicantPin ?? "";
   const applicantPinHash = applicantPin ? hashApplicantPin(id, applicantPin) : "";
-  const district = assignDistrict(parsed.representative.address, parsed.representative.addressDetail ?? "");
+  const autoDistrict = assignDistrict(parsed.representative.address, parsed.representative.addressDetail ?? "");
+  const district = normalizeDistrictOverride(parsed.district, autoDistrict);
   if (!existingId && !/^\d{4}$/.test(applicantPin)) {
     throw new Error("신청 확인용 숫자 비밀번호 4자리를 입력해 주세요.");
   }
@@ -476,7 +477,7 @@ async function rowToApplication(row: any) {
   const address = plain(row.address);
   const addressDetail = plain(row.addressDetail);
   const computedDistrict = assignDistrict(address, addressDetail);
-  const district = computedDistrict.no === "13" && row.districtNo
+  const district = (row.districtConfidence === "manual" || computedDistrict.no === "13") && row.districtNo
     ? {
         no: row.districtNo,
         name: row.districtName ?? (row.districtNo === "13" ? "구역외" : `${row.districtNo}구역`),
@@ -1009,6 +1010,12 @@ app.get("/api/funnel/status", (_req, res) => {
     availableSlots: Math.max(0, maxConcurrentRequests - activeRequests),
     refusedRequests
   });
+});
+
+app.post("/api/district/assign", (req, res) => {
+  const address = String(req.body.address ?? "");
+  const addressDetail = String(req.body.addressDetail ?? "");
+  res.json({ district: assignDistrict(address, addressDetail) });
 });
 
 app.get("/api/test/sleep", (req, res) => {

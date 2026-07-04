@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { CheckCircle2, User, Users, Home, FileText, Heart, Search, ChevronLeft, ChevronRight, Church, ShieldCheck } from "lucide-react";
-import { ApplicationPayload, FamilyMember } from "../types.js";
+import { ApplicationPayload, DistrictInfo, FamilyMember } from "../types.js";
+import { api } from "../api.js";
 import { openKakaoPostcode } from "../utils/postcode.js";
 import { today, languages, formatKoreanPhoneNumber } from "../utils/constants.js";
+import { districtBansByNo, districtLabel, districtOptions, districtName, makeManualDistrict } from "../utils/districts.js";
 import { SectionTitle, FieldLabel, DateSelect, RequiredMark, Select } from "../components/FormFields.js";
 import { Toggle } from "../components/Toggle.js";
 
@@ -20,13 +22,44 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [pinConfirm, setPinConfirm] = useState(initial.representative.applicantPin ?? "");
+  const [districtManual, setDistrictManual] = useState(initial.district?.confidence === "manual");
   const stepBodyRef = useRef<HTMLDivElement>(null);
+  const districtRequestId = useRef(0);
 
   useEffect(() => {
     setForm(initial);
     setPinConfirm(initial.representative.applicantPin ?? "");
+    setDistrictManual(initial.district?.confidence === "manual");
     setStep(1);
   }, [initial]);
+
+  useEffect(() => {
+    if (districtManual) return;
+    const address = form.representative.address.trim();
+    const addressDetail = form.representative.addressDetail?.trim() ?? "";
+
+    if (!address) {
+      setForm((prev) => prev.district ? { ...prev, district: undefined } : prev);
+      return;
+    }
+
+    const requestId = ++districtRequestId.current;
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await api<{ district: DistrictInfo }>("/api/district/assign", {
+          method: "POST",
+          body: JSON.stringify({ address, addressDetail })
+        });
+        if (requestId !== districtRequestId.current) return;
+        setForm((prev) => ({ ...prev, district: result.district }));
+      } catch {
+        // The server re-runs district assignment at submit time, so a transient lookup
+        // failure should not block users from completing the form.
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [form.representative.address, form.representative.addressDetail, districtManual]);
 
   const update = (path: string, value: unknown) => {
     setForm((prev) => {
@@ -65,6 +98,34 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
     const current = form.homestay.languages;
     const next = current.includes(language) ? current.filter((item) => item !== language) : [...current, language];
     update("homestay.languages", next.length ? next : ["한국어"]);
+  };
+
+  const selectedDistrictNo = form.district?.no ?? "13";
+  const selectedDistrictBans = districtBansByNo[selectedDistrictNo] ?? districtBansByNo["13"];
+  const selectedDistrictBan = form.district?.ban && selectedDistrictBans.includes(form.district.ban)
+    ? form.district.ban
+    : selectedDistrictBans[0];
+
+  const updateDistrictNo = (no: string) => {
+    setDistrictManual(true);
+    setForm((prev) => ({
+      ...prev,
+      district: makeManualDistrict(no)
+    }));
+  };
+
+  const updateDistrictBan = (ban: string) => {
+    setDistrictManual(true);
+    setForm((prev) => ({
+      ...prev,
+      district: makeManualDistrict(prev.district?.no ?? "13", ban)
+    }));
+  };
+
+  const resetDistrictAuto = () => {
+    districtRequestId.current += 1;
+    setDistrictManual(false);
+    setForm((prev) => ({ ...prev, district: undefined }));
   };
 
   const openAddress = () =>
@@ -278,6 +339,39 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
           <FieldLabel>상세주소</FieldLabel>
           <input id="homestay-address-detail" value={form.representative.addressDetail} onChange={(e) => update("representative.addressDetail", e.target.value)} placeholder="동/호수 등 상세 주소" />
         </label>
+      </div>
+      <div className="district-assignment-panel">
+        <div className="district-assignment-head">
+          <div>
+            <span>{districtManual ? "수동 수정 구역반" : "자동 매핑 구역반"}</span>
+            <strong>{form.district?.label ?? "주소 입력 후 자동 판별"}</strong>
+          </div>
+          <em className={districtManual ? "manual" : "auto"}>{districtManual ? "수동" : "자동"}</em>
+        </div>
+        <div className="district-assignment-controls">
+          <label>
+            <FieldLabel>구역</FieldLabel>
+            <Select
+              value={selectedDistrictNo}
+              onChange={updateDistrictNo}
+              options={districtOptions}
+              renderOption={(no) => (no === "13" ? "구역외 (13구역)" : `${districtName(no)}`)}
+            />
+          </label>
+          <label>
+            <FieldLabel>반</FieldLabel>
+            <Select
+              value={selectedDistrictBan}
+              onChange={updateDistrictBan}
+              options={selectedDistrictBans}
+              renderOption={(ban) => selectedDistrictNo === "13" ? "구역외" : districtLabel(selectedDistrictNo, ban)}
+            />
+          </label>
+          <button type="button" className="secondary district-auto-button" onClick={resetDistrictAuto}>
+            주소 기준 다시 매핑
+          </button>
+        </div>
+        {form.district?.reason && <p>{form.district.reason}</p>}
       </div>
       <div className="pin-help-box">
         <ShieldCheck size={20} />
