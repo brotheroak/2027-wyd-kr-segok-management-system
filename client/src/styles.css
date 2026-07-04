@@ -1484,6 +1484,11 @@ input:focus, select:focus, textarea:focus {
   justify-content: center;
 }
 
+.intro-hero-section {
+  width: 100%;
+  text-align: center;
+}
+
 .intro-official-link {
   text-decoration: none;
 }

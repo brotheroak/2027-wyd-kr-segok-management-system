@@ -14,7 +14,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
   return (
     <div className="single intro-page-container">
       {/* Hero Section */}
-      <section className="intro-hero-section text-center max-w-3xl mx-auto my-12 space-y-6">
+      <section className="intro-hero-section my-12 space-y-6">
         <div className="flex justify-center mb-6">
           <img
             src={wydSeoulLogo}
