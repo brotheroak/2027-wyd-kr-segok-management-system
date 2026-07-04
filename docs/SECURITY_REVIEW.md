@@ -1,5 +1,9 @@
 # 보안성 검토
 
+최종 갱신: 2026-07-04 KST
+
+이 검토는 OWASP ASVS, Authentication Cheat Sheet, Session Management Cheat Sheet, REST Security Cheat Sheet, Denial of Service Cheat Sheet를 기준선으로 삼아 현재 구현과 운영 설정을 점검한 것입니다.
+
 ## 1. 적용된 보호 장치
 
 | 영역 | 적용 내용 |
@@ -9,8 +13,10 @@
 | 신청자 PIN | 신청서 ID와 조합한 SHA-256 해시로 저장 |
 | 인증번호 | 이메일은 안정 해시로 조회, 코드는 이메일 해시와 조합해 해시 저장, 인증 성공 후 삭제 |
 | 관리자 인증 | 개별 계정, PBKDF2-SHA512 210,000회 비밀번호 해시, TOTP MFA |
-| 권한 분리 | `admin`은 마스킹 데이터, `privacy_admin`은 원본 개인정보 |
-| 감사 로그 | 관리자 로그인, 상태 변경, 개인정보 수정, CSV 다운로드 기록 |
+| 권한 분리 | `admin`은 마스킹 데이터, `privacy_admin`과 `super_admin`은 원본 개인정보 |
+| 운영자 승인 | 최고 관리자만 운영자 승인, 역할 변경, 계정 상태 변경 가능 |
+| 고정 최고 관리자 보호 | `brotheroak@gmail.com`, `livelab21@nate.com` 권한 하향 차단 |
+| 감사 로그 | 관리자 로그인, 상태 변경, 개인정보 수정, CSV 다운로드, 샘플 데이터 생성 기록 |
 | 보안 헤더 | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP, HSTS |
 | CORS | `ALLOWED_ORIGINS` 기반 제한 |
 | 요청 제한 | JSON body 1MB 제한, IP별 API rate limit |
@@ -36,11 +42,13 @@
 | 리스크 | 현재 상태 | 권장 대응 |
 | --- | --- | --- |
 | 인증번호 발송 남용 | IP별 rate limit만 적용 | 이메일/전화번호별 쿨다운과 일일 제한 추가 |
-| 관리자 비밀번호 변경 UI 부재 | CLI로 계정 재생성 가능 | 운영 UI 또는 별도 관리 절차 정의 |
 | 암호화 컬럼 검색 성능 | 서버 복호화 후 필터링 | 신청 수 증가 시 검색용 해시 컬럼 추가 |
-| SQLite 단일 파일 장애 | 단일 VM 운영 가능 | 백업 자동화, 장애 복구 리허설 |
+| 운영자 계정 공격 | IP별 rate limit과 TOTP 적용 | 이메일별 로그인 실패 제한, 잠금/해제 절차 추가 |
+| SQLite 단일 파일 장애 | 운영 Cloud Run은 Cloud SQL 사용 | SQLite는 로컬/단일 VM 대안으로만 운영 |
 | DB 파일 자체 암호화 | 컬럼 암호화 적용 | 필요 시 디스크 암호화 또는 SQLCipher 검토 |
 | Secret 관리 | 샘플에서는 외부 주입 전제 | Secret Manager 또는 External Secrets Operator 권장 |
+| WAF/DDoS | 앱 내부 rate limit과 웹퍼널 적용 | Cloud Armor/CDN WAF rate-based rule 추가 |
+| 백업 검증 | 문서상 Cloud SQL 백업 권장 | PITR 활성화와 복구 리허설 결과 기록 |
 
 ## 4. 권장 운영 설정
 
@@ -57,7 +65,7 @@ TRUST_PROXY=1
 
 집중 접수 이벤트에서 429가 많으면 `RATE_LIMIT_MAX`를 조금 올리고, 503이 많으면 서버 CPU/메모리/DB I/O를 먼저 확인한 뒤 `MAX_CONCURRENT_REQUESTS`를 조정합니다.
 
-Cloud Run 자동 배포 기준:
+현재 Cloud Run 자동 배포 기준:
 
 ```text
 min-instances=0
@@ -82,3 +90,34 @@ timeout=30s
 - 샘플 데이터 생성
 
 감사 로그 보존 기준은 [감사 로그 정책](AUDIT_LOG_POLICY.md)을 따릅니다.
+
+## 6. OWASP 기준 매핑
+
+| 기준 | 현재 대응 |
+| --- | --- |
+| 인증 | 개별 계정, 강한 해시, TOTP MFA, 세션 만료 적용 |
+| 세션 | `nanoid(48)` 토큰, 기본 5분 만료, 서버 저장 세션 |
+| 접근 제어 | 역할별 API guard, 개인정보 원본 접근 분리 |
+| 입력 검증 | Zod schema, JSON body 제한, 주소/구역반 서버 재검증 |
+| 오류 처리 | 알려진 스캔 경로 404, API 오류 메시지 단순화 |
+| 가용성 | IP rate limit, 웹퍼널, Cloud Run max-instances 상한 |
+
+## 7. 참고 기준
+
+- OWASP ASVS: https://owasp.org/www-project-application-security-verification-standard/
+- OWASP Authentication Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html
+- OWASP Session Management Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html
+- OWASP REST Security Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html
+- OWASP Denial of Service Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Denial_of_Service_Cheat_Sheet.html
+
+## 8. 2026-07-04 재점검 결과
+
+| 항목 | 결과 |
+| --- | --- |
+| TypeScript 타입 검사 | 통과 |
+| 단위 테스트 | 34개 통과 |
+| 프로덕션 빌드 | 통과 |
+| 로컬 readiness | 통과 |
+| 의존성 감사 | `npm audit --audit-level=moderate`, 취약점 0건 |
+
+이번 점검에서 즉시 수정이 필요한 코드 버그는 발견되지 않았습니다. 남은 보완은 애플리케이션 코드보다 운영 인프라 항목인 Cloud Armor/CDN WAF, Cloud SQL 백업 복구 리허설, 발송 채널 quota/abuse 제한에 가깝습니다.

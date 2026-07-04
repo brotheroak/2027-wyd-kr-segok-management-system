@@ -1,5 +1,9 @@
 # 스트레스 테스트
 
+최종 갱신: 2026-07-04 KST
+
+현재 운영 기준은 최대 동시접속 100명입니다. Cloud Run은 `max-instances=3`, `concurrency=50`으로 플랫폼 레벨 상한을 두고, 애플리케이션 내부에서는 `MAX_CONCURRENT_REQUESTS=120` 웹퍼널과 `RATE_LIMIT_MAX=120` IP rate limit을 적용합니다.
+
 ## 기본 헬스 체크 부하
 
 ```bash
@@ -40,3 +44,17 @@ curl http://127.0.0.1:4177/api/funnel/status
 - `Status counts`에 `503`이 보이면 동시접속 퍼널이 작동한 것입니다.
 - `p95`가 급격히 늘어나면 DB 쓰기, CPU, 메모리, 디스크 I/O를 확인해야 합니다.
 - 신청서 제출 POST 부하는 개인정보가 생성되므로 운영 DB가 아닌 별도 테스트 DB에서만 수행합니다.
+
+## 2026-07-04 경량 재점검
+
+문서 현행화 시점에는 로컬 서버를 대상으로 다음 경량 테스트를 수행합니다.
+
+```bash
+npm run stress -- --url http://127.0.0.1:4177 --path /api/health --concurrency 20 --duration 5
+```
+
+목표:
+
+- `200` 응답이 대부분이어야 합니다.
+- `429`, `503`, `5xx`가 없어야 합니다.
+- p95가 로컬 기준 비정상적으로 튀지 않아야 합니다.

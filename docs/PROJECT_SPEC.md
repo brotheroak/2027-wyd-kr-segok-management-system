@@ -23,6 +23,7 @@
 | 자원봉사자 | 자원봉사자 신청서를 작성하고 접수 결과 화면을 확인합니다. |
 | 일반 운영자 `admin` | 신청 통계, 카드, 상태, 매칭 후보를 확인합니다. 주요 개인정보는 마스킹됩니다. |
 | 개인정보 관리자 `privacy_admin` | 원본 개인정보 조회, 신청서 수정, 감사 로그 다운로드가 가능합니다. |
+| 최고 관리자 `super_admin` | 일반 운영자/개인정보 관리자 승인, 권한 변경, 계정 상태 변경을 수행합니다. |
 
 ## 4. 신청자 화면 사양
 
@@ -80,6 +81,8 @@
 - URL: `/admin`
 - 관리자 로그인은 이메일, 비밀번호, TOTP MFA를 사용합니다.
 - 최초 MFA 미등록 계정은 로그인 과정에서 `mfa_secret`을 안내하고 OTP 앱 등록 후 6자리 코드를 검증합니다.
+- 운영자 회원가입, 비밀번호 변경, 최고 관리자 승인 워크플로우를 제공합니다.
+- `brotheroak@gmail.com`, `livelab21@nate.com`은 고정 최고 관리자이며 다른 운영자가 권한을 변경할 수 없습니다.
 - 홈스테이와 자원봉사자는 탭으로 구분합니다.
 - 통합 검색은 접수번호뿐 아니라 성명, 연락처, 이메일을 지원합니다.
 
@@ -115,10 +118,10 @@
 | 항목 | 기준 |
 | --- | --- |
 | 예상 최대 동시접속 | 100명 |
-| 내부 웹 퍼널 기본값 | 500 concurrent requests |
-| 권장 운영 제한값 | 100명 기준 `MAX_CONCURRENT_REQUESTS=150`, `RATE_LIMIT_MAX=120`부터 시작 |
-| DB 기본 운영안 | 단일 VM + SQLite + 백업 |
-| 확장 운영안 | 다중 인스턴스 또는 서버리스 배포 시 PostgreSQL 필수 |
+| 내부 웹 퍼널 기본값 | `MAX_CONCURRENT_REQUESTS=120` |
+| 권장 운영 제한값 | 100명 기준 Cloud Run `max-instances=3`, `concurrency=50`, 앱 `MAX_CONCURRENT_REQUESTS=120`, `RATE_LIMIT_MAX=120`부터 시작 |
+| 현재 운영안 | Google Cloud Run + Cloud SQL PostgreSQL |
+| 로컬/단일 VM 대안 | SQLite + 파일 백업 |
 | 브라우저 지원 | 최신 Chrome, Edge, Safari, 모바일 브라우저 |
 | 첨부파일 | 현재 범위 제외 |
 | 결제 | 현재 범위 제외 |
@@ -136,6 +139,10 @@
 | POST | `/api/auth/request-code` | 이메일/SMS 인증번호 요청 |
 | POST | `/api/auth/verify-code` | 인증번호 검증 |
 | POST | `/api/admin/login` | 관리자 로그인 및 MFA 검증 |
+| POST | `/api/admin/register` | 운영자 회원가입 요청 |
+| POST | `/api/admin/change-password` | 로그인한 운영자 비밀번호 변경 |
+| GET | `/api/admin/users` | 최고 관리자 운영자 목록 조회 |
+| PATCH | `/api/admin/users/:id` | 최고 관리자 운영자 승인/권한/상태 변경 |
 | GET | `/api/admin/applications` | 홈스테이 관리자 목록 |
 | GET | `/api/admin/volunteers` | 자원봉사자 관리자 목록 |
 | GET | `/api/admin/audit-logs.csv` | 감사 로그 CSV 다운로드 |
@@ -145,8 +152,7 @@
 - 실명 인증, 휴대폰 본인확인
 - 순례자 개인별 배정 확정 워크플로우
 - 파일 첨부 및 이미지 업로드
-- 관리자 비밀번호 변경 UI
-- SMS 벤더별 전용 SDK
+- SMS 벤더별 전용 SDK의 고급 재시도/장애 처리
 - SQLCipher 같은 DB 파일 자체 암호화
 
 이 항목들은 운영 요구가 확정되면 별도 phase로 정의합니다.

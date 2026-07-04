@@ -126,6 +126,17 @@ SQLite로 Kubernetes를 운영할 경우 replica는 1개로 유지합니다. 다
 
 Cloud Run은 컨테이너가 필요시에만 뜨는 stateless 환경이므로 SQLite를 사용할 수 없으며, **반드시 Cloud SQL(PostgreSQL)을 연동**해야 합니다.
 
+현재 운영값:
+
+| 항목 | 값 |
+| --- | --- |
+| GCP 프로젝트 | `mystic-planet-347807` |
+| 리전 | `asia-northeast3` |
+| 서비스 | `wyd-2027-kr-segok-mgmt` |
+| Artifact Registry | `wyh-registry` |
+| Cloud SQL | `mystic-planet-347807:asia-northeast3:wyh-postgres` |
+| 운영 URL | `https://wyd-2027-kr-segok-mgmt-yftakontba-du.a.run.app` |
+
 ### 1) Artifact Registry 저장소 생성 및 이미지 빌드/푸시
 GCP의 도커 이미지 저장소를 생성하고 이미지를 올립니다.
 ```bash
@@ -176,6 +187,31 @@ gcloud run deploy wyd-homestay \
 ```
 
 GitHub Actions 자동 배포는 기존 운영 Secret과 Cloud SQL 연결을 유지하기 위해 `--update-env-vars`를 사용합니다. 수동 배포에서 `--set-env-vars`를 사용할 경우 기존 환경변수를 모두 재정의하므로 누락된 Secret이 없는지 먼저 확인합니다.
+
+현재 서비스 확인:
+
+```bash
+gcloud run services describe wyd-2027-kr-segok-mgmt \
+  --region asia-northeast3 \
+  --format="value(status.latestReadyRevisionName,status.url)"
+
+curl https://wyd-2027-kr-segok-mgmt-yftakontba-du.a.run.app/api/ready
+```
+
+특정 커밋 이미지로 수동 복구할 때는 기존 환경변수와 Cloud SQL 연결을 보존하기 위해 `--update-env-vars`만 사용합니다.
+
+```bash
+gcloud run deploy wyd-2027-kr-segok-mgmt \
+  --image asia-northeast3-docker.pkg.dev/mystic-planet-347807/wyh-registry/wyd-2027-kr-segok-mgmt:<commit-sha> \
+  --region asia-northeast3 \
+  --min-instances 0 \
+  --max-instances 3 \
+  --concurrency 50 \
+  --cpu 1 \
+  --memory 512Mi \
+  --timeout 30s \
+  --update-env-vars MAX_CONCURRENT_REQUESTS=120,RATE_LIMIT_WINDOW_MS=60000,RATE_LIMIT_MAX=120,USER_SESSION_MINUTES=5,ADMIN_SESSION_MINUTES=5,TRUST_PROXY=1
+```
 
 ## 7. 운영자 계정 생성
 

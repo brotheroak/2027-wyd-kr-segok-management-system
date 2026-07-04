@@ -4,14 +4,17 @@
 
 ## 1. 운영 결론
 
-동시접속 100명, 신청서 수 수천 건 수준의 단일 서버 운영은 SQLite로 충분합니다. 다만 앱 서버를 2대 이상으로 늘리거나 Cloud Run, App Runner, ECS, EKS처럼 컨테이너가 여러 개 뜨는 구조에서는 PostgreSQL을 사용해야 합니다.
+현재 운영 배포는 Google Cloud Run + Cloud SQL PostgreSQL입니다. Cloud Run은 컨테이너 파일 시스템이 영구 저장소가 아니므로 운영에서는 PostgreSQL을 정본 DB로 사용합니다.
+
+동시접속 100명, 신청서 수 수천 건 수준의 로컬/단일 VM 운영은 SQLite로 충분합니다. 다만 앱 서버를 2대 이상으로 늘리거나 Cloud Run, App Runner, ECS, EKS처럼 컨테이너가 여러 개 뜨는 구조에서는 PostgreSQL을 사용해야 합니다.
 
 | 운영 형태 | 권장 DB | 판단 |
 | --- | --- | --- |
 | 로컬 개발 | SQLite | 설정이 단순하고 파일로 확인 가능 |
 | 단일 VM, Docker Compose | SQLite | 현재 예상 규모에서 충분 |
 | 단일 VM이지만 장애 복구 자동화 필요 | PostgreSQL 검토 | 관리형 백업, PITR이 필요하면 전환 |
-| Cloud Run, App Runner | PostgreSQL 필수 | 컨테이너 파일 시스템이 영구 저장소가 아님 |
+| 현재 운영 Cloud Run | PostgreSQL 필수 | Cloud SQL PostgreSQL 사용 |
+| App Runner | PostgreSQL 필수 | 컨테이너 파일 시스템이 영구 저장소가 아님 |
 | EKS/ECS 다중 replica | PostgreSQL 필수 | SQLite는 여러 앱 인스턴스 공유에 부적합 |
 | 장기적으로 신청 5만 건 이상 | PostgreSQL 권장 | 검색, 백업, 운영 편의성 측면에서 유리 |
 
@@ -25,6 +28,14 @@
 | `DATABASE_URL` 있음 | PostgreSQL 모드 |
 | `DATABASE_SSL=true` | PostgreSQL SSL 사용 |
 | `DATA_DIR` | SQLite 파일 저장 디렉터리 |
+
+현재 운영 기준:
+
+```text
+DATABASE_URL=PostgreSQL Cloud SQL 연결 문자열
+DATABASE_SSL=false
+Cloud SQL instance=mystic-planet-347807:asia-northeast3:wyh-postgres
+```
 
 SQLite 기본 경로:
 
@@ -52,7 +63,7 @@ npm run db:setup
 - 필수 인덱스 생성
 - SQLite WAL 모드 활성화
 - `INITIAL_ADMIN_EMAIL`과 `INITIAL_ADMIN_PASSWORD`가 지정된 경우에만 초기 관리자 계정 시딩
-- 기존 DB에 `applicant_pin`, `email_hash`, 홈스테이 `district_*` 컬럼이 없으면 보수 마이그레이션
+- 기존 DB에 `applicant_pin`, `email_hash`, 홈스테이 `district_*`, 관리자 승인 관련 컬럼이 없으면 보수 마이그레이션
 
 저장소에는 기본 관리자 비밀번호를 두지 않습니다. 운영에서는 개별 운영자 계정을 명시적으로 생성하고 MFA 등록을 완료합니다.
 
@@ -163,6 +174,7 @@ erDiagram
         string availability
         string experience
         boolean privacy_consent
+        string applicant_pin
         string applied_date
         string signature_name
         datetime created_at
@@ -175,6 +187,9 @@ erDiagram
         string email UK
         string password_hash
         string role
+        string status
+        string approved_by
+        string approved_at
         string mfa_secret
         boolean mfa_enabled
     }
@@ -239,6 +254,17 @@ erDiagram
 ### `admins`
 
 운영자 계정을 저장합니다. 비밀번호는 PBKDF2-SHA512 210,000회 해시로 저장하고, 기존 1,000회 해시 계정은 로그인 호환성을 유지합니다. TOTP MFA를 위한 `mfa_secret`을 보관합니다.
+
+역할과 승인 상태:
+
+| 컬럼 | 의미 |
+| --- | --- |
+| `role` | `admin`, `privacy_admin`, `super_admin` |
+| `status` | `pending`, `approved`, `rejected` |
+| `approved_by` | 승인 또는 변경 처리자 |
+| `approved_at` | 승인 또는 변경 시각 |
+
+`brotheroak@gmail.com`, `livelab21@nate.com`은 애플리케이션에서 고정 최고 관리자로 취급되며 다른 운영자가 권한을 낮출 수 없습니다.
 
 ## 8. 개인정보 암호화
 

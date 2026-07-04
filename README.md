@@ -17,8 +17,8 @@
 - 관리자 개별 계정 로그인 및 TOTP MFA
 - 개인정보 컬럼 AES-256-GCM 암호화
 - 감사 로그 CSV 다운로드 및 보존 정책
-- SQLite/PostgreSQL 하이브리드 DB 지원
-- Docker Compose, Kubernetes, Argo CD 배포 예시
+- 운영 Cloud Run + Cloud SQL PostgreSQL, 로컬 SQLite 지원
+- Docker Compose, Kubernetes, Argo CD 배포 예시 및 Cloud Run 자동 배포
 
 ## 빠른 시작
 
@@ -50,7 +50,7 @@ npm run dev
 - `DATA_ENCRYPTION_KEY`: 운영 시작 전 생성한 긴 난수. 운영 중 변경하면 기존 암호화 개인정보를 복호화할 수 없습니다.
 - `ALLOWED_ORIGINS`: 운영 도메인
 - `SMTP_*` 또는 `SMS_WEBHOOK_*`: 인증번호 발송 서비스
-- `DATABASE_URL`: PostgreSQL 운영 시 필요. 미설정 시 SQLite 파일 DB 사용
+- `DATABASE_URL`: Cloud Run 운영에서는 필수. 미설정 시 로컬/단일 VM용 SQLite 파일 DB 사용
 
 운영자 계정 생성:
 
@@ -65,6 +65,7 @@ node scripts/create-admin.mjs privacy@example.org StrongPassword123! privacy_adm
 
 | 문서 | 목적 |
 | --- | --- |
+| [현재 상태](docs/CURRENT_STATUS.md) | 운영 배포, 최근 이슈, 기능/보안/CI 상태 요약 |
 | [프로젝트 사양](docs/PROJECT_SPEC.md) | 제품 범위, 사용자 흐름, 권한, 화면, 기능 요구사항의 정본 |
 | [데이터베이스](docs/DATABASE.md) | DB 모드, 테이블, 개인정보 암호화, 마이그레이션, readiness |
 | [배포 가이드](docs/DEPLOYMENT.md) | 로컬, Docker Compose, Kubernetes, Cloud Run 배포 절차 |
@@ -73,6 +74,7 @@ node scripts/create-admin.mjs privacy@example.org StrongPassword123! privacy_adm
 | [감사 로그 정책](docs/AUDIT_LOG_POLICY.md) | 감사 로그 다운로드 및 보존 정책 |
 | [WAF/CDN 정책](docs/WAF_CDN_POLICY.md) | 국가, 봇, 비정상 트래픽 차단 기준 |
 | [스트레스 테스트](docs/STRESS_TEST.md) | 부하 테스트와 웹 퍼널 검증 절차 |
+| [테스트 리포트](docs/TEST_REPORT.md) | 최근 타입 검사, 단위 테스트, 빌드, 헬스 체크 결과 |
 | [CI/CD](docs/CICD.md) | GitHub Actions, Kustomize, Argo CD 운영 방식 |
 
 ## 품질 확인
