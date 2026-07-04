@@ -1081,7 +1081,7 @@ input:focus, select:focus, textarea:focus {
 
 .district-assignment-controls {
   display: grid;
-  grid-template-columns: minmax(130px, 0.8fr) minmax(170px, 1fr) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   align-items: end;
 }
@@ -1100,7 +1100,10 @@ input:focus, select:focus, textarea:focus {
 }
 
 .district-auto-button {
+  width: 100%;
+  height: 50px;
   min-height: 50px;
+  align-self: end;
   border-radius: 13px;
   padding-inline: 18px;
 }
