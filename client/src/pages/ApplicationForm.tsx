@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { CheckCircle2, User, Users, Home, FileText, Heart, Search, ChevronLeft, ChevronRight, Church, ShieldCheck } from "lucide-react";
 import { ApplicationPayload, FamilyMember } from "../types.js";
 import { openKakaoPostcode } from "../utils/postcode.js";
@@ -20,6 +20,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [pinConfirm, setPinConfirm] = useState(initial.representative.applicantPin ?? "");
+  const stepBodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setForm(initial);
@@ -142,16 +143,28 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
     return true;
   };
 
+  const scrollToStepBody = () => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const target = stepBodyRef.current;
+        if (!target) return;
+        const offset = window.innerWidth <= 720 ? 14 : 24;
+        const top = target.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
+      });
+    });
+  };
+
   const nextStep = () => {
     if (!validateStep(step)) return;
     setStep((current) => Math.min(current + 1, steps.length));
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    scrollToStepBody();
   };
 
   const previousStep = () => {
     setError("");
     setStep((current) => Math.max(current - 1, 1));
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    scrollToStepBody();
   };
 
   const consentPanel = (
@@ -504,7 +517,11 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
                         ? "done"
                         : ""
                   }`}
-                  onClick={() => step > item.id && setStep(item.id)}
+                  onClick={() => {
+                    if (step <= item.id) return;
+                    setStep(item.id);
+                    scrollToStepBody();
+                  }}
                 >
                   <strong className="wizard-step-number" aria-label={step > item.id ? `${item.title} 완료` : `${item.title} 단계`}>
                     {step > item.id ? <CheckCircle2 size={22} strokeWidth={2.6} /> : item.id}
@@ -515,7 +532,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
             </div>
           </div>
 
-          <div className="application-step-body min-h-[430px]">{panels[step - 1]}</div>
+          <div ref={stepBodyRef} className="application-step-body min-h-[430px]">{panels[step - 1]}</div>
 
           {error && <p className="mx-8 mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>}
 
