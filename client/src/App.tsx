@@ -203,6 +203,7 @@ export function App() {
                 <h1>운영자 콘솔</h1>
               </div>
             </div>
+            <div id="admin-header-menu-slot" className="admin-header-menu-slot" />
             <div className="accessibility" aria-label="글자 크기 조절">
               <Accessibility size={20} />
               <button onClick={() => setFontScale(0.95)} className={fontScale === 0.95 ? "active" : ""}>가</button>

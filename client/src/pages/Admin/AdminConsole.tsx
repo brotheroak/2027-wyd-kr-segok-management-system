@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, XCircle, BedDouble, Sparkles, MapPinned, UserPlus, KeyRound, Crown, ClipboardList } from "lucide-react";
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { AdminRole, ApplicationPayload } from "../../types.js";
@@ -501,13 +502,10 @@ export function AdminConsoleZip() {
   const districtSort = (a: string, b: string) => Number(a) - Number(b);
   const districtOptionLabel = (no: string) => (no === "99" ? "구역외 (99구역)" : `${no}구역`);
   const pendingAdminCount = adminUsers.filter((admin) => admin.status === "pending" && !admin.locked).length;
-  const consoleHeader = (
-    <div className="admin-console-header">
-      <div>
-        <span>Admin Console</span>
-        <strong>{roleLabel(role ?? "admin")}</strong>
-      </div>
-      <nav aria-label="운영자 콘솔 메뉴">
+  const headerMenuSlot = document.getElementById("admin-header-menu-slot");
+  const adminHeaderMenu = headerMenuSlot
+    ? createPortal(
+      <nav className="admin-header-menu" aria-label="운영자 콘솔 메뉴">
         <button
           type="button"
           className={activeConsoleMenu === "applications" ? "active" : ""}
@@ -537,13 +535,14 @@ export function AdminConsoleZip() {
         >
           <KeyRound size={18} /> 비밀번호 변경
         </button>
-      </nav>
-    </div>
-  );
+      </nav>,
+      headerMenuSlot
+    )
+    : null;
 
   const passwordPanel = (
-    <div className="bg-white rounded-3xl border border-gold-100 shadow-sm overflow-hidden">
-      <div className="bg-gold-50/50 border-b border-gold-100 px-6 py-4">
+    <div className="admin-password-panel bg-white rounded-3xl border border-gold-100 shadow-sm overflow-hidden">
+      <div className="admin-password-panel-head bg-gold-50/50 border-b border-gold-100 px-6 py-4">
         <span className="font-serif font-black text-lg text-catholic-navy flex items-center gap-2">
           <KeyRound className="w-5 h-5 text-gold-600" /> 비밀번호 변경
         </span>
@@ -670,7 +669,7 @@ export function AdminConsoleZip() {
   if (activeConsoleMenu === "accounts") {
     return (
       <div className="space-y-8" id="admin-dashboard">
-        {consoleHeader}
+        {adminHeaderMenu}
         {accountPanel}
       </div>
     );
@@ -679,7 +678,7 @@ export function AdminConsoleZip() {
   if (activeConsoleMenu === "password") {
     return (
       <div className="space-y-8" id="admin-dashboard">
-        {consoleHeader}
+        {adminHeaderMenu}
         {passwordPanel}
       </div>
     );
@@ -688,7 +687,7 @@ export function AdminConsoleZip() {
   if (activeAdminTab === "volunteer") {
     return (
       <div className="space-y-8" id="admin-dashboard">
-        {consoleHeader}
+        {adminHeaderMenu}
         <AdminModeTabs active={activeAdminTab} onChange={setActiveAdminTab} />
         <VolunteerAdminPanel token={token} canViewPersonalData={canViewPersonalData} statusLabel={statusLabel} statusTone={statusTone} />
       </div>
@@ -768,7 +767,7 @@ export function AdminConsoleZip() {
 
   return (
     <div className="space-y-8" id="admin-dashboard">
-      {consoleHeader}
+      {adminHeaderMenu}
       <AdminModeTabs active={activeAdminTab} onChange={setActiveAdminTab} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" id="stats-dashboard">
         <div className="bg-white p-6 rounded-2xl border border-gold-100 shadow-sm flex items-center gap-4">
