@@ -116,7 +116,10 @@ export const sqliteAdmins = sqliteTable("admins", {
   id: sqliteText("id").primaryKey(),
   email: sqliteText("email").unique().notNull(),
   passwordHash: sqliteText("password_hash").notNull(),
-  role: sqliteText("role").notNull(), // 'admin' or 'privacy_admin'
+  role: sqliteText("role").notNull(), // 'admin', 'privacy_admin', or 'super_admin'
+  status: sqliteText("status").notNull().default("approved"), // 'pending', 'approved', or 'rejected'
+  approvedBy: sqliteText("approved_by"),
+  approvedAt: sqliteText("approved_at"),
   mfaSecret: sqliteText("mfa_secret").notNull(),
   mfaEnabled: sqliteInteger("mfa_enabled").notNull().default(0), // 0 or 1
   createdAt: sqliteText("created_at").notNull(),
@@ -238,7 +241,10 @@ export const pgAdmins = pgTable("admins", {
   id: pgText("id").primaryKey(),
   email: pgText("email").unique().notNull(),
   passwordHash: pgText("password_hash").notNull(),
-  role: pgText("role").notNull(), // 'admin' or 'privacy_admin'
+  role: pgText("role").notNull(), // 'admin', 'privacy_admin', or 'super_admin'
+  status: pgText("status").notNull().default("approved"), // 'pending', 'approved', or 'rejected'
+  approvedBy: pgText("approved_by"),
+  approvedAt: pgText("approved_at"),
   mfaSecret: pgText("mfa_secret").notNull(),
   mfaEnabled: pgBoolean("mfa_enabled").notNull().default(false),
   createdAt: pgText("created_at").notNull(),

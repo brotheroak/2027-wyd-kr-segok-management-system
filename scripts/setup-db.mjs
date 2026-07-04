@@ -169,6 +169,9 @@ async function setupPg() {
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         role TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'approved',
+        approved_by TEXT,
+        approved_at TEXT,
         mfa_secret TEXT NOT NULL,
         mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TEXT NOT NULL,
@@ -176,6 +179,9 @@ async function setupPg() {
       );
 
       ALTER TABLE verification_codes ADD COLUMN IF NOT EXISTS email_hash TEXT;
+      ALTER TABLE admins ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'approved';
+      ALTER TABLE admins ADD COLUMN IF NOT EXISTS approved_by TEXT;
+      ALTER TABLE admins ADD COLUMN IF NOT EXISTS approved_at TEXT;
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_no TEXT NOT NULL DEFAULT '13';
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_name TEXT NOT NULL DEFAULT '구역외';
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_ban TEXT NOT NULL DEFAULT '13-1';
@@ -213,8 +219,8 @@ async function setupPg() {
       const now = new Date().toISOString();
 
       await client.query(
-        "INSERT INTO admins (id, email, password_hash, role, mfa_secret, mfa_enabled, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-        [id, initialAdmin.email, passwordHash, "privacy_admin", mfaSecret, false, now, now]
+        "INSERT INTO admins (id, email, password_hash, role, status, approved_at, mfa_secret, mfa_enabled, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+        [id, initialAdmin.email, passwordHash, "privacy_admin", "approved", now, mfaSecret, false, now, now]
       );
       console.log(`[SEED] Seeded initial administrator account:`);
       console.log(`[SEED] Email: ${initialAdmin.email}`);
@@ -358,6 +364,9 @@ function setupSqlite() {
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         role TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'approved',
+        approved_by TEXT,
+        approved_at TEXT,
         mfa_secret TEXT NOT NULL,
         mfa_enabled INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
@@ -398,6 +407,17 @@ function setupSqlite() {
     if (!verificationColumns.some((column) => column.name === "email_hash")) {
       db.exec("ALTER TABLE verification_codes ADD COLUMN email_hash TEXT");
     }
+    const adminColumns = db.prepare("PRAGMA table_info(admins)").all();
+    const adminMigrationColumns = [
+      ["status", "TEXT NOT NULL DEFAULT 'approved'"],
+      ["approved_by", "TEXT"],
+      ["approved_at", "TEXT"]
+    ];
+    for (const [name, definition] of adminMigrationColumns) {
+      if (!adminColumns.some((column) => column.name === name)) {
+        db.exec(`ALTER TABLE admins ADD COLUMN ${name} ${definition}`);
+      }
+    }
     db.exec("CREATE INDEX IF NOT EXISTS idx_homestay_applications_district ON homestay_applications(district_no, district_ban)");
     db.exec("CREATE INDEX IF NOT EXISTS idx_verification_codes_email_hash ON verification_codes(email_hash)");
 
@@ -415,8 +435,8 @@ function setupSqlite() {
       const now = new Date().toISOString();
 
       db.prepare(
-        "INSERT INTO admins (id, email, password_hash, role, mfa_secret, mfa_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-      ).run(id, initialAdmin.email, passwordHash, "privacy_admin", mfaSecret, 0, now, now);
+        "INSERT INTO admins (id, email, password_hash, role, status, approved_at, mfa_secret, mfa_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      ).run(id, initialAdmin.email, passwordHash, "privacy_admin", "approved", now, mfaSecret, 0, now, now);
       console.log(`[SEED] Seeded initial administrator account:`);
       console.log(`[SEED] Email: ${initialAdmin.email}`);
       console.log(`[SEED] MFA Secret (Scan in Authenticator on first login): ${mfaSecret}`);

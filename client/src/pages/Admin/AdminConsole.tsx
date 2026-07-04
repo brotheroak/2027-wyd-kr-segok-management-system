@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, XCircle, BedDouble, Sparkles, MapPinned } from "lucide-react";
+import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, XCircle, BedDouble, Sparkles, MapPinned, UserPlus, KeyRound, Crown } from "lucide-react";
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { AdminRole, ApplicationPayload } from "../../types.js";
 import { api } from "../../api.js";
@@ -16,6 +16,19 @@ type LoginState = {
   mfaRequired: boolean;
   mfaEnabled?: boolean;
   mfaSecret?: string;
+};
+
+type AdminUser = {
+  id: string;
+  email: string;
+  role: AdminRole;
+  status: "pending" | "approved" | "rejected";
+  locked: boolean;
+  mfaEnabled: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 const ADMIN_TOKEN_KEY = "wydAdminToken";
@@ -40,7 +53,17 @@ export function AdminConsoleZip() {
   const [otpCode, setOtpCode] = useState("");
   const [loginState, setLoginState] = useState<LoginState>({ mfaRequired: false });
   const [loginError, setLoginError] = useState("");
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [registerPasswordConfirm, setRegisterPasswordConfirm] = useState("");
+  const [registerMessage, setRegisterMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [accountMessage, setAccountMessage] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [nextPassword, setNextPassword] = useState("");
+  const [nextPasswordConfirm, setNextPasswordConfirm] = useState("");
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
 
   // Search & Filter states
   const [query, setQuery] = useState("");
@@ -60,6 +83,12 @@ export function AdminConsoleZip() {
   const [match, setMatch] = useState({ capacity: 1, language: "", bedNeeded: false, petAllergy: false, gender: "" });
   const [candidates, setCandidates] = useState<any[]>([]);
 
+  const roleLabel = (value?: AdminRole | string) => {
+    if (value === "super_admin") return "최고 관리자";
+    if (value === "privacy_admin") return "개인정보 관리자";
+    return "일반 운영자";
+  };
+
   const load = async (nextToken = token) => {
     if (!nextToken) return;
     const params = new URLSearchParams({
@@ -70,6 +99,12 @@ export function AdminConsoleZip() {
     setRole(response.role);
     sessionStorage.setItem(ADMIN_ROLE_KEY, response.role);
     setData(response);
+  };
+
+  const loadAdminUsers = async (nextToken = token) => {
+    if (!nextToken || role !== "super_admin") return;
+    const response = await api<{ admins: AdminUser[] }>("/api/admin/users", {}, nextToken);
+    setAdminUsers(response.admins);
   };
 
   useEffect(() => {
@@ -99,6 +134,10 @@ export function AdminConsoleZip() {
   useEffect(() => {
     setFilterDistrictBan("all");
   }, [filterDistrict]);
+
+  useEffect(() => {
+    loadAdminUsers().catch(() => setAdminUsers([]));
+  }, [token, role]);
 
   const handleLoginStep1 = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -133,6 +172,35 @@ export function AdminConsoleZip() {
       setToken(response.token);
       setRole(response.role);
       resetLoginState();
+      if (response.role === "super_admin") {
+        const users = await api<{ admins: AdminUser[] }>("/api/admin/users", {}, response.token);
+        setAdminUsers(users.admins);
+      }
+    } catch (error) {
+      setLoginError((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRegister = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoginError("");
+    setRegisterMessage("");
+    setBusy(true);
+    try {
+      const response = await api<{ message: string }>("/api/admin/register", {
+        method: "POST",
+        body: JSON.stringify({
+          email: registerEmail,
+          password: registerPassword,
+          passwordConfirm: registerPasswordConfirm
+        })
+      });
+      setRegisterMessage(response.message);
+      setRegisterEmail("");
+      setRegisterPassword("");
+      setRegisterPasswordConfirm("");
     } catch (error) {
       setLoginError((error as Error).message);
     } finally {
@@ -156,7 +224,41 @@ export function AdminConsoleZip() {
     setSelected(null);
     setEmail("");
     setPassword("");
+    setCurrentPassword("");
+    setNextPassword("");
+    setNextPasswordConfirm("");
+    setAdminUsers([]);
+    setAccountMessage("");
     resetLoginState();
+  };
+
+  const changePassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setAccountMessage("");
+    try {
+      const response = await api<{ message: string }>("/api/admin/change-password", {
+        method: "POST",
+        body: JSON.stringify({ currentPassword, nextPassword, nextPasswordConfirm })
+      }, token);
+      setAccountMessage(response.message);
+      setCurrentPassword("");
+      setNextPassword("");
+      setNextPasswordConfirm("");
+    } catch (error) {
+      setAccountMessage((error as Error).message);
+    }
+  };
+
+  const updateAdminUser = async (admin: AdminUser, next: Partial<Pick<AdminUser, "role" | "status">>) => {
+    if (!token || admin.locked) return;
+    await api<{ message: string }>(`/api/admin/users/${admin.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        role: next.role ?? admin.role,
+        status: next.status ?? admin.status
+      })
+    }, token);
+    await loadAdminUsers();
   };
 
   const downloadAuditLogs = async () => {
@@ -221,7 +323,58 @@ export function AdminConsoleZip() {
             </p>
           </div>
           <div className="p-8 space-y-5">
-            {!loginState.mfaRequired ? (
+            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-gray-50 p-1 text-sm font-bold">
+              <button type="button" className={authMode === "login" ? "primary" : "ghost"} onClick={() => { setAuthMode("login"); setLoginError(""); }}>
+                로그인
+              </button>
+              <button type="button" className={authMode === "register" ? "primary" : "ghost"} onClick={() => { setAuthMode("register"); resetLoginState(); }}>
+                가입 신청
+              </button>
+            </div>
+            {authMode === "register" ? (
+              <form onSubmit={handleRegister} className="space-y-4">
+                <label className="block space-y-1">
+                  <span className="font-bold text-gray-700 text-sm">운영자 이메일</span>
+                  <input
+                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 focus:border-gold-500 focus:outline-none"
+                    type="email"
+                    required
+                    value={registerEmail}
+                    onChange={(e) => setRegisterEmail(e.target.value)}
+                    placeholder="operator@example.org"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="font-bold text-gray-700 text-sm">비밀번호</span>
+                  <input
+                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 focus:border-gold-500 focus:outline-none"
+                    type="password"
+                    required
+                    minLength={10}
+                    value={registerPassword}
+                    onChange={(e) => setRegisterPassword(e.target.value)}
+                    placeholder="10자 이상"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="font-bold text-gray-700 text-sm">비밀번호 확인</span>
+                  <input
+                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 focus:border-gold-500 focus:outline-none"
+                    type="password"
+                    required
+                    minLength={10}
+                    value={registerPasswordConfirm}
+                    onChange={(e) => setRegisterPasswordConfirm(e.target.value)}
+                    placeholder="다시 입력"
+                  />
+                </label>
+                {loginError && <p className="text-rose-600 text-xs font-bold">{loginError}</p>}
+                {registerMessage && <p className="text-emerald-700 text-xs font-bold">{registerMessage}</p>}
+                <button type="submit" className="primary w-full justify-center" disabled={busy}>
+                  <UserPlus size={18} /> 승인 요청
+                </button>
+              </form>
+            ) : !loginState.mfaRequired ? (
               <form onSubmit={handleLoginStep1} className="space-y-4">
                 <label className="block space-y-1">
                   <span className="font-bold text-gray-700 text-sm">운영자 이메일</span>
@@ -298,16 +451,132 @@ export function AdminConsoleZip() {
     );
   }
 
-  const canViewPersonalData = data?.canViewPersonalData ?? role === "privacy_admin";
+  const canViewPersonalData = data?.canViewPersonalData ?? (role === "privacy_admin" || role === "super_admin");
   const applications = data?.applications ?? [];
   const statusLabel = (value?: string) => (value === "confirmed" ? "✅ 승인" : value === "canceled" ? "🚫 취소" : "⏳ 대기");
   const statusTone = (value?: string) => (value === "confirmed" ? "confirmed" : value === "canceled" ? "canceled" : "submitted");
   const districtSort = (a: string, b: string) => Number(a) - Number(b);
   const districtOptionLabel = (no: string) => (no === "13" ? "구역외 (13구역)" : `${no}구역`);
+  const accountPanel = (
+    <div className="bg-white rounded-3xl border border-gold-100 shadow-sm overflow-hidden">
+      <div className="bg-gold-50/50 border-b border-gold-100 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div>
+          <span className="font-serif font-black text-lg text-catholic-navy flex items-center gap-2">
+            {role === "super_admin" ? <Crown className="w-5 h-5 text-gold-600" /> : <ShieldCheck className="w-5 h-5 text-gold-600" />}
+            운영자 계정 관리
+          </span>
+          <p className="text-xs text-gray-500 mt-1">현재 권한: {roleLabel(role ?? "admin")}</p>
+        </div>
+        <button className="secondary" onClick={logout}>로그아웃</button>
+      </div>
+      <div className="p-6 grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-6">
+        <form onSubmit={changePassword} className="border border-gray-100 rounded-2xl p-5 space-y-4">
+          <div className="flex items-center gap-2 text-catholic-navy font-black">
+            <KeyRound className="w-5 h-5 text-gold-600" /> 비밀번호 변경
+          </div>
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="현재 비밀번호"
+            required
+          />
+          <input
+            type="password"
+            value={nextPassword}
+            onChange={(e) => setNextPassword(e.target.value)}
+            placeholder="새 비밀번호 10자 이상"
+            minLength={10}
+            required
+          />
+          <input
+            type="password"
+            value={nextPasswordConfirm}
+            onChange={(e) => setNextPasswordConfirm(e.target.value)}
+            placeholder="새 비밀번호 확인"
+            minLength={10}
+            required
+          />
+          {accountMessage && <p className="text-xs font-bold text-catholic-navy">{accountMessage}</p>}
+          <button className="primary w-full" type="submit">비밀번호 변경</button>
+        </form>
+        {role === "super_admin" ? (
+          <div className="border border-gray-100 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between gap-3">
+              <strong className="text-catholic-navy">운영자 승인 및 권한</strong>
+              <button type="button" className="secondary" onClick={() => loadAdminUsers()}>
+                <RefreshCw size={16} /> 새로고침
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[760px]">
+                <thead className="bg-white text-gray-500 border-b border-gray-100">
+                  <tr>
+                    <th className="p-3 text-left">이메일</th>
+                    <th className="p-3 text-left">승인 상태</th>
+                    <th className="p-3 text-left">권한</th>
+                    <th className="p-3 text-left">MFA</th>
+                    <th className="p-3 text-left">가입일</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {adminUsers.map((admin) => (
+                    <tr key={admin.id} className={admin.locked ? "bg-gold-50/30" : "bg-white"}>
+                      <td className="p-3 font-bold text-gray-900">
+                        {admin.email}
+                        {admin.locked && <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gold-100 text-gold-800">보호됨</span>}
+                      </td>
+                      <td className="p-3">
+                        <select
+                          value={admin.status}
+                          disabled={admin.locked}
+                          onChange={(e) => updateAdminUser(admin, { status: e.target.value as AdminUser["status"] })}
+                          className="min-h-10"
+                        >
+                          <option value="pending">승인 대기</option>
+                          <option value="approved">승인</option>
+                          <option value="rejected">거절</option>
+                        </select>
+                      </td>
+                      <td className="p-3">
+                        <select
+                          value={admin.locked ? "super_admin" : admin.role}
+                          disabled={admin.locked}
+                          onChange={(e) => updateAdminUser(admin, { role: e.target.value as AdminRole })}
+                          className="min-h-10"
+                        >
+                          {admin.locked ? <option value="super_admin">최고 관리자</option> : null}
+                          <option value="admin">일반 운영자</option>
+                          <option value="privacy_admin">개인정보 관리자</option>
+                        </select>
+                      </td>
+                      <td className="p-3 text-xs font-bold text-gray-600">{admin.mfaEnabled ? "설정됨" : "미설정"}</td>
+                      <td className="p-3 text-xs text-gray-500">{admin.createdAt?.slice(0, 10)}</td>
+                    </tr>
+                  ))}
+                  {adminUsers.length === 0 && (
+                    <tr>
+                      <td className="p-8 text-center text-gray-400" colSpan={5}>등록된 운영자 계정이 없습니다.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="border border-gray-100 rounded-2xl p-5 bg-gray-50 text-sm text-gray-600 leading-relaxed">
+            <strong className="block text-catholic-navy mb-2">운영자 권한 안내</strong>
+            계정 승인, 권한 변경, 개인정보 관리자 지정은 최고 관리자만 처리할 수 있습니다.
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   if (activeAdminTab === "volunteer") {
     return (
       <div className="space-y-8" id="admin-dashboard">
+        {accountPanel}
         <AdminModeTabs active={activeAdminTab} onChange={setActiveAdminTab} />
         <VolunteerAdminPanel token={token} canViewPersonalData={canViewPersonalData} statusLabel={statusLabel} statusTone={statusTone} />
       </div>
@@ -387,6 +656,7 @@ export function AdminConsoleZip() {
 
   return (
     <div className="space-y-8" id="admin-dashboard">
+      {accountPanel}
       <AdminModeTabs active={activeAdminTab} onChange={setActiveAdminTab} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" id="stats-dashboard">
         <div className="bg-white p-6 rounded-2xl border border-gold-100 shadow-sm flex items-center gap-4">

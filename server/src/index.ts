@@ -1,7 +1,7 @@
 import cors from "cors";
 import express from "express";
 import fs from "node:fs";
-import { createHash, randomInt } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { nanoid } from "nanoid";
@@ -12,7 +12,7 @@ import { applicationSchema, volunteerSchema } from "./validators.js";
 import type { ApplicationPayload, FamilyMember, VolunteerPayload } from "./types.js";
 import { assignDistrict, normalizeDistrictOverride } from "./districts.js";
 import { verifyTotp } from "./totp.js";
-import { verifyPassword } from "./password.js";
+import { hashPassword, verifyPassword } from "./password.js";
 import { sql, eq, and, or, like, desc } from "drizzle-orm";
 
 const app = express();
@@ -178,8 +178,14 @@ app.use(rateLimit);
 app.use(blockKnownScanPaths);
 app.use(express.json({ limit: "1mb" }));
 
-type Role = "user" | "admin" | "privacy_admin";
+type AdminRole = "admin" | "privacy_admin" | "super_admin";
+type Role = "user" | AdminRole;
 type Session = { email: string; role: Role };
+type AdminStatus = "pending" | "approved" | "rejected";
+
+const superAdminEmails = new Set(["brotheroak@gmail.com", "livelab21@nate.com"]);
+const approvableAdminRoles: AdminRole[] = ["admin", "privacy_admin"];
+const adminStatuses: AdminStatus[] = ["pending", "approved", "rejected"];
 
 const nowIso = () => new Date().toISOString();
 const addMinutes = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
@@ -202,6 +208,37 @@ const seoulDateKey = () => {
   const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
   return `${value("year")}${value("month")}${value("day")}`;
 };
+
+function generateTotpSecret() {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const bytes = randomBytes(10);
+  let result = "";
+  let value = 0;
+  let bits = 0;
+  for (const byte of bytes) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      result += alphabet[(value >> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) result += alphabet[(value << (5 - bits)) & 31];
+  return result;
+}
+
+function effectiveAdminRole(email: string, role: string): AdminRole {
+  if (superAdminEmails.has(email.trim().toLowerCase())) return "super_admin";
+  return role === "privacy_admin" ? "privacy_admin" : "admin";
+}
+
+function canAccessPersonalData(session: Session) {
+  return session.role === "privacy_admin" || session.role === "super_admin";
+}
+
+function isSuperAdmin(session: Session) {
+  return session.role === "super_admin" && superAdminEmails.has(session.email.trim().toLowerCase());
+}
 
 async function logAudit(actor: string, action: string, applicationId?: string, detail?: unknown) {
   try {
@@ -234,7 +271,7 @@ async function sessionFrom(req: express.Request, roles?: Role | Role[]): Promise
   if (!row || row.expiresAt < nowIso()) return null;
   const allowed = Array.isArray(roles) ? roles : roles ? [roles] : null;
   if (allowed && !allowed.includes(row.role)) return null;
-  return { email: plain(row.email), role: row.role };
+  return { email: plain(row.email), role: row.role as Role };
 }
 
 function tokenFrom(req: express.Request) {
@@ -246,6 +283,20 @@ async function revokeSession(token?: string) {
   await db.delete(tables.sessions).where(eq(tables.sessions.token, token));
 }
 
+async function revokeAdminSessionsByEmail(email: string) {
+  const rows = await db.select({
+    token: tables.sessions.token,
+    email: tables.sessions.email,
+    role: tables.sessions.role
+  }).from(tables.sessions);
+  for (const row of rows) {
+    if (row.role === "user") continue;
+    if (plain(row.email).trim().toLowerCase() === email.trim().toLowerCase()) {
+      await db.delete(tables.sessions).where(eq(tables.sessions.token, row.token));
+    }
+  }
+}
+
 function requireSession(roles?: Role | Role[]) {
   return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const session = await sessionFrom(req, roles);
@@ -255,11 +306,12 @@ function requireSession(roles?: Role | Role[]) {
   };
 }
 
-const requireAdmin = requireSession(["admin", "privacy_admin"]);
-const requirePrivacyAdmin = requireSession("privacy_admin");
+const requireAdmin = requireSession(["admin", "privacy_admin", "super_admin"]);
+const requirePrivacyAdmin = requireSession(["privacy_admin", "super_admin"]);
+const requireSuperAdmin = requireSession("super_admin");
 
 function actorFrom(session: Session) {
-  return session.role === "privacy_admin" ? "privacy_admin" : session.email;
+  return canAccessPersonalData(session) ? session.role : session.email;
 }
 
 function pii(value = "") {
@@ -327,7 +379,7 @@ function anonymizeApplication(application: Awaited<ReturnType<typeof rowToApplic
 }
 
 function visibleApplicationFor(session: Session, application: any) {
-  return session.role === "privacy_admin" ? application : anonymizeApplication(application);
+  return canAccessPersonalData(session) ? application : anonymizeApplication(application);
 }
 
 async function makeApplicationNo() {
@@ -690,7 +742,7 @@ function anonymizeVolunteer(volunteer: ReturnType<typeof rowToVolunteer> | null)
 }
 
 function visibleVolunteerFor(session: Session, volunteer: any) {
-  return session.role === "privacy_admin" ? volunteer : anonymizeVolunteer(volunteer);
+  return canAccessPersonalData(session) ? volunteer : anonymizeVolunteer(volunteer);
 }
 
 async function encryptExistingPersonalData() {
@@ -1143,6 +1195,37 @@ app.post("/api/volunteers/lookup", async (req, res) => {
   res.json({ token, volunteer });
 });
 
+app.post("/api/admin/register", async (req, res) => {
+  const email = String(req.body.email ?? "").trim().toLowerCase();
+  const password = String(req.body.password ?? "");
+  const passwordConfirm = String(req.body.passwordConfirm ?? "");
+
+  if (!email.includes("@")) return res.status(400).json({ message: "올바른 이메일을 입력해 주세요." });
+  if (superAdminEmails.has(email)) return res.status(400).json({ message: "최고 관리자 계정은 가입 신청 대상이 아닙니다." });
+  if (password.length < 10) return res.status(400).json({ message: "비밀번호는 10자 이상으로 설정해 주세요." });
+  if (password !== passwordConfirm) return res.status(400).json({ message: "비밀번호 확인이 일치하지 않습니다." });
+
+  const existing = await db.select({ id: tables.admins.id }).from(tables.admins).where(eq(tables.admins.email, email));
+  if (existing.length) return res.status(409).json({ message: "이미 등록된 운영자 이메일입니다." });
+
+  const now = nowIso();
+  await db.insert(tables.admins).values({
+    id: nanoid(),
+    email,
+    passwordHash: hashPassword(password),
+    role: "admin",
+    status: "pending",
+    approvedBy: null,
+    approvedAt: null,
+    mfaSecret: generateTotpSecret(),
+    mfaEnabled: isPg ? false : 0,
+    createdAt: now,
+    updatedAt: now
+  });
+  await logAudit(email, "admin_requested_registration");
+  res.status(201).json({ message: "운영자 가입 신청이 접수되었습니다. 최고 관리자 승인 후 로그인할 수 있습니다." });
+});
+
 // 어드민 로그인 및 OTP 검증 통합 핸들러
 app.post("/api/admin/login", async (req, res) => {
   const email = String(req.body.email ?? "").trim().toLowerCase();
@@ -1157,6 +1240,12 @@ app.post("/api/admin/login", async (req, res) => {
   const admin = admins[0];
   if (!admin || !verifyPassword(password, admin.passwordHash)) {
     return res.status(401).json({ message: "이메일 또는 비밀번호가 올바르지 않습니다." });
+  }
+
+  const effectiveRole = effectiveAdminRole(admin.email, admin.role);
+  const status = String(admin.status ?? "approved");
+  if (effectiveRole !== "super_admin" && status !== "approved") {
+    return res.status(403).json({ message: status === "rejected" ? "승인이 거절된 운영자 계정입니다." : "최고 관리자 승인 대기 중인 운영자 계정입니다." });
   }
 
   const castMfaEnabled = admin.mfaEnabled === true || admin.mfaEnabled === 1 || admin.mfaEnabled === "1";
@@ -1187,13 +1276,13 @@ app.post("/api/admin/login", async (req, res) => {
   await db.insert(tables.sessions).values({
     token,
     email: pii(admin.email),
-    role: admin.role,
+    role: effectiveRole,
     expiresAt: addMinutes(adminSessionMinutes),
     createdAt: nowIso()
   });
 
-  await logAudit(admin.role, "admin_login");
-  res.json({ token, role: admin.role });
+  await logAudit(effectiveRole, "admin_login", undefined, { email: admin.email });
+  res.json({ token, role: effectiveRole });
 });
 
 app.post("/api/logout", async (req, res) => {
@@ -1203,10 +1292,90 @@ app.post("/api/logout", async (req, res) => {
 
 app.post("/api/admin/logout", async (req, res) => {
   const token = tokenFrom(req);
-  const session = token ? await sessionFrom(req, ["admin", "privacy_admin"]) : null;
+  const session = token ? await sessionFrom(req, ["admin", "privacy_admin", "super_admin"]) : null;
   await revokeSession(token);
   if (session) await logAudit(actorFrom(session), "admin_logout");
   res.status(204).end();
+});
+
+app.post("/api/admin/change-password", requireAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  const currentPassword = String(req.body.currentPassword ?? "");
+  const nextPassword = String(req.body.nextPassword ?? "");
+  const nextPasswordConfirm = String(req.body.nextPasswordConfirm ?? "");
+
+  if (nextPassword.length < 10) return res.status(400).json({ message: "새 비밀번호는 10자 이상으로 설정해 주세요." });
+  if (nextPassword !== nextPasswordConfirm) return res.status(400).json({ message: "새 비밀번호 확인이 일치하지 않습니다." });
+
+  const rows = await db.select().from(tables.admins).where(eq(tables.admins.email, session.email));
+  const admin = rows[0];
+  if (!admin || !verifyPassword(currentPassword, admin.passwordHash)) {
+    return res.status(401).json({ message: "현재 비밀번호가 올바르지 않습니다." });
+  }
+
+  await db.update(tables.admins).set({
+    passwordHash: hashPassword(nextPassword),
+    updatedAt: nowIso()
+  }).where(eq(tables.admins.id, admin.id));
+  await logAudit(actorFrom(session), "admin_changed_own_password");
+  res.json({ message: "비밀번호가 변경되었습니다." });
+});
+
+app.get("/api/admin/users", requireSuperAdmin, async (_req, res) => {
+  const session = res.locals.session as Session;
+  if (!isSuperAdmin(session)) return res.status(403).json({ message: "최고 관리자 권한이 필요합니다." });
+  const rows = await db.select().from(tables.admins).orderBy(desc(tables.admins.createdAt));
+  const admins = rows.map((admin: any) => {
+    const email = String(admin.email ?? "").toLowerCase();
+    const locked = superAdminEmails.has(email);
+    const role = effectiveAdminRole(email, admin.role);
+    return {
+      id: admin.id,
+      email,
+      role,
+      status: locked ? "approved" : String(admin.status ?? "approved"),
+      locked,
+      mfaEnabled: admin.mfaEnabled === true || admin.mfaEnabled === 1 || admin.mfaEnabled === "1",
+      approvedBy: admin.approvedBy ?? "",
+      approvedAt: admin.approvedAt ?? "",
+      createdAt: admin.createdAt,
+      updatedAt: admin.updatedAt
+    };
+  });
+  res.json({ admins });
+});
+
+app.patch("/api/admin/users/:id", requireSuperAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  if (!isSuperAdmin(session)) return res.status(403).json({ message: "최고 관리자 권한이 필요합니다." });
+
+  const id = String(req.params.id);
+  const requestedRole = String(req.body.role ?? "");
+  const requestedStatus = String(req.body.status ?? "");
+  if (!approvableAdminRoles.includes(requestedRole as AdminRole)) return res.status(400).json({ message: "권한은 일반 운영자 또는 개인정보 관리자 중 하나여야 합니다." });
+  if (!adminStatuses.includes(requestedStatus as AdminStatus)) return res.status(400).json({ message: "승인 상태가 올바르지 않습니다." });
+
+  const rows = await db.select().from(tables.admins).where(eq(tables.admins.id, id));
+  const admin = rows[0];
+  if (!admin) return res.status(404).json({ message: "운영자 계정을 찾을 수 없습니다." });
+  const email = String(admin.email ?? "").toLowerCase();
+  if (superAdminEmails.has(email)) return res.status(403).json({ message: "최고 관리자 계정은 권한을 변경할 수 없습니다." });
+
+  const now = nowIso();
+  await db.update(tables.admins).set({
+    role: requestedRole,
+    status: requestedStatus,
+    approvedBy: requestedStatus === "approved" ? session.email : admin.approvedBy ?? null,
+    approvedAt: requestedStatus === "approved" ? now : admin.approvedAt ?? null,
+    updatedAt: now
+  }).where(eq(tables.admins.id, id));
+  await revokeAdminSessionsByEmail(email);
+  await logAudit(actorFrom(session), "super_admin_updated_admin", undefined, {
+    email,
+    role: requestedRole,
+    status: requestedStatus
+  });
+  res.json({ message: "운영자 권한이 업데이트되었습니다." });
 });
 
 app.get("/api/my/application", requireSession("user"), async (req, res) => {
@@ -1299,7 +1468,7 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
 
   res.json({
     role: session.role,
-    canViewPersonalData: session.role === "privacy_admin",
+    canViewPersonalData: canAccessPersonalData(session),
     stats: { total, submitted, confirmed, canceled, capacity },
     applications
   });
@@ -1310,7 +1479,7 @@ app.get("/api/admin/applications.xls", requireAdmin, async (req, res) => {
   const applications = await filteredApplicationsForAdmin(session, req.query);
   await logAudit(actorFrom(session), "admin_downloaded_applications_excel", undefined, {
     count: applications.length,
-    privacy: session.role === "privacy_admin" ? "full" : "masked"
+    privacy: canAccessPersonalData(session) ? "full" : "masked"
   });
   sendExcel(res, `wyd-homestay-hosts-${seoulDateKey()}.xls`, "홈스테이 신청", applicationExcelRows(applications));
 });
@@ -1404,7 +1573,7 @@ app.get("/api/admin/volunteers", requireAdmin, async (req, res) => {
 
   res.json({
     role: session.role,
-    canViewPersonalData: session.role === "privacy_admin",
+    canViewPersonalData: canAccessPersonalData(session),
     stats: { total, submitted, confirmed, canceled, languageSupport, medicalSupport },
     volunteers
   });
@@ -1415,7 +1584,7 @@ app.get("/api/admin/volunteers.xls", requireAdmin, async (req, res) => {
   const volunteers = await filteredVolunteersForAdmin(session, req.query);
   await logAudit(actorFrom(session), "admin_downloaded_volunteers_excel", undefined, {
     count: volunteers.length,
-    privacy: session.role === "privacy_admin" ? "full" : "masked"
+    privacy: canAccessPersonalData(session) ? "full" : "masked"
   });
   sendExcel(res, `wyd-volunteers-${seoulDateKey()}.xls`, "자원봉사자 신청", volunteerExcelRows(volunteers));
 });
@@ -1641,7 +1810,7 @@ app.get("/api/admin/match-candidates", requireAdmin, async (req, res) => {
   candidates.sort((a, b) => b.score - a.score);
   res.json({
     role: session.role,
-    canViewPersonalData: session.role === "privacy_admin",
+    canViewPersonalData: canAccessPersonalData(session),
     candidates
   });
 });

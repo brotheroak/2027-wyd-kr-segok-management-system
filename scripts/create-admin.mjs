@@ -7,6 +7,7 @@ import fs from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const passwordIterations = 210_000;
+const superAdminEmails = new Set(["brotheroak@gmail.com", "livelab21@nate.com"]);
 
 // Simple base32 encoder for TOTP secret generation
 function generateTotpSecret() {
@@ -38,15 +39,20 @@ function hashPassword(password) {
 async function main() {
   const email = process.argv[2];
   const password = process.argv[3];
-  const role = process.argv[4] || "admin"; // admin or privacy_admin
+  const role = process.argv[4] || "admin"; // admin, privacy_admin, or super_admin
 
   if (!email || !password) {
     console.error("사용법: node scripts/create-admin.mjs <이메일> <비밀번호> [admin|privacy_admin]");
     process.exit(1);
   }
 
-  if (role !== "admin" && role !== "privacy_admin") {
-    console.error("역할(role)은 admin 또는 privacy_admin이어야 합니다.");
+  if (!["admin", "privacy_admin", "super_admin"].includes(role)) {
+    console.error("역할(role)은 admin, privacy_admin 또는 super_admin이어야 합니다.");
+    process.exit(1);
+  }
+
+  if (role === "super_admin" && !superAdminEmails.has(email.toLowerCase())) {
+    console.error("super_admin 역할은 brotheroak@gmail.com 또는 livelab21@nate.com 계정에만 부여할 수 있습니다.");
     process.exit(1);
   }
 
@@ -69,11 +75,16 @@ async function main() {
         : undefined,
     });
     try {
+      await pool.query(`
+        ALTER TABLE admins ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'approved';
+        ALTER TABLE admins ADD COLUMN IF NOT EXISTS approved_by TEXT;
+        ALTER TABLE admins ADD COLUMN IF NOT EXISTS approved_at TEXT;
+      `);
       await pool.query(
-        `INSERT INTO admins (id, email, password_hash, role, mfa_secret, mfa_enabled, created_at, updated_at) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, updated_at = EXCLUDED.updated_at`,
-        [id, email, passwordHash, role, mfaSecret, false, now, now]
+        `INSERT INTO admins (id, email, password_hash, role, status, approved_at, mfa_secret, mfa_enabled, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'approved', $5, $6, $7, $8, $9)
+         ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, status = 'approved', approved_at = EXCLUDED.approved_at, updated_at = EXCLUDED.updated_at`,
+        [id, email, passwordHash, role, now, mfaSecret, false, now, now]
       );
       console.log("PostgreSQL 어드민 계정이 성공적으로 등록/업데이트되었습니다.");
     } catch (error) {
@@ -96,18 +107,32 @@ async function main() {
           email TEXT UNIQUE NOT NULL,
           password_hash TEXT NOT NULL,
           role TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'approved',
+          approved_by TEXT,
+          approved_at TEXT,
           mfa_secret TEXT NOT NULL,
           mfa_enabled INTEGER NOT NULL DEFAULT 0,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )
       `);
+      const adminColumns = db.prepare("PRAGMA table_info(admins)").all();
+      const adminMigrationColumns = [
+        ["status", "TEXT NOT NULL DEFAULT 'approved'"],
+        ["approved_by", "TEXT"],
+        ["approved_at", "TEXT"]
+      ];
+      for (const [name, definition] of adminMigrationColumns) {
+        if (!adminColumns.some((column) => column.name === name)) {
+          db.exec(`ALTER TABLE admins ADD COLUMN ${name} ${definition}`);
+        }
+      }
       
       const insert = db.prepare(`
-        INSERT OR REPLACE INTO admins (id, email, password_hash, role, mfa_secret, mfa_enabled, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+        INSERT OR REPLACE INTO admins (id, email, password_hash, role, status, approved_at, mfa_secret, mfa_enabled, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 'approved', ?, ?, 0, ?, ?)
       `);
-      insert.run(id, email, passwordHash, role, mfaSecret, now, now);
+      insert.run(id, email, passwordHash, role, now, mfaSecret, now, now);
       console.log("SQLite 어드민 계정이 성공적으로 등록/업데이트되었습니다.");
     } catch (error) {
       console.error("SQLite 등록 실패:", error);

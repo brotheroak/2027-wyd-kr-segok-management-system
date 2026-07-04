@@ -79,6 +79,11 @@ export async function initDb() {
       }
       await client.query("ALTER TABLE verification_codes ADD COLUMN IF NOT EXISTS email_hash TEXT");
       await client.query(`
+        ALTER TABLE admins ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'approved';
+        ALTER TABLE admins ADD COLUMN IF NOT EXISTS approved_by TEXT;
+        ALTER TABLE admins ADD COLUMN IF NOT EXISTS approved_at TEXT;
+      `);
+      await client.query(`
         ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_no TEXT NOT NULL DEFAULT '13';
         ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_name TEXT NOT NULL DEFAULT '구역외';
         ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_ban TEXT NOT NULL DEFAULT '13-1';
@@ -110,6 +115,17 @@ export async function initDb() {
       const verificationColumns = sqliteDbInstance.prepare("PRAGMA table_info(verification_codes)").all() as Array<{ name: string }>;
       if (!verificationColumns.some((column) => column.name === "email_hash")) {
         sqliteDbInstance.exec("ALTER TABLE verification_codes ADD COLUMN email_hash TEXT");
+      }
+      const adminColumns = sqliteDbInstance.prepare("PRAGMA table_info(admins)").all() as Array<{ name: string }>;
+      const adminMigrationColumns: Array<[string, string]> = [
+        ["status", "TEXT NOT NULL DEFAULT 'approved'"],
+        ["approved_by", "TEXT"],
+        ["approved_at", "TEXT"]
+      ];
+      for (const [name, definition] of adminMigrationColumns) {
+        if (!adminColumns.some((column) => column.name === name)) {
+          sqliteDbInstance.exec(`ALTER TABLE admins ADD COLUMN ${name} ${definition}`);
+        }
       }
       const applicationColumns = sqliteDbInstance.prepare("PRAGMA table_info(homestay_applications)").all() as Array<{ name: string }>;
       const districtColumns: Array<[string, string]> = [
