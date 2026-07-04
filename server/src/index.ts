@@ -852,8 +852,9 @@ app.post("/api/volunteers", async (req, res) => {
   try {
     const volunteer = await upsertVolunteer(req.body as VolunteerPayload);
     if (!volunteer) return res.status(500).json({ message: "자원봉사자 신청서를 저장하지 못했습니다." });
+    const token = await createVolunteerSession(volunteer.id);
     await logAudit(volunteer.phone, "volunteer_created_application", volunteer.id, { volunteerNo: volunteer.volunteerNo });
-    res.json({ volunteer });
+    res.json({ token, volunteer });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
   }
@@ -1404,10 +1405,27 @@ if (fs.existsSync(path.join(clientDist, "index.html"))) {
   app.get("*", (_req, res) => res.sendFile(path.join(clientDist, "index.html")));
 }
 
+async function reapExpiredSessions() {
+  try {
+    const now = new Date().toISOString();
+    await db.delete(tables.sessions).where(sql`${tables.sessions.expiresAt} < ${now}`);
+    await db.delete(tables.verificationCodes).where(sql`${tables.verificationCodes.expiresAt} < ${now}`);
+    console.log(`[Reaper] Cleaned up expired sessions and verification codes (Now: ${now}).`);
+  } catch (error) {
+    console.error("[Reaper] Failed to clean up expired data:", error);
+  }
+}
+
 // Startup block to initialize database first
 async function start() {
   await initDb();
   await encryptExistingPersonalData();
+  
+  await reapExpiredSessions();
+  setInterval(() => {
+    reapExpiredSessions().catch((err) => console.error("[Reaper Interval] Error:", err));
+  }, 3600_000 * 6); // 6 hours
+
   app.listen(port, () => {
     console.log(`WYD Seoul 2027 Homestay API running on http://127.0.0.1:${port}`);
   });

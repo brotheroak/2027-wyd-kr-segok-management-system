@@ -17,6 +17,9 @@ type VolunteerAdminPanelProps = {
 export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, statusTone }: VolunteerAdminPanelProps) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
+  const [fieldFilter, setFieldFilter] = useState("all");
+  const [availabilityFilter, setAvailabilityFilter] = useState("all");
+  const [languageFilter, setLanguageFilter] = useState("all");
   const [data, setData] = useState<{ stats: any; volunteers: VolunteerPayload[] } | null>(null);
   const [selected, setSelected] = useState<VolunteerPayload | null>(null);
 
@@ -30,7 +33,23 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
     load().catch(() => setData({ stats: {}, volunteers: [] }));
   }, [status]);
 
-  const volunteers = data?.volunteers ?? [];
+  const rawVolunteers = data?.volunteers ?? [];
+  const availableLanguages = Array.from(
+    new Set(
+      rawVolunteers.flatMap((v) => splitVolunteerLanguages(v.supportLanguage))
+    )
+  ).filter(Boolean).sort();
+
+  const volunteers = rawVolunteers.filter((v) => {
+    if (fieldFilter !== "all" && !v.supportFields.includes(fieldFilter)) return false;
+    if (availabilityFilter !== "all" && v.availability !== availabilityFilter) return false;
+    if (languageFilter !== "all") {
+      const langs = splitVolunteerLanguages(v.supportLanguage);
+      if (!langs.includes(languageFilter)) return false;
+    }
+    return true;
+  });
+
   const volunteerLanguageCounts = volunteers.reduce<Record<string, number>>((acc, volunteer) => {
     splitVolunteerLanguages(volunteer.supportLanguage).forEach((language) => {
       acc[language] = (acc[language] ?? 0) + 1;
@@ -53,11 +72,6 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
       body: JSON.stringify({ status: nextStatus })
     }, token);
     setSelected((current) => (current?.id === volunteer.id ? response.volunteer : current));
-    await load();
-  };
-
-  const addSampleData = async () => {
-    await api<{ inserted: number; volunteers: VolunteerPayload[] }>("/api/admin/volunteers/sample-data", { method: "POST" }, token);
     await load();
   };
 
@@ -140,33 +154,73 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
             <Heart className="w-5 h-5 text-gold-600" /> 세곡동성당 자원봉사자 신청 일람표
           </span>
         </div>
-        <div className="p-6 bg-gray-50/40 border-b border-gold-100 grid grid-cols-1 md:grid-cols-5 gap-4 text-sm">
-          <label className="admin-search-label md:col-span-2 relative">
-            <Search className="w-5 h-5 text-gray-400 absolute left-3.5 top-3" />
-            <input
-              className="admin-search-input w-full bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && load()}
-              placeholder="성명, 연락처, 이메일, 접수번호 통합 검색"
-            />
-          </label>
-          <select
-            className="w-full px-3 py-2.5 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="all">모든 심사 상태</option>
-            <option value="submitted">승인 대기</option>
-            <option value="confirmed">최종 승인</option>
-            <option value="canceled">취소</option>
-          </select>
-          <button className="secondary" onClick={() => load()}>
-            조회
-          </button>
-          <button className="primary" onClick={addSampleData}>
-            샘플 데이터 추가
-          </button>
+        <div className="p-6 bg-gray-50/40 border-b border-gold-100 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 text-sm">
+            <label className="admin-search-label md:col-span-2 relative">
+              <Search className="w-5 h-5 text-gray-400 absolute left-3.5 top-3" />
+              <input
+                className="admin-search-input w-full bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && load()}
+                placeholder="성명, 연락처, 이메일, 접수번호 통합 검색"
+              />
+            </label>
+            <select
+              className="w-full px-3 py-2.5 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="all">모든 심사 상태</option>
+              <option value="submitted">⏳ 승인 대기</option>
+              <option value="confirmed">✅ 최종 승인</option>
+              <option value="canceled">🚫 취소</option>
+            </select>
+            <select
+              className="w-full px-3 py-2.5 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none"
+              value={fieldFilter}
+              onChange={(e) => setFieldFilter(e.target.value)}
+            >
+              <option value="all">모든 지원 분야</option>
+              {volunteerFields.map(f => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+            <select
+              className="w-full px-3 py-2.5 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none"
+              value={availabilityFilter}
+              onChange={(e) => setAvailabilityFilter(e.target.value)}
+            >
+              <option value="all">모든 활동 가능 시간</option>
+              <option value="주중 (월~금)">주중 (월~금)</option>
+              <option value="주말 (토~일)">주말 (토~일)</option>
+              <option value="주중 및 주말 전체">주중 및 주말 전체</option>
+            </select>
+            <select
+              className="w-full px-3 py-2.5 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none"
+              value={languageFilter}
+              onChange={(e) => setLanguageFilter(e.target.value)}
+            >
+              <option value="all">모든 소통 언어</option>
+              {availableLanguages.map(l => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex justify-end gap-3">
+            <button className="secondary" onClick={() => {
+              setQuery("");
+              setStatus("all");
+              setFieldFilter("all");
+              setAvailabilityFilter("all");
+              setLanguageFilter("all");
+            }}>
+              필터 초기화
+            </button>
+            <button className="primary" onClick={() => load()}>
+              검색 조회
+            </button>
+          </div>
         </div>
         <div className="volunteer-admin-grid">
           {volunteers.length === 0 ? (
@@ -181,7 +235,12 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
                   <div>
                     <span>{volunteer.volunteerNo}</span>
                     <strong>
-                      {volunteer.name} {volunteer.baptismalName ? `(${volunteer.baptismalName})` : ""}
+                      {volunteer.name}
+                      {volunteer.baptismalName && (
+                        <span className="text-[14px] font-normal text-gray-500 ml-1.5 inline-block">
+                          ({volunteer.baptismalName})
+                        </span>
+                      )}
                     </strong>
                   </div>
                   <select
@@ -241,14 +300,19 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
               <div className="flex flex-wrap gap-2">
                 {["submitted", "confirmed", "canceled"].map((next) => (
                   <button key={next} className={`status-action status-action-${statusTone(next)}`} onClick={() => updateStatus(selected, next)}>
-                    {statusLabel(next)} 처리
+                    {statusLabel(next)}
                   </button>
                 ))}
               </div>
               <dl className="details">
                 <dt>성명</dt>
                 <dd>
-                  {selected.name} {selected.baptismalName ? `(${selected.baptismalName})` : ""}
+                  {selected.name}
+                  {selected.baptismalName && (
+                    <span className="text-[14px] font-normal text-gray-500 ml-1.5 inline-block">
+                      ({selected.baptismalName})
+                    </span>
+                  )}
                 </dd>
                 <dt>성별</dt>
                 <dd>{selected.gender}</dd>

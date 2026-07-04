@@ -728,7 +728,7 @@ export function AdminConsoleZip() {
                     className={`status-action status-action-${statusTone(next)}`}
                     onClick={() => updateStatus(selected, next)}
                   >
-                    {statusLabel(next)} 처리
+                    {statusLabel(next)}
                   </button>
                 ))}
               </div>

@@ -7,9 +7,10 @@ type VolunteerReceiptProps = {
   volunteer: VolunteerPayload;
   onEdit: () => void;
   onCancel: () => void;
+  onLogout?: () => void;
 };
 
-export function VolunteerReceipt({ volunteer, onEdit, onCancel }: VolunteerReceiptProps) {
+export function VolunteerReceipt({ volunteer, onEdit, onCancel, onLogout }: VolunteerReceiptProps) {
   const statusLabel = volunteer.status === "confirmed" ? "확정" : volunteer.status === "canceled" ? "취소" : "접수";
   return (
     <div className="panel receipt volunteer-receipt">
@@ -26,6 +27,11 @@ export function VolunteerReceipt({ volunteer, onEdit, onCancel }: VolunteerRecei
           <button className="ghost danger" onClick={onCancel} disabled={volunteer.status === "canceled"}>
             <XCircle size={18} /> 취소
           </button>
+          {onLogout && (
+            <button className="ghost" onClick={onLogout} style={{ border: "1px solid #ddd", color: "#555" }}>
+              다른 신청 조회
+            </button>
+          )}
         </div>
       </div>
       <div className="summary-grid">

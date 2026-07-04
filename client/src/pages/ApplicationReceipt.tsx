@@ -7,9 +7,10 @@ type ApplicationReceiptProps = {
   application: ApplicationPayload;
   onEdit: () => void;
   onCancel: () => void;
+  onLogout?: () => void;
 };
 
-export function ApplicationReceipt({ application, onEdit, onCancel }: ApplicationReceiptProps) {
+export function ApplicationReceipt({ application, onEdit, onCancel, onLogout }: ApplicationReceiptProps) {
   const statusLabel = application.status === "confirmed" ? "확정" : application.status === "canceled" ? "취소" : "접수";
   return (
     <div className="panel receipt">
@@ -26,6 +27,11 @@ export function ApplicationReceipt({ application, onEdit, onCancel }: Applicatio
           <button className="ghost danger" onClick={onCancel} disabled={application.status === "canceled"}>
             <XCircle size={18} /> 취소
           </button>
+          {onLogout && (
+            <button className="ghost" onClick={onLogout} style={{ border: "1px solid #ddd", color: "#555" }}>
+              다른 신청 조회
+            </button>
+          )}
         </div>
       </div>
       <div className="summary-grid">

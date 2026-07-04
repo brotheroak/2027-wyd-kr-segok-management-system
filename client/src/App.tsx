@@ -106,6 +106,14 @@ export function App() {
     setApplication(null);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("wydUserToken");
+    localStorage.removeItem("wydUserEmail");
+    setUserToken(null);
+    setApplication(null);
+    setVolunteer(null);
+  };
+
   const navigate = (path: string) => {
     if (path === currentPath) return;
     window.history.pushState({}, "", path);
@@ -122,7 +130,7 @@ export function App() {
       if (url.origin !== window.location.origin || !internalPaths.has(url.pathname)) return;
       event.preventDefault();
       event.stopPropagation();
-      navigate(url.pathname === "/" ? "/apply" : url.pathname);
+      navigate(url.pathname);
     };
     document.addEventListener("click", onInternalLinkClick, true);
     return () => document.removeEventListener("click", onInternalLinkClick, true);
@@ -199,7 +207,7 @@ export function App() {
       <main>
         {applicantView === "intro" && (
           <WydIntro
-            onStartApply={() => navigate("/apply")}
+            onStartApply={(type) => navigate(type === "homestay" ? "/apply/homestay" : "/apply/volunteer")}
             onCheckStatus={() => navigate("/check")}
           />
         )}
@@ -314,6 +322,7 @@ export function App() {
                   const data = await api<{ application: ApplicationPayload }>("/api/my/application", { method: "DELETE" }, userToken);
                   setApplication(data.application);
                 }}
+                onLogout={handleLogout}
               />
             ) : volunteer ? (
               <VolunteerReceipt
@@ -323,6 +332,7 @@ export function App() {
                   const data = await api<{ volunteer: VolunteerPayload }>("/api/my/volunteer", { method: "DELETE" }, userToken);
                   setVolunteer(data.volunteer);
                 }}
+                onLogout={handleLogout}
               />
             ) : (
               <EmptyState title="접수 내역이 없습니다" action="신청 화면으로 이동" onClick={() => navigate("/apply")} />
