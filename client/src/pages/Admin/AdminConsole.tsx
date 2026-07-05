@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, XCircle, BedDouble, Sparkles, MapPinned, UserPlus, KeyRound, Crown, ClipboardList, PawPrint } from "lucide-react";
+import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, BedDouble, Sparkles, MapPinned, UserPlus, KeyRound, Crown, ClipboardList, PawPrint } from "lucide-react";
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { AdminRole, ApplicationPayload } from "../../types.js";
 import { api } from "../../api.js";
@@ -464,8 +464,8 @@ export function AdminConsoleZip() {
                   <span>Admin Registration</span>
                   <h3 id="admin-register-title">운영자 가입 신청</h3>
                 </div>
-                <button type="button" className="ghost" onClick={closeRegisterModal} aria-label="가입 신청 닫기">
-                  <XCircle size={22} />
+                <button type="button" className="modal-close-button" onClick={closeRegisterModal} aria-label="가입 신청 닫기">
+                  닫기
                 </button>
               </div>
               <form onSubmit={handleRegister} className="admin-register-form">
@@ -504,7 +504,7 @@ export function AdminConsoleZip() {
                 {loginError && <p className="admin-form-message error">{loginError}</p>}
                 {registerMessage && <p className="admin-form-message success">{registerMessage}</p>}
                 <div className="button-row">
-                  <button type="button" className="secondary" onClick={closeRegisterModal}>닫기</button>
+                  <button type="button" className="modal-close-button" onClick={closeRegisterModal}>닫기</button>
                   <button type="submit" className="primary" disabled={busy}>
                     <UserPlus size={18} /> 승인 요청
                   </button>
@@ -1240,9 +1240,9 @@ export function AdminConsoleZip() {
                         onChange={(e) => updateStatus(item, e.target.value)}
                         className={`status-control status-control-${statusTone(item.status)}`}
                       >
-                        <option value="submitted">⏳ 대기</option>
-                        <option value="confirmed">✅ 승인</option>
-                        <option value="canceled">🚫 취소</option>
+                        <option value="submitted">승인 대기</option>
+                        <option value="confirmed">승인</option>
+                        <option value="canceled">취소</option>
                       </select>
                     </td>
                     <td className="p-4 text-right">
@@ -1389,8 +1389,8 @@ export function AdminConsoleZip() {
                 <h3 className="font-serif font-black text-2xl">{selected.representative.name} 신청 상세</h3>
                 <p className="text-white/60 text-xs mt-1">{selected.applicationNo}</p>
               </div>
-              <button className="ghost text-white" onClick={() => setSelected(null)}>
-                <XCircle size={22} />
+              <button type="button" className="modal-close-button" onClick={() => setSelected(null)} aria-label="신청 상세 닫기">
+                닫기
               </button>
             </div>
             <div className="p-6 overflow-y-auto space-y-5">

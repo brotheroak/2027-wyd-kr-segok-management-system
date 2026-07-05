@@ -1442,15 +1442,23 @@ input:focus, select:focus, textarea:focus {
   font-size: 1.08rem;
 }
 
-.postcode-dialog-head button {
+.modal-close-button {
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid rgba(197, 168, 92, 0.38);
   border-radius: 9px;
   color: var(--blue);
   background: #fff;
+  font-size: 0.95rem;
   font-weight: 800;
   cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 6px 14px rgba(18, 30, 49, 0.05);
+}
+
+.modal-close-button:hover {
+  border-color: rgba(197, 168, 92, 0.72);
+  background: #fffaf1;
 }
 
 .postcode-dialog-body {
@@ -2233,10 +2241,15 @@ input:focus, select:focus, textarea:focus {
 }
 
 .status-control {
+  display: inline-block;
+  min-width: 126px;
   appearance: auto;
   padding: 7px 34px 7px 14px;
   cursor: pointer;
   outline: 0;
+  text-align: center;
+  text-align-last: center;
+  white-space: nowrap;
 }
 
 .status-badge {

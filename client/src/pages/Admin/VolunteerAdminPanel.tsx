@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Heart, ClipboardList, Languages, ShieldCheck, Search, AlertCircle, XCircle, User, Sparkles, Download, MapPinned } from "lucide-react";
+import { Heart, ClipboardList, Languages, ShieldCheck, Search, AlertCircle, User, Sparkles, Download, MapPinned } from "lucide-react";
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { VolunteerPayload } from "../../types.js";
 import { api } from "../../api.js";
@@ -359,7 +359,7 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
                     onChange={(e) => updateStatus(volunteer, e.target.value)}
                     className={`status-control status-control-${statusTone(volunteer.status)}`}
                   >
-                    <option value="submitted">대기</option>
+                    <option value="submitted">승인 대기</option>
                     <option value="confirmed">승인</option>
                     <option value="canceled">취소</option>
                   </select>
@@ -400,8 +400,8 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
                 <h3 className="font-serif font-black text-2xl">{selected.name} 자원봉사자 상세</h3>
                 <p className="text-white/60 text-xs mt-1">{selected.volunteerNo}</p>
               </div>
-              <button className="ghost text-white" onClick={() => setSelected(null)}>
-                <XCircle size={22} />
+              <button type="button" className="modal-close-button" onClick={() => setSelected(null)} aria-label="자원봉사자 상세 닫기">
+                닫기
               </button>
             </div>
             <div className="p-6 overflow-y-auto space-y-5">

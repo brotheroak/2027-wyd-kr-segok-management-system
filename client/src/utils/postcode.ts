@@ -65,7 +65,7 @@ export async function openKakaoPostcode({
       <div class="postcode-dialog" role="dialog" aria-modal="true" aria-label="주소 검색">
         <div class="postcode-dialog-head">
           <strong>주소 검색</strong>
-          <button type="button" aria-label="주소 검색 닫기">닫기</button>
+          <button type="button" class="modal-close-button" aria-label="주소 검색 닫기">닫기</button>
         </div>
         <div class="postcode-dialog-body"></div>
       </div>

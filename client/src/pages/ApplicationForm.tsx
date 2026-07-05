@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { CheckCircle2, User, Users, Home, FileText, Heart, Search, ChevronLeft, ChevronRight, Church, ShieldCheck, MapPinned, XCircle } from "lucide-react";
+import { CheckCircle2, User, Users, Home, FileText, Heart, Search, ChevronLeft, ChevronRight, Church, ShieldCheck, MapPinned } from "lucide-react";
 import { ApplicationPayload, DistrictInfo, FamilyMember } from "../types.js";
 import { api } from "../api.js";
 import { openKakaoPostcode } from "../utils/postcode.js";
@@ -670,8 +670,8 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
                 <span>세곡동성당 구역반 편성 기준</span>
                 <h3 id="district-guide-title">구역반 안내</h3>
               </div>
-              <button type="button" className="ghost" onClick={() => setDistrictGuideOpen(false)} aria-label="구역반 안내 닫기">
-                <XCircle size={22} />
+              <button type="button" className="modal-close-button" onClick={() => setDistrictGuideOpen(false)} aria-label="구역반 안내 닫기">
+                닫기
               </button>
             </div>
             <div className="district-guide-current">
