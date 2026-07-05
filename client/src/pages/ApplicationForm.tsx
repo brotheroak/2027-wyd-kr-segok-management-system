@@ -230,7 +230,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
   };
 
   const consentPanel = (
-    <div className="application-step-panel p-8 sm:p-10 space-y-8">
+    <div className="application-step-panel p-5 sm:p-10 space-y-8">
       <div className="text-center space-y-3">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gold-50 border border-gold-200 text-gold-700 mx-auto">
           <Church size={34} />
@@ -269,7 +269,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
   );
 
   const representativePanel = (
-    <div className="application-step-panel applicant-info-panel p-8 sm:p-10 space-y-7">
+    <div className="application-step-panel applicant-info-panel p-5 sm:p-10 space-y-7">
       <SectionTitle icon={<User />} title="가족대표(신청인) 인적 사항 입력" />
       <div className="applicant-info-grid">
         <label>
@@ -284,7 +284,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
           <legend>
             <FieldLabel required>성별</FieldLabel>
           </legend>
-          <div className="segmented-buttons">
+          <div className="segmented-buttons two-cols">
             {["남성", "여성"].map((gender) => (
               <button
                 key={gender}
@@ -418,7 +418,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
   );
 
   const membersPanel = (
-    <div className="application-step-panel p-8 sm:p-10 space-y-6">
+    <div className="application-step-panel p-5 sm:p-10 space-y-6">
       <SectionTitle icon={<Users />} title="가족구성원" action={<button type="button" className="secondary" onClick={addMember}>구성원 추가</button>} />
       <div className="member-list">
         {form.members.map((member, index) => (
@@ -464,7 +464,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
   );
 
   const homestayPanel = (
-    <div className="application-step-panel p-8 sm:p-10 space-y-6">
+    <div className="application-step-panel p-5 sm:p-10 space-y-6">
       <SectionTitle icon={<Home />} title="주거 및 수용 상세" />
       <div className="grid three">
         <label>
@@ -526,7 +526,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
   );
 
   const reviewPanel = (
-    <div className="application-step-panel p-8 sm:p-10 space-y-6 review-panel">
+    <div className="application-step-panel p-5 sm:p-10 space-y-6 review-panel">
       <SectionTitle icon={<FileText />} title="작성 내용 확인, 서명 및 완료" />
       <div className="review-hero">
         <CheckCircle2 size={34} />

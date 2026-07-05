@@ -134,7 +134,7 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
 
   return (
     <form className="volunteer-form" onSubmit={submit}>
-      <div className="application-step-panel applicant-info-panel p-8 sm:p-10 space-y-7">
+      <div className="application-step-panel applicant-info-panel p-5 sm:p-10 space-y-7">
         <SectionTitle icon={<User />} title="1. 인적 사항" />
         <div className="applicant-info-grid">
           <label>
@@ -149,7 +149,7 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
             <legend>
               <FieldLabel required>성별</FieldLabel>
             </legend>
-            <div className="segmented-buttons">
+            <div className="segmented-buttons two-cols">
               {["남성", "여성"].map((gender) => (
                 <button
                   key={gender}

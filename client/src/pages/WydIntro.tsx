@@ -39,7 +39,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
       </section>
 
       {/* Tabs Selector */}
-      <div className="segmented-buttons intro-tabs-selector" style={{ margin: "32px 0", gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+      <div className="segmented-buttons intro-tabs-selector" style={{ margin: "32px 0" }}>
         <button
           type="button"
           className={tab === "what" ? "segment-option active" : "segment-option"}
@@ -65,7 +65,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
 
       {/* Tab 1: 세계청년대회란? */}
       {tab === "what" && (
-        <section className="panel p-8 rounded-3xl bg-white border border-[var(--control-border)] space-y-6">
+        <section className="panel p-5 sm:p-8 rounded-3xl bg-white border border-[var(--control-border)] space-y-6">
           <div className="section-title flex items-center space-x-2 border-b border-[var(--control-border-soft)] pb-4">
             <Compass className="text-[var(--gold-600)]" size={24} />
             <h3 className="text-xl font-bold text-[var(--color-catholic-navy)]">세계청년대회(World Youth Day) 소개</h3>
@@ -93,7 +93,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
 
       {/* Tab 2: 대회 상징 & 로고 */}
       {tab === "symbol" && (
-        <section className="panel p-8 rounded-3xl bg-white border border-[var(--control-border)] space-y-8">
+        <section className="panel p-5 sm:p-8 rounded-3xl bg-white border border-[var(--control-border)] space-y-8">
           {/* Logo Section */}
           <div className="space-y-4">
             <div className="section-title flex items-center space-x-2 border-b border-[var(--control-border-soft)] pb-4">
@@ -155,7 +155,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
 
       {/* Tab 3: 주요 프로그램 & 일정 */}
       {tab === "schedule" && (
-        <section className="panel p-8 rounded-3xl bg-white border border-[var(--control-border)] space-y-6">
+        <section className="panel p-5 sm:p-8 rounded-3xl bg-white border border-[var(--control-border)] space-y-6">
           <div className="section-title flex items-center space-x-2 border-b border-[var(--control-border-soft)] pb-4">
             <Calendar className="text-[var(--gold-600)]" size={24} />
             <h3 className="text-xl font-bold text-[var(--color-catholic-navy)]">2027 서울 WYD 주간 주요 프로그램</h3>
@@ -211,7 +211,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="panel action-card-item p-8 rounded-3xl bg-white border border-[var(--control-border)] flex flex-col justify-between space-y-6 hover:shadow-md transition">
+          <div className="panel action-card-item p-5 sm:p-8 rounded-3xl bg-white border border-[var(--control-border)] flex flex-col justify-between space-y-6 hover:shadow-md transition">
             <div className="space-y-3">
               <div className="flex items-center space-x-3 text-[var(--gold-600)]">
                 <Users size={32} />
@@ -226,7 +226,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
               홈스테이 신청하기 <ChevronRight size={18} />
             </button>
           </div>
-          <div className="panel action-card-item p-8 rounded-3xl bg-white border border-[var(--control-border)] flex flex-col justify-between space-y-6 hover:shadow-md transition">
+          <div className="panel action-card-item p-5 sm:p-8 rounded-3xl bg-white border border-[var(--control-border)] flex flex-col justify-between space-y-6 hover:shadow-md transition">
             <div className="space-y-3">
               <div className="flex items-center space-x-3 text-[var(--gold-600)]">
                 <HeartHandshake size={32} />

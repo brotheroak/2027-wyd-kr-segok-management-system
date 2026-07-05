@@ -715,7 +715,8 @@ button.brand:focus-visible .brand-mark {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
   margin-bottom: 24px;
-  border: 1px solid transparent;
+  border: 1px solid rgba(232, 226, 216, 0.72);
+  border-radius: 18px;
   background: linear-gradient(180deg, #ffffff 0%, #fefcf9 100%);
   box-shadow: var(--soft-shadow-sm);
 }
@@ -725,7 +726,7 @@ button.brand:focus-visible .brand-mark {
   gap: 8px;
   min-height: 108px;
   padding: 22px 24px;
-  border-right: 1px solid transparent;
+  border-right: 1px solid rgba(232, 226, 216, 0.72);
 }
 
 .policy-summary div:last-child {
@@ -3264,8 +3265,16 @@ td small {
   .address-lookup-row {
     grid-template-columns: 1fr;
   }
-  .segmented-buttons {
+  .segmented-buttons:not(.two-cols) {
     grid-template-columns: 1fr;
+  }
+  .segmented-buttons.two-cols {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .intro-tabs-selector {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
   .address-search-row {
     grid-template-columns: minmax(120px, 150px) 1fr;
@@ -3373,10 +3382,12 @@ td small {
   }
   .policy-summary {
     grid-template-columns: 1fr;
+    border: 1px solid rgba(232, 226, 216, 0.72) !important;
+    border-radius: 18px !important;
   }
   .policy-summary div {
     border-right: 0;
-    border-bottom: 1px solid transparent;
+    border-bottom: 1px solid rgba(232, 226, 216, 0.72);
   }
   .policy-summary div:last-child {
     border-bottom: 0;
@@ -3480,6 +3491,14 @@ td small {
   }
   .footer-bottom div {
     flex-wrap: wrap;
+  }
+  .panel, .form-step-panel {
+    padding: 20px 16px !important;
+    border-radius: 16px !important;
+  }
+  .form-hero-card {
+    padding: 22px 18px !important;
+    border-radius: 18px !important;
   }
 }
 
