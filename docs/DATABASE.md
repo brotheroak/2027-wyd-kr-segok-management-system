@@ -225,7 +225,7 @@ erDiagram
 
 홈스테이 호스트 신청서의 대표 테이블입니다. 접수번호, 신청 상태, 대표자 인적사항, 주소, 홈스테이 조건, 동의 및 서명 정보를 저장합니다.
 
-주소 입력 시 구역반 편성표 기준으로 `district_no`, `district_name`, `district_ban`, `district_label`, `district_confidence`, `district_reason`을 자동 계산합니다. 한양수자인은 현재 편성표 기준 `13구역`으로 처리하고, 편성표에 매칭되지 않는 주소는 `99구역 = 구역외`로 저장합니다.
+주소 입력 시 구역반 편성표 기준으로 `district_no`, `district_name`, `district_ban`, `district_label`, `district_confidence`, `district_reason`을 자동 계산합니다. 현재 신규 편성표 기준 한양수자인은 `12구역`, 강남아이파크는 `8구역`으로 처리하고, 편성표에 매칭되지 않는 주소는 `99구역 = 구역외`로 저장합니다.
 
 주요 상태값:
 

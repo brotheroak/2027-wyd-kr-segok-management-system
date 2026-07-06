@@ -14,6 +14,7 @@ type DistrictRule = {
   ban: string;
   keywords: string[];
   building?: Array<[number, number, string]>;
+  addressNumber?: Array<[string, number, number, string]>;
   reason: string;
 };
 
@@ -34,12 +35,11 @@ export const districtBansByNo: Record<string, string[]> = {
   "5": ["5-1", "5-2", "5-3"],
   "6": ["6-1", "6-2", "6-3"],
   "7": ["7-1", "7-2", "7-3", "7-4"],
-  "8": ["8-1", "8-2", "8-3"],
-  "9": ["9-1", "9-2", "9-3"],
-  "10": ["10-1", "10-2", "10-3"],
-  "11": ["11-1", "11-2"],
-  "12": ["12-1", "12-2", "12-3"],
-  "13": ["13-1", "13-2", "13-3", "13-4"],
+  "8": ["8-1", "8-2", "8-3", "8-4"],
+  "9": ["9-1", "9-2", "9-3", "9-4"],
+  "10": ["10-1", "10-2"],
+  "11": ["11-1", "11-2", "11-3"],
+  "12": ["12-1", "12-2", "12-3", "12-4"],
   "99": ["99-1", "99-2"]
 };
 
@@ -82,14 +82,29 @@ function buildingNo(text: string) {
   return match ? Number(match[1]) : null;
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function roadAddressNumber(text: string, road: string) {
+  const match = normalizeAddress(text).match(new RegExp(`${escapeRegExp(normalizeKeyword(road))}(\\d+)`));
+  return match ? Number(match[1]) : null;
+}
+
 function normalizeKeyword(value: string) {
   return normalizeAddress(value);
 }
 
 function makeAssignment(rule: DistrictRule, rawText: string, matchedKeyword: string): DistrictAssignment {
   const building = buildingNo(rawText);
+  const addressBan = rule.addressNumber?.find(([road, from, to]) => {
+    const number = roadAddressNumber(rawText, road);
+    return number !== null && number >= from && number <= to;
+  })?.[3];
   const ban = building && rule.building
     ? rule.building.find(([from, to]) => building >= from && building <= to)?.[2] ?? rule.ban
+    : addressBan
+      ? addressBan
     : rule.ban;
   const no = ban.split("-")[0] || rule.no;
   const name = `${no}구역`;
@@ -210,71 +225,96 @@ const rules: DistrictRule[] = [
   {
     no: "8",
     ban: "8-1",
-    keywords: ["밤고개로12길", "밤고개로13길", "밤고개로14길", "교수마을"],
-    reason: "8구역 1반 교수마을"
+    keywords: [
+      "밤고개로12길",
+      "밤고개로13길",
+      "밤고개로14길",
+      "교수마을",
+      "쟁골마을",
+      "못골마을",
+      "자곡로7길8",
+      "자곡로7길10",
+      "자곡로7길12",
+      "자곡로7길14",
+      "자곡로7길16",
+      "자곡로7길36",
+      "강남푸르지오시티2차",
+      "푸르지오시티2차",
+      "시그넘하우스",
+      "자곡로204-25"
+    ],
+    reason: "8구역 자곡동 교수·쟁골·못골마을 및 더시그넘하우스"
   },
   {
     no: "8",
     ban: "8-2",
-    keywords: ["자곡로7길8", "자곡로7길10", "자곡로7길12", "자곡로7길14", "자곡로7길16-2", "자곡로7길16-4", "자곡로7길16-8", "자곡로7길16-10", "자곡로7길16-12", "자곡로7길16-14", "쟁골마을"],
-    reason: "8구역 2반 자곡로7길 8~16 일대"
+    keywords: ["자곡로175", "자곡아이파크", "강남아이파크", "아이파크7단지", "자곡로154", "강남lh8단지", "lh8단지", "유탑유블래스", "더샵라르고", "오피스텔"],
+    building: [[701, 710, "8-2"]],
+    reason: "8구역 강남아이파크 7단지 및 자곡로154 일대"
   },
   {
     no: "8",
     ban: "8-3",
-    keywords: ["자곡로7길16-1", "자곡로7길16-3", "자곡로7길16-5", "자곡로7길16-9", "자곡로7길16-11", "자곡로7길16-13", "자곡로7길36", "못골마을"],
-    reason: "8구역 3반 자곡로7길 16-1~36 일대"
+    keywords: ["lh행복주택1단지", "행복주택1단지", "lh행복주택1", "행복주택1", "디아크리온", "자곡로11길11"],
+    reason: "8구역 LH 행복주택 1단지 및 디아크리온"
+  },
+  {
+    no: "8",
+    ban: "8-4",
+    keywords: ["lh행복주택2단지", "행복주택2단지", "lh행복주택2", "행복주택2"],
+    reason: "8구역 LH 행복주택 2단지"
   },
   {
     no: "9",
     ban: "9-1",
-    keywords: ["자곡로175", "자곡아이파크", "강남아이파크", "아이파크7단지"],
-    building: [[701, 705, "9-1"], [706, 710, "9-2"]],
-    reason: "9구역 강남아이파크 7단지"
+    keywords: ["밤고개로26길50", "한신휴플러스6단지", "휴플러스6단지"],
+    reason: "9구역 한신휴플러스 6단지"
   },
   {
     no: "9",
-    ban: "9-3",
-    keywords: ["자곡로154", "강남lh8단지", "lh8단지", "유탑유블래스", "더샵라르고", "오피스텔"],
-    reason: "9구역 강남LH 8단지 및 오피스텔"
+    ban: "9-2",
+    keywords: ["밤고개로24길", "방죽1마을"],
+    addressNumber: [["밤고개로24길", 20, 66, "9-2"], ["밤고개로24길", 75, 87, "9-3"]],
+    reason: "9구역 율현동 방죽1마을"
+  },
+  {
+    no: "9",
+    ban: "9-4",
+    keywords: ["밤고개로26길"],
+    reason: "9구역 밤고개로26길 주택"
   },
   {
     no: "10",
     ban: "10-1",
-    keywords: ["밤고개로26길50", "한신휴플러스6단지", "휴플러스6단지"],
-    reason: "10구역 한신휴플러스 6단지"
+    keywords: ["밤고개로23길", "밤고개로31길"],
+    addressNumber: [["밤고개로23길", 7, 20, "10-1"]],
+    reason: "10구역 율현동 방죽마을"
   },
   {
     no: "10",
     ban: "10-2",
-    keywords: ["밤고개로24길"],
-    reason: "10구역 방죽1마을 밤고개로24길"
-  },
-  {
-    no: "11",
-    ban: "11-2",
-    keywords: ["밤고개로27길20", "한신휴플러스8단지", "휴플러스8단지"],
-    reason: "11구역 한신휴플러스 8단지"
+    keywords: ["밤고개로27길20", "한신휴플러스8단지", "휴플러스8단지", "헌릉로637길", "밤고개로29길"],
+    reason: "10구역 한신휴플러스 8단지 및 인근"
   },
   {
     no: "11",
     ban: "11-1",
-    keywords: ["밤고개로23길"],
-    reason: "11구역 방죽마을 밤고개로23길"
+    keywords: ["밤고개로21길25", "래미안포레"],
+    building: [[301, 304, "11-1"], [305, 308, "11-2"], [309, 315, "11-3"]],
+    reason: "11구역 래미안포레"
+  },
+  {
+    no: "12",
+    ban: "12-4",
+    keywords: ["율현리엔파크"],
+    reason: "12구역 율현리엔파크"
   },
   {
     no: "12",
     ban: "12-1",
-    keywords: ["밤고개로21길25", "래미안포레"],
-    building: [[301, 304, "12-1"], [305, 308, "12-2"], [309, 315, "12-3"]],
-    reason: "12구역 래미안포레"
-  },
-  {
-    no: "13",
-    ban: "13-1",
     keywords: ["자곡로260", "한양수자인"],
-    building: [[401, 407, "13-1"], [408, 413, "13-2"], [414, 419, "13-3"], [420, 426, "13-4"]],
-    reason: "13구역 한양수자인"
+    building: [[401, 407, "12-1"], [408, 413, "12-2"], [414, 419, "12-3"], [420, 426, "12-4"]],
+    reason: "12구역 한양수자인"
   }
 ];
 

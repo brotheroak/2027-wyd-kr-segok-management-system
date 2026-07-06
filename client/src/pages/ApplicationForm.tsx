@@ -161,8 +161,8 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
     update("homestay.languages", next.length ? next : ["한국어"]);
   };
 
-  const selectedDistrictNo = form.district?.no ?? "13";
-  const selectedDistrictBans = districtBansByNo[selectedDistrictNo] ?? districtBansByNo["13"];
+  const selectedDistrictNo = form.district?.no ?? "12";
+  const selectedDistrictBans = districtBansByNo[selectedDistrictNo] ?? districtBansByNo["12"];
   const selectedDistrictBan = form.district?.ban && selectedDistrictBans.includes(form.district.ban)
     ? form.district.ban
     : selectedDistrictBans[0];
@@ -179,7 +179,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
     setDistrictManual(true);
     setForm((prev) => ({
       ...prev,
-      district: makeManualDistrict(prev.district?.no ?? "13", ban)
+      district: makeManualDistrict(prev.district?.no ?? "12", ban)
     }));
   };
 

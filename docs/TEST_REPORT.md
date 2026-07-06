@@ -14,7 +14,7 @@
 | 프로덕션 빌드 | `npm run build` | 서버 컴파일 및 Vite 정적 빌드 |
 | 헬스 체크 | `/api/health`, `/api/ready`, `/api/funnel/status` | 로컬 서버 상태 및 readiness 확인 |
 | 운영 readiness | Cloud Run `/api/ready` | 운영 DB 연결 및 암호화 활성화 확인 |
-| 구역반 API | `/api/district/assign` | 13구역/99구역 매핑 회귀 확인 |
+| 구역반 API | `/api/district/assign` | 신규 구역표 기준 자동 매핑 회귀 확인 |
 | 경량 부하 | `npm run stress` | rate limit/웹퍼널 전 정상 응답 확인 |
 
 ## 2. 2026-07-04 실행 결과
@@ -24,12 +24,12 @@
 | 항목 | 결과 | 비고 |
 | --- | --- | --- |
 | 타입 검사 | 통과 | `npm run typecheck` |
-| 단위 테스트 | 통과 | `npm test`, 34개 통과 |
+| 단위 테스트 | 통과 | `npm test`, 36개 통과 |
 | 운영 스크립트 문법 검사 | 통과 | `scripts/setup-db.mjs`, `scripts/create-admin.mjs` |
 | 프로덕션 빌드 | 통과 | `npm run build`, Vite chunk size 경고만 있음 |
 | 헬스 체크 | 통과 | `/api/health`, `/api/ready`, `/api/funnel/status` |
 | 운영 readiness | 통과 | Cloud Run `db:"ready"`, `encryption:true` |
-| 구역반 API 확인 | 통과 | 한양수자인 401동은 `13구역 13-1반`, 미매칭 주소는 `99구역` |
+| 구역반 API 확인 | 통과 | 한양수자인은 `12구역`, 강남아이파크는 `8구역`, 미매칭 주소는 `99구역` |
 | 경량 부하 테스트 | 통과 | 28,251건, 실패 0, 200 응답 28,251건, p95 5.2ms |
 | 의존성 보안 감사 | 통과 | `npm audit --audit-level=moderate`, 취약점 0건 |
 
@@ -39,7 +39,8 @@
 
 - `/apply` 신청 유형 카드가 홈스테이와 자원봉사자를 명확히 분리한다.
 - `/apply/homestay` 주소 입력 후 자동 구역반이 표시되고 수동 수정할 수 있다.
-- 한양수자인 401~426동은 13구역으로 매핑된다.
+- 한양수자인 401~426동은 12구역으로 매핑된다.
+- 강남아이파크 7단지는 8구역 8-2반으로 매핑된다.
 - 편성표에 없는 주소는 99구역 구역외로 매핑된다.
 - `/apply/volunteer` 지원 언어는 복수 선택 가능하고 기타 입력은 기타 선택 시에만 열린다.
 - 자원봉사자 접수 조회는 PIN을 요구하지 않는다.

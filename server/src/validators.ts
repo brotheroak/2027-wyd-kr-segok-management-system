@@ -17,9 +17,9 @@ const genderSchema = z.enum(["남성", "여성"]);
 const supportFieldSchema = z.enum(["행사 진행 및 안내", "통역 및 언어 지원", "의료 봉사", "안전관리"]);
 const availabilitySchema = z.enum(["주간", "야간", "주간,야간 관계 없음"]);
 const districtSchema = z.object({
-  no: z.string().regex(/^(?:[1-9]|1[0-3]|99)$/),
+  no: z.string().regex(/^(?:[1-9]|1[0-2]|99)$/),
   name: z.string().min(1),
-  ban: z.string().regex(/^(?:[1-9]|1[0-3]|99)-\d+$/),
+  ban: z.string().regex(/^(?:[1-9]|1[0-2]|99)-\d+$/),
   label: z.string().min(1),
   confidence: z.string().optional(),
   reason: z.string().optional()
