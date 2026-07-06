@@ -62,6 +62,58 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
     return () => window.clearTimeout(timer);
   }, [form.representative.address, form.representative.addressDetail, districtManual]);
 
+  const representativeMemberFrom = (payload: ApplicationPayload = form): FamilyMember => ({
+    relationship: "가족대표",
+    name: payload.representative.name,
+    baptismalName: payload.representative.baptismalName ?? "",
+    birthDate: payload.representative.birthDate,
+    gender: payload.representative.gender
+  });
+
+  const membersWithRepresentative = (payload: ApplicationPayload = form) => [
+    representativeMemberFrom(payload),
+    ...payload.members.slice(1)
+  ];
+
+  const isBlankAdditionalMember = (member: FamilyMember) =>
+    !member.relationship.trim()
+    && !member.name.trim()
+    && !(member.baptismalName ?? "").trim()
+    && !member.birthDate
+    && !member.gender;
+
+  const activeMembers = (members = membersWithRepresentative()) =>
+    members.filter((member, index) => index === 0 || !isBlankAdditionalMember(member));
+
+  const buildSubmissionPayload = () => {
+    const members = activeMembers(membersWithRepresentative());
+    return {
+      ...form,
+      members,
+      homestay: { ...form.homestay, householdTotal: members.length }
+    };
+  };
+
+  useEffect(() => {
+    setForm((prev) => {
+      const representativeMember = representativeMemberFrom(prev);
+      const members = prev.members.length > 0 ? [...prev.members] : [representativeMember];
+      const current = members[0];
+      const alreadySynced = current.relationship === representativeMember.relationship
+        && current.name === representativeMember.name
+        && (current.baptismalName ?? "") === representativeMember.baptismalName
+        && current.birthDate === representativeMember.birthDate
+        && current.gender === representativeMember.gender;
+      if (alreadySynced) return prev;
+      members[0] = representativeMember;
+      return {
+        ...prev,
+        members,
+        homestay: { ...prev.homestay, householdTotal: activeMembers(members).length }
+      };
+    });
+  }, [form.representative.name, form.representative.baptismalName, form.representative.birthDate, form.representative.gender]);
+
   const update = (path: string, value: unknown) => {
     setForm((prev) => {
       const next = structuredClone(prev);
@@ -76,23 +128,31 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
   };
 
   const updateMember = (index: number, key: keyof FamilyMember, value: string) => {
+    if (index === 0) return;
     const next = structuredClone(form);
     next.members[index][key] = value;
-    next.homestay.householdTotal = next.members.length;
+    next.homestay.householdTotal = activeMembers(membersWithRepresentative(next)).length;
     setForm(next);
   };
 
   const addMember = () =>
-    setForm((prev) => ({
-      ...prev,
-      members: [...prev.members, { relationship: "", name: "", baptismalName: "", birthDate: "", gender: "" }],
-      homestay: { ...prev.homestay, householdTotal: prev.members.length + 1 }
-    }));
+    setForm((prev) => {
+      const members = [...prev.members, { relationship: "", name: "", baptismalName: "", birthDate: "", gender: "" }];
+      return {
+        ...prev,
+        members,
+        homestay: { ...prev.homestay, householdTotal: activeMembers(membersWithRepresentative({ ...prev, members })).length }
+      };
+    });
 
   const removeMember = (index: number) =>
     setForm((prev) => {
       const members = prev.members.filter((_, i) => i !== index);
-      return { ...prev, members, homestay: { ...prev.homestay, householdTotal: members.length } };
+      return {
+        ...prev,
+        members,
+        homestay: { ...prev.homestay, householdTotal: activeMembers(membersWithRepresentative({ ...prev, members })).length }
+      };
     });
 
   const toggleLanguage = (language: string) => {
@@ -146,7 +206,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
     setBusy(true);
     setError("");
     try {
-      await onSubmit(form);
+      await onSubmit(buildSubmissionPayload());
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -179,8 +239,9 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
       if (!form.representative.address.trim()) return setError("주소를 입력해 주세요."), false;
     }
     if (currentStep === 3) {
-      if (!form.members.length) return setError("가족구성원을 1명 이상 입력해 주세요."), false;
-      if (form.members.some((member) => !member.relationship.trim() || !member.name.trim() || !member.birthDate || !member.gender)) {
+      const members = activeMembers(membersWithRepresentative());
+      if (!members.length) return setError("가족구성원을 1명 이상 입력해 주세요."), false;
+      if (members.some((member) => !member.relationship.trim() || !member.name.trim() || !member.birthDate || !member.gender)) {
         return setError("가족구성원의 관계, 성명, 생년월일, 성별을 모두 입력해 주세요."), false;
       }
     }
@@ -442,19 +503,40 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
               </label>
               <label>
                 <FieldLabel required>성명</FieldLabel>
-                <input required value={member.name} onChange={(e) => updateMember(index, "name", e.target.value)} />
+                <input
+                  required
+                  readOnly={index === 0}
+                  className={index === 0 ? "disabled-input" : undefined}
+                  value={member.name}
+                  onChange={(e) => updateMember(index, "name", e.target.value)}
+                  placeholder={index === 0 ? "신청자 인적사항에서 자동 입력" : undefined}
+                />
               </label>
               <label>
                 <FieldLabel optional>세례명</FieldLabel>
-                <input value={member.baptismalName} onChange={(e) => updateMember(index, "baptismalName", e.target.value)} placeholder="요셉 (또는 비워둠)" />
+                <input
+                  readOnly={index === 0}
+                  className={index === 0 ? "disabled-input" : undefined}
+                  value={member.baptismalName}
+                  onChange={(e) => updateMember(index, "baptismalName", e.target.value)}
+                  placeholder={index === 0 ? "신청자 인적사항에서 자동 입력" : "요셉 (또는 비워둠)"}
+                />
               </label>
               <label>
                 <FieldLabel required>생년월일</FieldLabel>
-                <DateSelect value={member.birthDate} onChange={(value) => updateMember(index, "birthDate", value)} />
+                {index === 0 ? (
+                  <input required readOnly className="disabled-input" value={member.birthDate} placeholder="신청자 인적사항에서 자동 입력" />
+                ) : (
+                  <DateSelect value={member.birthDate} onChange={(value) => updateMember(index, "birthDate", value)} />
+                )}
               </label>
               <label>
                 <FieldLabel required>성별</FieldLabel>
-                <Select value={member.gender} onChange={(value) => updateMember(index, "gender", value)} options={["남성", "여성"]} />
+                {index === 0 ? (
+                  <input required readOnly className="disabled-input" value={member.gender} placeholder="자동 입력" />
+                ) : (
+                  <Select value={member.gender} onChange={(value) => updateMember(index, "gender", value)} options={["남성", "여성"]} />
+                )}
               </label>
             </div>
           </div>

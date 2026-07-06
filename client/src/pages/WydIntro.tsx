@@ -164,20 +164,20 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
             <div className="panel p-5 rounded-2xl bg-[var(--gold-50)]/40 border border-[var(--gold-100)]">
               <h4 className="font-bold text-[var(--color-catholic-navy)] mb-1">교구 대회</h4>
               <p className="font-semibold text-xs text-[var(--gold-600)] mb-2">Days in Dioceses</p>
-              <p className="text-sm text-[var(--ink)] font-bold">2027. 7. 28(수) ~ 8. 2(월)</p>
+              <p className="text-sm text-[var(--ink)] font-bold">2027.07.29(목) ~ 2027.08.02(월)</p>
               <p className="text-xs text-[var(--muted)] mt-2">전국 15개 가톨릭 교구에서 본당 홈스테이 환대 및 지역 문화 교류</p>
             </div>
             <div className="panel p-5 rounded-2xl bg-[var(--gold-50)]/40 border border-[var(--gold-100)]">
               <h4 className="font-bold text-[var(--color-catholic-navy)] mb-1">본 대회</h4>
               <p className="font-semibold text-xs text-[var(--gold-600)] mb-2">Main Week in Seoul</p>
-              <p className="text-sm text-[var(--ink)] font-bold">2027. 8. 3(화) ~ 8. 8(일)</p>
+              <p className="text-sm text-[var(--ink)] font-bold">2027.08.03(화) ~ 2027.08.08(일)</p>
               <p className="text-xs text-[var(--muted)] mt-2">서울특별시 전역 및 한강공원 일대 대규모 영성 축제 및 전야 밤샘 기도</p>
             </div>
             <div className="panel p-5 rounded-2xl bg-[var(--gold-50)]/40 border border-[var(--gold-100)]">
               <h4 className="font-bold text-[var(--color-catholic-navy)] mb-1">파견 미사</h4>
               <p className="font-semibold text-xs text-[var(--gold-600)] mb-2">Missioning Mass</p>
-              <p className="text-sm text-[var(--ink)] font-bold">2027. 8. 8(일) 오전</p>
-              <p className="text-xs text-[var(--muted)] mt-2">교황 프란치스코 집전으로 세상을 향한 젊은 선교 순례자 축복 파견</p>
+              <p className="text-sm text-[var(--ink)] font-bold">2027.08.08(일) 오전</p>
+              <p className="text-xs text-[var(--muted)] mt-2">교황 레오 14세 집전으로 세상을 향한 젊은 선교 순례자 축복 파견</p>
             </div>
           </div>
           <div className="space-y-4">

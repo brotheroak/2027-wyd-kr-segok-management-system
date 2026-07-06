@@ -24,7 +24,7 @@ export function TermsPage() {
       <section className="policy-summary">
         <div>
           <span>운영 주체</span>
-          <strong>2027 서울 WYD 세곡동 성당 위원회</strong>
+          <strong>세곡동성당 WYD 분과</strong>
         </div>
         <div>
           <span>적용 대상</span>
@@ -88,7 +88,7 @@ export function TermsPage() {
 
         <TermsSection title="6. 자원봉사자 운영 기준">
           <p>
-            자원봉사자 신청자는 행사 진행 및 안내, 통역 및 언어 지원, 의료 봉사 등 선택한 분야와 실제 역량에 맞는 활동 배치를 받을 수 있습니다.
+            자원봉사자 신청자는 행사 진행 및 안내, 통역 및 언어 지원, 의료 봉사, 안전관리 등 선택한 분야와 실제 역량에 맞는 활동 배치를 받을 수 있습니다.
           </p>
           <ul>
             <li>지원 분야는 중복 선택할 수 있으나, 최종 배치는 본당 운영 상황과 교육 이수 여부에 따라 달라질 수 있습니다.</li>

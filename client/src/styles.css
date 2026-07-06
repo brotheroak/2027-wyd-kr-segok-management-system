@@ -615,6 +615,18 @@ button.brand:focus-visible .brand-mark {
   align-items: start;
 }
 
+.form-note {
+  width: 100%;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(197, 168, 92, 0.24);
+  border-radius: 14px;
+  background: rgba(246, 241, 229, 0.64);
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
 .form-step-panel {
   border-radius: 24px;
   border-color: rgba(232, 226, 216, 0.72);

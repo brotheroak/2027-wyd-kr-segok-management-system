@@ -199,7 +199,7 @@ export function App() {
             <div className="brand">
               <div className="brand-mark"><Church size={34} /></div>
               <div>
-                <p>2027 서울 WYD 세곡동 성당 위원회</p>
+                <p>세곡동성당 WYD 분과</p>
                 <h1>운영자 콘솔</h1>
               </div>
             </div>
@@ -296,7 +296,7 @@ export function App() {
                 <span className="title-line">2027 서울 WYD</span>
                 <span className="title-line">자원봉사자 신청</span>
               </h2>
-              <p>세곡동성당 WYD 본당 위원회와 함께 순례자를 맞이할 봉사자를 모집합니다.</p>
+              <p>세곡동성당과 함께 2027 WYD 순례자를 맞이할 봉사자를 모집합니다.</p>
             </div>
             <div className="content">
               {volunteerReceipt ? (

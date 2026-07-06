@@ -36,7 +36,7 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
               <Church size={34} />
             </div>
             <div>
-              <p>2027 서울 WYD 세곡동 성당 위원회</p>
+              <p>세곡동성당 WYD 분과</p>
               <h1>
                 <span className="brand-title-unit">홈스테이 / 자원봉사</span>
                 <span className="brand-title-unit"> 신청</span>

@@ -15,7 +15,8 @@ export const days = Array.from({ length: 31 }, (_, index) => String(index + 1).p
 export const volunteerFields = [
   "행사 진행 및 안내",
   "통역 및 언어 지원",
-  "의료 봉사"
+  "의료 봉사",
+  "안전관리"
 ];
 
 export const volunteerLanguageOptions = ["English", "Español", "Français", "Italiano", "Português", "日本語", "中文"];
@@ -36,7 +37,8 @@ export const emptyApplication = (email = ""): ApplicationPayload => ({
     addressDetail: ""
   },
   members: [
-    { relationship: "가족대표", name: "", baptismalName: "", birthDate: "", gender: "" }
+    { relationship: "가족대표", name: "", baptismalName: "", birthDate: "", gender: "" },
+    { relationship: "", name: "", baptismalName: "", birthDate: "", gender: "" }
   ],
   homestay: {
     householdTotal: 1,
@@ -95,4 +97,3 @@ export function formatKoreanPhoneNumber(value: string): string {
   if (truncated.length <= 10) return `${truncated.slice(0, 3)}-${truncated.slice(3, 6)}-${truncated.slice(6)}`;
   return `${truncated.slice(0, 3)}-${truncated.slice(3, 7)}-${truncated.slice(7)}`;
 }
-
