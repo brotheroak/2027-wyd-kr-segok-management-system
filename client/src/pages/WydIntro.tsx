@@ -37,24 +37,25 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
       .catch(() => setSummary(null));
   }, []);
 
-  const homestayRows: Array<[string, number | undefined]> = [
-    ["총 접수", summary?.homestay.total],
-    ["심사 대기", summary?.homestay.submitted],
-    ["승인", summary?.homestay.confirmed],
-    ["수용 가능 인원", summary?.homestay.capacity]
+  const homestayRows: Array<[string, number | undefined, string]> = [
+    ["총 접수", summary?.homestay.total, "전체 호스트"],
+    ["심사 대기", summary?.homestay.submitted, "검토 필요"],
+    ["승인", summary?.homestay.confirmed, "확정 가정"],
+    ["수용 가능 인원", summary?.homestay.capacity, "순례자 기준"]
   ];
-  const volunteerRows: Array<[string, number | undefined]> = [
-    ["총 신청", summary?.volunteer.total],
-    ["심사 대기", summary?.volunteer.submitted],
-    ["승인", summary?.volunteer.confirmed],
-    ["통역 지원", summary?.volunteer.languageSupport]
+  const volunteerRows: Array<[string, number | undefined, string]> = [
+    ["총 신청", summary?.volunteer.total, "전체 봉사자"],
+    ["심사 대기", summary?.volunteer.submitted, "검토 필요"],
+    ["승인", summary?.volunteer.confirmed, "확정 봉사자"],
+    ["통역 지원", summary?.volunteer.languageSupport, "언어 가능"]
   ];
 
-  const renderSummaryRows = (rows: Array<[string, number | undefined]>) => rows.map(([label, value]) => (
-    <tr key={label}>
-      <th scope="row">{label}</th>
-      <td>{typeof value === "number" ? value.toLocaleString("ko-KR") : "-"}</td>
-    </tr>
+  const renderSummaryCards = (rows: Array<[string, number | undefined, string]>) => rows.map(([label, value, caption]) => (
+    <div className="public-summary-metric" key={label}>
+      <span>{label}</span>
+      <strong>{typeof value === "number" ? value.toLocaleString("ko-KR") : "-"}</strong>
+      <em>{caption}</em>
+    </div>
   ));
 
   return (
@@ -297,22 +298,24 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
 
         <div className="public-summary-tables" aria-label="신청 접수 집계">
           <article>
-            <div>
-              <span>Homestay</span>
-              <h4>홈스테이 집계표</h4>
+            <div className="public-summary-heading">
+              <div>
+                <span>Homestay</span>
+                <h4>홈스테이 집계표</h4>
+              </div>
+              <HeartHandshake aria-hidden="true" size={24} />
             </div>
-            <table>
-              <tbody>{renderSummaryRows(homestayRows)}</tbody>
-            </table>
+            <div className="public-summary-metrics">{renderSummaryCards(homestayRows)}</div>
           </article>
           <article>
-            <div>
-              <span>Volunteer</span>
-              <h4>자원봉사자 집계표</h4>
+            <div className="public-summary-heading">
+              <div>
+                <span>Volunteer</span>
+                <h4>자원봉사자 집계표</h4>
+              </div>
+              <Users aria-hidden="true" size={24} />
             </div>
-            <table>
-              <tbody>{renderSummaryRows(volunteerRows)}</tbody>
-            </table>
+            <div className="public-summary-metrics">{renderSummaryCards(volunteerRows)}</div>
           </article>
         </div>
       </section>
