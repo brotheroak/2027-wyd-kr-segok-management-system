@@ -1531,6 +1531,82 @@ input:focus, select:focus, textarea:focus {
   text-decoration: none;
 }
 
+.public-summary-tables {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.public-summary-tables article {
+  padding: 18px;
+  border: 1px solid rgba(232, 226, 216, 0.82);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(254, 252, 249, 0.96) 100%);
+  box-shadow: var(--soft-shadow-sm);
+  text-align: left;
+}
+
+.public-summary-tables article > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.public-summary-tables span {
+  color: var(--gold-600);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.public-summary-tables h4 {
+  margin: 0;
+  color: var(--color-catholic-navy);
+  font-family: var(--font-serif);
+  font-size: 1.12rem;
+  font-weight: 900;
+}
+
+.public-summary-tables table {
+  min-width: 0;
+  border-spacing: 0;
+}
+
+.public-summary-tables tr {
+  cursor: default;
+}
+
+.public-summary-tables th,
+.public-summary-tables td {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(232, 226, 216, 0.72);
+  background: transparent;
+  box-shadow: none;
+}
+
+.public-summary-tables tr:last-child th,
+.public-summary-tables tr:last-child td {
+  border-bottom: 0;
+}
+
+.public-summary-tables th {
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.public-summary-tables td {
+  text-align: right;
+  color: var(--color-catholic-navy);
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
+  font-weight: 900;
+}
+
 .full {
   width: 100%;
 }
@@ -3109,6 +3185,9 @@ td small {
   .rail, .stats, .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .public-summary-tables {
+    grid-template-columns: 1fr;
+  }
   .five, .three {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3149,6 +3228,14 @@ td small {
   }
   .district-auto-button {
     width: 100%;
+  }
+  .public-summary-tables article > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .public-summary-tables h4 {
+    font-size: 1.02rem;
   }
   .district-guide-modal {
     padding: 10px;

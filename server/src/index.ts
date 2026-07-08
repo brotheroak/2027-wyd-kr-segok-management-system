@@ -66,8 +66,10 @@ function isFunnelExempt(pathname: string) {
   return pathname === "/api/health"
     || pathname === "/api/ready"
     || pathname === "/api/funnel/status"
+    || pathname === "/api/public/summary"
     || pathname.startsWith("/assets/")
     || pathname.startsWith("/images/")
+    || pathname === "/favicon.png"
     || /\.(?:js|css|png|jpg|jpeg|gif|svg|ico|webp|woff2?)$/i.test(pathname);
 }
 
@@ -75,6 +77,7 @@ function isStaticAsset(pathname: string) {
   return pathname.startsWith("/assets/")
     || pathname.startsWith("/images/")
     || pathname === "/favicon.svg"
+    || pathname === "/favicon.png"
     || /\.(?:js|css|png|jpg|jpeg|gif|svg|ico|webp|woff2?)$/i.test(pathname);
 }
 
@@ -120,6 +123,7 @@ function rateLimit(req: express.Request, res: express.Response, next: express.Ne
     || pathname === "/api/health"
     || pathname === "/api/ready"
     || pathname === "/api/funnel/status"
+    || pathname === "/api/public/summary"
     || isStaticAsset(pathname)) {
     return next();
   }
@@ -1464,6 +1468,55 @@ app.delete("/api/my/volunteer", requireSession("user"), async (req, res) => {
   res.json({ volunteer: await getVolunteer(existing.id) });
 });
 
+app.get("/api/public/summary", async (_req, res) => {
+  const applications = await db.select({
+    status: tables.applications.status,
+    capacity: tables.applications.capacity
+  }).from(tables.applications);
+  const volunteers = await db.select({
+    status: tables.volunteers.status,
+    supportFields: tables.volunteers.supportFields
+  }).from(tables.volunteers);
+
+  const homestay = {
+    total: 0,
+    submitted: 0,
+    confirmed: 0,
+    canceled: 0,
+    capacity: 0
+  };
+  for (const item of applications) {
+    homestay.total++;
+    if (item.status === "submitted") homestay.submitted++;
+    if (item.status === "confirmed") homestay.confirmed++;
+    if (item.status === "canceled") homestay.canceled++;
+    if (item.status !== "canceled") homestay.capacity += Number(item.capacity || 0);
+  }
+
+  const volunteer = {
+    total: 0,
+    submitted: 0,
+    confirmed: 0,
+    canceled: 0,
+    languageSupport: 0,
+    medicalSupport: 0
+  };
+  for (const item of volunteers) {
+    volunteer.total++;
+    if (item.status === "submitted") volunteer.submitted++;
+    if (item.status === "confirmed") volunteer.confirmed++;
+    if (item.status === "canceled") volunteer.canceled++;
+    if (item.status !== "canceled" && item.supportFields.includes("통역 및 언어 지원")) volunteer.languageSupport++;
+    if (item.status !== "canceled" && item.supportFields.includes("의료 봉사")) volunteer.medicalSupport++;
+  }
+
+  res.json({
+    generatedAt: nowIso(),
+    homestay,
+    volunteer
+  });
+});
+
 app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   const session = res.locals.session as Session;
   const applications = await filteredApplicationsForAdmin(session, req.query);
@@ -1865,13 +1918,13 @@ function buildOgMeta(req: express.Request) {
   const pathname = isAdminRoute ? "/admin" : req.path || "/";
   const profile = isAdminRoute
     ? {
-        title: "27 서울 WYD 운영자 콘솔",
+        title: "2027 WYD 운영자 콘솔",
         description: "홈스테이와 자원봉사 신청 현황을 안전하게 관리하는 세곡동성당 운영자 화면",
         image: "/images/og-admin-preview.png",
         robots: "noindex,nofollow"
       }
     : {
-        title: "27 서울 WYD 세곡동성당",
+        title: "2027 WYD 세곡동 성당",
         description: "홈스테이와 자원봉사 신청을 위한 세곡동성당 공동체 안내",
         image: "/images/og-preview.png",
         robots: "index,follow"
@@ -1883,7 +1936,7 @@ function buildOgMeta(req: express.Request) {
     ["name", "robots", profile.robots],
     ["property", "og:type", "website"],
     ["property", "og:locale", "ko_KR"],
-    ["property", "og:site_name", "27 서울 WYD 세곡동성당"],
+    ["property", "og:site_name", "2027 WYD 세곡동 성당"],
     ["property", "og:title", profile.title],
     ["property", "og:description", profile.description],
     ["property", "og:url", url],
@@ -1905,7 +1958,7 @@ function buildOgMeta(req: express.Request) {
 
 function sendSpaIndex(req: express.Request, res: express.Response) {
   const html = fs.readFileSync(indexHtmlPath, "utf8");
-  const title = req.path.startsWith("/admin") ? "27 서울 WYD 운영자 콘솔" : "27 서울 WYD 세곡동성당";
+  const title = req.path.startsWith("/admin") ? "2027 WYD 운영자 콘솔" : "2027 WYD 세곡동 성당";
   const ogMeta = `<!-- OG_META_START -->\n    ${buildOgMeta(req)}\n    <!-- OG_META_END -->`;
   const rendered = html
     .replace(/<!-- OG_META_START -->[\s\S]*?<!-- OG_META_END -->/, ogMeta)

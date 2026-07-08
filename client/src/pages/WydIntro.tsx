@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ChevronRight, HeartHandshake, Compass, Users, Sparkles, MapPin, Calendar, Award, ExternalLink } from "lucide-react";
+import { api } from "../api.js";
 
 type WydIntroProps = {
   onStartApply: (type: "homestay" | "volunteer") => void;
@@ -8,8 +9,53 @@ type WydIntroProps = {
 
 const wydSeoulLogo = "/images/logo-wyd-seoul-2027.png";
 
+type PublicSummary = {
+  homestay: {
+    total: number;
+    submitted: number;
+    confirmed: number;
+    canceled: number;
+    capacity: number;
+  };
+  volunteer: {
+    total: number;
+    submitted: number;
+    confirmed: number;
+    canceled: number;
+    languageSupport: number;
+    medicalSupport: number;
+  };
+};
+
 export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
   const [tab, setTab] = useState<"what" | "symbol" | "schedule">("what");
+  const [summary, setSummary] = useState<PublicSummary | null>(null);
+
+  useEffect(() => {
+    api<PublicSummary>("/api/public/summary")
+      .then(setSummary)
+      .catch(() => setSummary(null));
+  }, []);
+
+  const homestayRows: Array<[string, number | undefined]> = [
+    ["총 접수", summary?.homestay.total],
+    ["심사 대기", summary?.homestay.submitted],
+    ["승인", summary?.homestay.confirmed],
+    ["수용 가능 인원", summary?.homestay.capacity]
+  ];
+  const volunteerRows: Array<[string, number | undefined]> = [
+    ["총 신청", summary?.volunteer.total],
+    ["심사 대기", summary?.volunteer.submitted],
+    ["승인", summary?.volunteer.confirmed],
+    ["통역 지원", summary?.volunteer.languageSupport]
+  ];
+
+  const renderSummaryRows = (rows: Array<[string, number | undefined]>) => rows.map(([label, value]) => (
+    <tr key={label}>
+      <th scope="row">{label}</th>
+      <td>{typeof value === "number" ? value.toLocaleString("ko-KR") : "-"}</td>
+    </tr>
+  ));
 
   return (
     <div className="single intro-page-container">
@@ -247,6 +293,27 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
           <button className="secondary" onClick={onCheckStatus}>
             이미 접수하셨나요? 접수 내역 확인하기
           </button>
+        </div>
+
+        <div className="public-summary-tables" aria-label="신청 접수 집계">
+          <article>
+            <div>
+              <span>Homestay</span>
+              <h4>홈스테이 집계표</h4>
+            </div>
+            <table>
+              <tbody>{renderSummaryRows(homestayRows)}</tbody>
+            </table>
+          </article>
+          <article>
+            <div>
+              <span>Volunteer</span>
+              <h4>자원봉사자 집계표</h4>
+            </div>
+            <table>
+              <tbody>{renderSummaryRows(volunteerRows)}</tbody>
+            </table>
+          </article>
         </div>
       </section>
     </div>
