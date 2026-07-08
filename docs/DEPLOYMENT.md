@@ -16,6 +16,7 @@
 | `PORT` | 선택 | 기본값 `4177` |
 | `DATA_ENCRYPTION_KEY` | 운영 필수 | 개인정보 AES-256-GCM 암호화 키 |
 | `ALLOWED_ORIGINS` | 운영 필수 | 쉼표 구분 허용 origin |
+| `PUBLIC_CUSTOM_ORIGINS` | 선택 | 쉼표 구분 공개 도메인. 해당 Host로 접근하면 OG URL과 OG 이미지를 해당 도메인 기준 절대 URL로 생성 |
 | `DATABASE_URL` | 선택 | PostgreSQL 연결 문자열. 없으면 SQLite |
 | `DATABASE_SSL` | 선택 | PostgreSQL SSL 강제 |
 | `DATA_DIR` | SQLite 시 선택 | SQLite 파일 저장 경로 |

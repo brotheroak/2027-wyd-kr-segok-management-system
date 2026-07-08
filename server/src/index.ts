@@ -28,6 +28,11 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const publicCustomOrigins = (process.env.PUBLIC_CUSTOM_ORIGINS
+  ?? "https://segokwyd.kr,https://www.segokwyd.kr,https://sgwyd2027.kr,https://www.sgwyd2027.kr")
+  .split(",")
+  .map((origin) => origin.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
 
 // We no longer require ADMIN_PIN or PRIVACY_ADMIN_PIN in production,
 // as individual credentials and OTP (MFA) are used instead!
@@ -1902,11 +1907,27 @@ function escapeHtml(value: string) {
     .replace(/>/g, "&gt;");
 }
 
-function publicOrigin(req: express.Request) {
-  const configured = (process.env.PUBLIC_SITE_URL ?? "").trim().replace(/\/+$/, "");
-  if (configured) return configured;
+function requestOrigin(req: express.Request) {
   const proto = String(req.headers["x-forwarded-proto"] ?? req.protocol ?? "https").split(",")[0].trim();
   return `${proto}://${req.get("host")}`;
+}
+
+function sameOriginHost(origin: string, candidate: string) {
+  try {
+    return new URL(origin).host.toLowerCase() === new URL(candidate).host.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+function publicOrigin(req: express.Request) {
+  const requestBasedOrigin = requestOrigin(req);
+  const matchedCustomOrigin = publicCustomOrigins.find((origin) => sameOriginHost(origin, requestBasedOrigin));
+  if (matchedCustomOrigin) return matchedCustomOrigin;
+
+  const configured = (process.env.PUBLIC_SITE_URL ?? "").trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  return requestBasedOrigin;
 }
 
 function absolutePublicUrl(req: express.Request, pathname: string) {
