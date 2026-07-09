@@ -1592,7 +1592,7 @@ input:focus, select:focus, textarea:focus {
 
 .public-summary-metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -3212,7 +3212,7 @@ td small {
     grid-template-columns: 1fr;
   }
   .public-summary-metrics {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .five, .three {
     grid-template-columns: repeat(2, minmax(0, 1fr));

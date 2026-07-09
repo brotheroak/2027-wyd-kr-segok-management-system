@@ -39,14 +39,10 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
 
   const homestayRows: Array<[string, number | undefined, string]> = [
     ["총 접수", summary?.homestay.total, "전체 호스트"],
-    ["심사 대기", summary?.homestay.submitted, "검토 필요"],
-    ["승인", summary?.homestay.confirmed, "확정 가정"],
     ["수용 가능 인원", summary?.homestay.capacity, "순례자 기준"]
   ];
   const volunteerRows: Array<[string, number | undefined, string]> = [
     ["총 신청", summary?.volunteer.total, "전체 봉사자"],
-    ["심사 대기", summary?.volunteer.submitted, "검토 필요"],
-    ["승인", summary?.volunteer.confirmed, "확정 봉사자"],
     ["통역 지원", summary?.volunteer.languageSupport, "언어 가능"]
   ];
 
