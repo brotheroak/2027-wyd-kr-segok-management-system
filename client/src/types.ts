@@ -69,6 +69,8 @@ export type VolunteerPayload = {
   birthDate: string;
   phone: string;
   email?: string;
+  parishGroup?: string;
+  affiliation?: string;
   postcode?: string;
   address: string;
   addressDetail?: string;

@@ -24,6 +24,7 @@ type PublicSummary = {
     canceled: number;
     languageSupport: number;
     medicalSupport: number;
+    fieldTypes: number;
   };
 };
 
@@ -43,7 +44,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
   ];
   const volunteerRows: Array<[string, number | undefined, string]> = [
     ["총 신청", summary?.volunteer.total, "전체 봉사자"],
-    ["통역 지원", summary?.volunteer.languageSupport, "언어 가능"]
+    ["희망 봉사 분야", summary?.volunteer.fieldTypes, "선택 분야"]
   ];
 
   const renderSummaryCards = (rows: Array<[string, number | undefined, string]>) => rows.map(([label, value, caption]) => (

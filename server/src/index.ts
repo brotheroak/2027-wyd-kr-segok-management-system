@@ -23,7 +23,7 @@ const maxConcurrentRequests = Number(process.env.MAX_CONCURRENT_REQUESTS ?? 120)
 const rateLimitWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000);
 const rateLimitMax = Number(process.env.RATE_LIMIT_MAX ?? 120);
 const userSessionMinutes = Number(process.env.USER_SESSION_MINUTES ?? 5);
-const adminSessionMinutes = Number(process.env.ADMIN_SESSION_MINUTES ?? 5);
+const adminSessionMinutes = Number(process.env.ADMIN_SESSION_MINUTES ?? 30);
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
   .split(",")
   .map((origin) => origin.trim())
@@ -296,6 +296,11 @@ async function sessionFrom(req: express.Request, roles?: Role | Role[]): Promise
   if (!row || row.expiresAt < nowIso()) return null;
   const allowed = Array.isArray(roles) ? roles : roles ? [roles] : null;
   if (allowed && !allowed.includes(row.role)) return null;
+  if (row.role !== "user") {
+    await db.update(tables.sessions).set({
+      expiresAt: addMinutes(adminSessionMinutes)
+    }).where(eq(tables.sessions.token, token));
+  }
   return { email: plain(row.email), role: row.role as Role };
 }
 
@@ -689,6 +694,8 @@ function rowToVolunteer(row: any) {
     birthDate: row.birthDate,
     phone: plain(row.phone),
     email: plain(row.email),
+    parishGroup: plain(row.parishGroup ?? ""),
+    affiliation: plain(row.affiliation ?? ""),
     postcode: row.postcode,
     address,
     addressDetail,
@@ -726,6 +733,8 @@ async function upsertVolunteer(payload: VolunteerPayload, existingId?: string) {
     birthDate: parsed.birthDate,
     phone: pii(parsed.phone),
     email: pii(parsed.email ?? ""),
+    parishGroup: pii(parsed.parishGroup ?? ""),
+    affiliation: pii(parsed.affiliation ?? ""),
     postcode: parsed.postcode ?? "",
     address: pii(parsed.address),
     addressDetail: pii(parsed.addressDetail ?? ""),
@@ -762,6 +771,8 @@ function anonymizeVolunteer(volunteer: ReturnType<typeof rowToVolunteer> | null)
     birthDate: maskBirthDate(volunteer.birthDate),
     phone: maskPhone(volunteer.phone),
     email: maskEmail(volunteer.email),
+    parishGroup: volunteer.parishGroup ? "비공개" : "",
+    affiliation: volunteer.affiliation ? "비공개" : "",
     postcode: "",
     address: maskAddress(volunteer.address),
     addressDetail: "",
@@ -785,6 +796,8 @@ async function encryptExistingPersonalData() {
           baptismalName: pii(plain(row.baptismalName ?? "")),
           phone: pii(plain(row.phone)),
           email: pii(plain(row.email)),
+          parishGroup: pii(plain(row.parishGroup ?? "")),
+          affiliation: pii(plain(row.affiliation ?? "")),
           address: pii(plain(row.address)),
           addressDetail: pii(plain(row.addressDetail ?? "")),
           signatureName: pii(plain(row.signatureName))
@@ -979,7 +992,9 @@ function matchesVolunteerFilters(volData: any, query: express.Request["query"]) 
     volData.name,
     volData.phone,
     volData.email,
-    volData.address
+    volData.address,
+    volData.parishGroup,
+    volData.affiliation
   ].some((value) => String(value ?? "").toLowerCase().includes(q));
 }
 
@@ -1044,7 +1059,7 @@ function applicationExcelRows(applications: any[]) {
 
 function volunteerExcelRows(volunteers: any[]) {
   return [
-    ["접수번호", "상태", "성명", "세례명", "성별", "생년월일", "연락처", "이메일", "우편번호", "주소", "상세주소", "구역", "반", "구역반 판별", "지원 분야", "지원 언어", "활동 가능 시간", "봉사 경력 및 재능", "개인정보 동의", "신청일", "서명", "접수일", "수정일"],
+    ["접수번호", "상태", "성명", "세례명", "성별", "생년월일", "연락처", "이메일", "신청 구역", "소속 단체", "우편번호", "주소", "상세주소", "자동 구역", "반", "구역반 판별", "희망 봉사 분야", "지원 언어", "봉사 가능 기간", "경험 및 재능", "개인정보 동의", "신청일", "서명", "접수일", "수정일"],
     ...volunteers.map((item) => [
       item.volunteerNo,
       item.status,
@@ -1054,6 +1069,8 @@ function volunteerExcelRows(volunteers: any[]) {
       item.birthDate,
       item.phone,
       item.email,
+      item.parishGroup,
+      item.affiliation,
       item.postcode,
       item.address,
       item.addressDetail,
@@ -1504,16 +1521,23 @@ app.get("/api/public/summary", async (_req, res) => {
     confirmed: 0,
     canceled: 0,
     languageSupport: 0,
-    medicalSupport: 0
+    medicalSupport: 0,
+    fieldTypes: 0
   };
+  const volunteerFieldSet = new Set<string>();
   for (const item of volunteers) {
     volunteer.total++;
     if (item.status === "submitted") volunteer.submitted++;
     if (item.status === "confirmed") volunteer.confirmed++;
     if (item.status === "canceled") volunteer.canceled++;
-    if (item.status !== "canceled" && item.supportFields.includes("통역 및 언어 지원")) volunteer.languageSupport++;
-    if (item.status !== "canceled" && item.supportFields.includes("의료 봉사")) volunteer.medicalSupport++;
+    const fields = JSON.parse(item.supportFields);
+    if (item.status !== "canceled") {
+      fields.forEach((field: string) => volunteerFieldSet.add(field));
+      if (fields.includes("외국어 지원") || fields.includes("통역 및 언어 지원")) volunteer.languageSupport++;
+      if (fields.includes("의료 지원") || fields.includes("의료 봉사")) volunteer.medicalSupport++;
+    }
   }
+  volunteer.fieldTypes = volunteerFieldSet.size;
 
   res.json({
     generatedAt: nowIso(),
@@ -1641,20 +1665,23 @@ app.get("/api/admin/volunteers", requireAdmin, async (req, res) => {
   let canceled = 0;
   let languageSupport = 0;
   let medicalSupport = 0;
+  let flexibleSupport = 0;
 
   for (const item of allVols) {
     total++;
     if (item.status === "submitted") submitted++;
     if (item.status === "confirmed") confirmed++;
     if (item.status === "canceled") canceled++;
-    if (item.supportFields.includes("통역 및 언어 지원")) languageSupport++;
-    if (item.supportFields.includes("의료 봉사")) medicalSupport++;
+    const fields = JSON.parse(item.supportFields);
+    if (fields.includes("외국어 지원") || fields.includes("통역 및 언어 지원")) languageSupport++;
+    if (fields.includes("의료 지원") || fields.includes("의료 봉사")) medicalSupport++;
+    if (fields.includes("어느 분야든 필요에 따라 봉사 가능합니다.")) flexibleSupport++;
   }
 
   res.json({
     role: session.role,
     canViewPersonalData: canAccessPersonalData(session),
-    stats: { total, submitted, confirmed, canceled, languageSupport, medicalSupport },
+    stats: { total, submitted, confirmed, canceled, languageSupport, medicalSupport, flexibleSupport },
     volunteers
   });
 });
@@ -1685,12 +1712,14 @@ app.post("/api/admin/volunteers/sample-data", requireAdmin, async (req, res) => 
       birthDate: "1988-04-12",
       phone: "010-7000-0001",
       email: "maria.sample@wyd.local",
+      parishGroup: "1구역",
+      affiliation: "청년부",
       postcode: "06376",
       address: "서울특별시 강남구 헌릉로618길 34",
       addressDetail: "세곡동",
-      supportFields: ["행사 진행 및 안내", "통역 및 언어 지원"],
+      supportFields: ["순례자 환대 및 안내", "외국어 지원"],
       supportLanguage: "English, Español",
-      availability: "주간",
+      availability: "요일: 평일, 주말 / 시간: 오전, 오후",
       experience: "본당 청년회 안내 봉사 3년, 외국인 순례자 안내 경험",
       privacyConsent: true,
       appliedDate: "2026-07-04",
@@ -1704,12 +1733,14 @@ app.post("/api/admin/volunteers/sample-data", requireAdmin, async (req, res) => 
       birthDate: "1979-10-03",
       phone: "010-7000-0002",
       email: "joseph.sample@wyd.local",
+      parishGroup: "2구역",
+      affiliation: "빈첸시오회",
       postcode: "06376",
       address: "서울특별시 강남구 밤고개로21길 50",
       addressDetail: "",
-      supportFields: ["의료 봉사"],
+      supportFields: ["의료 지원"],
       supportLanguage: "",
-      availability: "주간,야간 관계 없음",
+      availability: "요일: 모두 가능 / 시간: 종일 가능",
       experience: "간호사 면허 보유, 응급처치 교육 이수",
       privacyConsent: true,
       appliedDate: "2026-07-04",
@@ -1723,12 +1754,14 @@ app.post("/api/admin/volunteers/sample-data", requireAdmin, async (req, res) => 
       birthDate: "1995-02-21",
       phone: "010-7000-0003",
       email: "anna.sample@wyd.local",
+      parishGroup: "3구역",
+      affiliation: "레지오",
       postcode: "06376",
       address: "서울특별시 강남구 세곡동",
       addressDetail: "",
-      supportFields: ["통역 및 언어 지원"],
+      supportFields: ["외국어 지원"],
       supportLanguage: "Français, English",
-      availability: "야간",
+      availability: "요일: 주말 / 시간: 오후, 저녁",
       experience: "프랑스 교환학생 경험, 본당 청년부 활동",
       privacyConsent: true,
       appliedDate: "2026-07-04",
@@ -1742,12 +1775,14 @@ app.post("/api/admin/volunteers/sample-data", requireAdmin, async (req, res) => 
       birthDate: "1990-07-19",
       phone: "010-7000-0004",
       email: "peter.sample@wyd.local",
+      parishGroup: "8구역",
+      affiliation: "시설분과",
       postcode: "06376",
       address: "서울특별시 강남구 자곡동",
       addressDetail: "",
-      supportFields: ["행사 진행 및 안내", "안전관리"],
+      supportFields: ["행사 운영 지원", "환경 및 시설 관리 지원"],
       supportLanguage: "",
-      availability: "주간",
+      availability: "요일: 평일 / 시간: 오전",
       experience: "행사장 동선 안내, 환경 정리 및 시설안전 점검 봉사 가능",
       privacyConsent: true,
       appliedDate: "2026-07-04",
@@ -1761,12 +1796,14 @@ app.post("/api/admin/volunteers/sample-data", requireAdmin, async (req, res) => 
       birthDate: "1985-12-08",
       phone: "010-7000-0005",
       email: "luke.sample@wyd.local",
+      parishGroup: "9구역",
+      affiliation: "성가대",
       postcode: "06376",
       address: "서울특별시 강남구 율현동",
       addressDetail: "",
-      supportFields: ["행사 진행 및 안내", "통역 및 언어 지원"],
+      supportFields: ["순례자 환대 및 안내", "외국어 지원"],
       supportLanguage: "Italiano, Português",
-      availability: "주간,야간 관계 없음",
+      availability: "요일: 모두 가능 / 시간: 종일 가능",
       experience: "해외 성지순례 인솔 보조 경험",
       privacyConsent: true,
       appliedDate: "2026-07-04",
@@ -1780,12 +1817,14 @@ app.post("/api/admin/volunteers/sample-data", requireAdmin, async (req, res) => 
       birthDate: "1998-09-15",
       phone: "010-7000-0006",
       email: "cecilia.sample@wyd.local",
+      parishGroup: "11구역",
+      affiliation: "전례분과",
       postcode: "06376",
       address: "서울특별시 강남구 수서동",
       addressDetail: "",
-      supportFields: ["통역 및 언어 지원", "의료 봉사"],
+      supportFields: ["외국어 지원", "의료 지원"],
       supportLanguage: "日本語, 中文",
-      availability: "야간",
+      availability: "요일: 주말 / 시간: 저녁",
       experience: "일본어 안내 가능, 응급처치 자격 보유",
       privacyConsent: true,
       appliedDate: "2026-07-04",

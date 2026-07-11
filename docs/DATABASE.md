@@ -94,7 +94,7 @@ node scripts/create-admin.mjs privacy@example.org StrongPassword123! privacy_adm
 | `homestay_applications` | 홈스테이 호스트 신청서 | 성명, 세례명, 생년월일, 연락처, 이메일, 주소, 서명 |
 | `family_members` | 호스트 가족 구성원 | 성명, 세례명, 생년월일 |
 | `host_capabilities` | 매칭 검색용 호스트 조건 | 없음 |
-| `volunteers` | 자원봉사자 신청서 | 성명, 세례명, 생년월일, 연락처, 이메일, 주소, 서명 |
+| `volunteers` | 자원봉사자 신청서 | 성명, 세례명, 생년월일, 연락처, 이메일, 구역, 소속 단체, 주소, 서명 |
 | `verification_codes` | 이메일/SMS 인증번호 | 이메일 해시 |
 | `sessions` | 신청자/관리자 세션 | 이메일 |
 | `audit_logs` | 운영자 주요 행위 기록 | 행위자 식별자 |
@@ -167,6 +167,8 @@ erDiagram
         string birth_date
         string phone
         string email
+        string parish_group
+        string affiliation
         string postcode
         string address
         string support_fields
@@ -245,7 +247,7 @@ erDiagram
 
 ### `volunteers`
 
-자원봉사자 신청서를 저장합니다. 지원 분야는 `support_fields`에 문자열 목록 형태로 저장하고, 통역 지원 언어는 `support_language`에 쉼표 구분 문자열로 저장합니다.
+자원봉사자 신청서를 저장합니다. 희망 봉사 분야는 `support_fields`에 문자열 목록 형태로 저장하고, 외국어 지원 언어는 `support_language`에 쉼표 구분 문자열로 저장합니다. 신청자가 입력한 구역과 소속 단체는 각각 `parish_group`, `affiliation`에 저장합니다.
 
 ### `verification_codes`
 
@@ -288,7 +290,7 @@ enc:v1:
 | --- | --- |
 | `homestay_applications` | `rep_name`, `baptismal_name`, `phone`, `email`, `address`, `address_detail`, `signature_name` |
 | `family_members` | `name`, `baptismal_name` |
-| `volunteers` | `name`, `baptismal_name`, `phone`, `email`, `address`, `address_detail`, `signature_name` |
+| `volunteers` | `name`, `baptismal_name`, `phone`, `email`, `parish_group`, `affiliation`, `address`, `address_detail`, `signature_name` |
 | `sessions` | `email` |
 | `audit_logs` | `actor` |
 

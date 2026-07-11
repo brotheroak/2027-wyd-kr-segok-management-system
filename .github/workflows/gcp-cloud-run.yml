@@ -126,7 +126,7 @@ jobs:
               --cpu 1 \
               --memory 512Mi \
               --timeout 30s \
-              --update-env-vars "^|^MAX_CONCURRENT_REQUESTS=120|RATE_LIMIT_WINDOW_MS=60000|RATE_LIMIT_MAX=120|USER_SESSION_MINUTES=5|ADMIN_SESSION_MINUTES=5|TRUST_PROXY=1|ALLOWED_ORIGINS=https://segokwyd.kr,https://www.segokwyd.kr,https://sgwyd2027.kr,https://www.sgwyd2027.kr,https://wyd-2027-kr-segok-mgmt-yftakontba-du.a.run.app|PUBLIC_CUSTOM_ORIGINS=https://segokwyd.kr,https://www.segokwyd.kr,https://sgwyd2027.kr,https://www.sgwyd2027.kr" \
+              --update-env-vars "^|^MAX_CONCURRENT_REQUESTS=120|RATE_LIMIT_WINDOW_MS=60000|RATE_LIMIT_MAX=120|USER_SESSION_MINUTES=5|ADMIN_SESSION_MINUTES=30|TRUST_PROXY=1|ALLOWED_ORIGINS=https://segokwyd.kr,https://www.segokwyd.kr,https://sgwyd2027.kr,https://www.sgwyd2027.kr,https://wyd-2027-kr-segok-mgmt-yftakontba-du.a.run.app|PUBLIC_CUSTOM_ORIGINS=https://segokwyd.kr,https://www.segokwyd.kr,https://sgwyd2027.kr,https://www.sgwyd2027.kr" \
               --quiet; then
               exit 0
             fi

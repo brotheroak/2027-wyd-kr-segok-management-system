@@ -122,6 +122,8 @@ async function setupPg() {
         birth_date TEXT NOT NULL,
         phone TEXT NOT NULL,
         email TEXT NOT NULL,
+        parish_group TEXT,
+        affiliation TEXT,
         postcode TEXT,
         address TEXT NOT NULL,
         address_detail TEXT,
@@ -182,6 +184,8 @@ async function setupPg() {
       ALTER TABLE admins ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'approved';
       ALTER TABLE admins ADD COLUMN IF NOT EXISTS approved_by TEXT;
       ALTER TABLE admins ADD COLUMN IF NOT EXISTS approved_at TEXT;
+      ALTER TABLE volunteers ADD COLUMN IF NOT EXISTS parish_group TEXT;
+      ALTER TABLE volunteers ADD COLUMN IF NOT EXISTS affiliation TEXT;
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_no TEXT NOT NULL DEFAULT '99';
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_name TEXT NOT NULL DEFAULT '구역외';
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_ban TEXT NOT NULL DEFAULT '99-1';
@@ -212,6 +216,8 @@ async function setupPg() {
     // Migration patch for PostgreSQL
     await client.query(`
       ALTER TABLE volunteers ADD COLUMN IF NOT EXISTS applicant_pin TEXT NOT NULL DEFAULT '';
+      ALTER TABLE volunteers ADD COLUMN IF NOT EXISTS parish_group TEXT;
+      ALTER TABLE volunteers ADD COLUMN IF NOT EXISTS affiliation TEXT;
     `);
 
     // Check if initial admin exists
@@ -327,6 +333,8 @@ function setupSqlite() {
         birth_date TEXT NOT NULL,
         phone TEXT NOT NULL,
         email TEXT NOT NULL,
+        parish_group TEXT,
+        affiliation TEXT,
         postcode TEXT,
         address TEXT NOT NULL,
         address_detail TEXT,
@@ -420,6 +428,15 @@ function setupSqlite() {
     const volunteerColumns = db.prepare("PRAGMA table_info(volunteers)").all();
     if (!volunteerColumns.some((column) => column.name === "applicant_pin")) {
       db.exec("ALTER TABLE volunteers ADD COLUMN applicant_pin TEXT NOT NULL DEFAULT ''");
+    }
+    const volunteerMigrationColumns = [
+      ["parish_group", "TEXT"],
+      ["affiliation", "TEXT"]
+    ];
+    for (const [name, definition] of volunteerMigrationColumns) {
+      if (!volunteerColumns.some((column) => column.name === name)) {
+        db.exec(`ALTER TABLE volunteers ADD COLUMN ${name} ${definition}`);
+      }
     }
     const verificationColumns = db.prepare("PRAGMA table_info(verification_codes)").all();
     if (!verificationColumns.some((column) => column.name === "email_hash")) {

@@ -40,7 +40,7 @@ export function ApplyChoice({ navigate }: ApplyChoiceProps) {
             <em>2027 서울 WYD</em>
             <em>자원봉사자 신청</em>
           </strong>
-          <small>행사 안내, 통역, 의료, 안전관리 등 본당 봉사 신청서</small>
+          <small>순례자 환대, 행사 운영, 외국어, 의료 등 본당 봉사 신청서</small>
           <b>
             신청하기 <ChevronRight size={18} />
           </b>

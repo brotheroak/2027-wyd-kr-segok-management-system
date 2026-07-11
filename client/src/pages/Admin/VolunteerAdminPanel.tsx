@@ -51,6 +51,9 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
       rawVolunteers.flatMap((v) => splitVolunteerLanguages(v.supportLanguage))
     )
   ).filter(Boolean).sort();
+  const availableAvailabilities = Array.from(
+    new Set(rawVolunteers.map((v) => v.availability).filter(Boolean))
+  ).sort();
 
   const volunteers = rawVolunteers.filter((v) => {
     if (fieldFilter !== "all" && !v.supportFields.includes(fieldFilter)) return false;
@@ -168,7 +171,7 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
             <Languages className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-xs text-gray-500 block">통역 지원 가능</span>
+            <span className="text-xs text-gray-500 block">외국어 지원 가능</span>
             <strong className="font-serif font-black text-2xl text-emerald-700">{data?.stats?.languageSupport ?? 0} 명</strong>
           </div>
         </div>
@@ -177,7 +180,7 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-xs text-gray-500 block">의료 봉사 가능</span>
+            <span className="text-xs text-gray-500 block">의료 지원 가능</span>
             <strong className="font-serif font-black text-2xl text-catholic-navy">{data?.stats?.medicalSupport ?? 0} 명</strong>
           </div>
         </div>
@@ -300,9 +303,9 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
               onChange={(e) => setAvailabilityFilter(e.target.value)}
             >
               <option value="all">모든 활동 가능 시간</option>
-              <option value="주중 (월~금)">주중 (월~금)</option>
-              <option value="주말 (토~일)">주말 (토~일)</option>
-              <option value="주중 및 주말 전체">주중 및 주말 전체</option>
+              {availableAvailabilities.map((availability) => (
+                <option key={availability} value={availability}>{availability}</option>
+              ))}
             </select>
             <select
               className="w-full px-3 py-2.5 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none"
@@ -376,6 +379,10 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
                   <dd>{volunteer.availability}</dd>
                   <dt>언어</dt>
                   <dd>{volunteer.supportLanguage || "-"}</dd>
+                  <dt>신청 구역</dt>
+                  <dd>{volunteer.parishGroup || "-"}</dd>
+                  <dt>소속 단체</dt>
+                  <dd>{volunteer.affiliation || "-"}</dd>
                   <dt>구역</dt>
                   <dd>{volunteer.district?.label ?? "-"}</dd>
                 </dl>
@@ -439,6 +446,10 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
                 <dd>
                   {selected.address} {selected.addressDetail}
                 </dd>
+                <dt>신청 구역</dt>
+                <dd>{selected.parishGroup || "-"}</dd>
+                <dt>소속 단체</dt>
+                <dd>{selected.affiliation || "-"}</dd>
                 <dt>구역</dt>
                 <dd>{selected.district?.label ?? "-"}</dd>
                 <dt>지원 언어</dt>

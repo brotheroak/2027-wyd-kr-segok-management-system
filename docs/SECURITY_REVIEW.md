@@ -59,7 +59,7 @@ MAX_CONCURRENT_REQUESTS=120
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX=120
 USER_SESSION_MINUTES=5
-ADMIN_SESSION_MINUTES=5
+ADMIN_SESSION_MINUTES=30
 TRUST_PROXY=1
 ```
 
@@ -96,7 +96,7 @@ timeout=30s
 | 기준 | 현재 대응 |
 | --- | --- |
 | 인증 | 개별 계정, 강한 해시, 개인정보 접근 역할 TOTP MFA, 세션 만료 적용 |
-| 세션 | `nanoid(48)` 토큰, 기본 5분 만료, 서버 저장 세션 |
+| 세션 | `nanoid(48)` 토큰, 신청자 기본 5분 만료, 관리자 기본 30분 만료 및 활동 중 갱신, 서버 저장 세션 |
 | 접근 제어 | 역할별 API guard, 개인정보 원본 접근 분리 |
 | 입력 검증 | Zod schema, JSON body 제한, 주소/구역반 서버 재검증 |
 | 오류 처리 | 알려진 스캔 경로 404, API 오류 메시지 단순화 |

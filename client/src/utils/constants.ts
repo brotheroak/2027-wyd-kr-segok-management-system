@@ -13,15 +13,21 @@ export const months = Array.from({ length: 12 }, (_, index) => String(index + 1)
 export const days = Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, "0"));
 
 export const volunteerFields = [
-  "행사 진행 및 안내",
-  "통역 및 언어 지원",
-  "의료 봉사",
-  "안전관리"
+  "순례자 환대 및 안내",
+  "행사 운영 지원",
+  "환경 및 시설 관리 지원",
+  "외국어 지원",
+  "의료 지원",
+  "어느 분야든 필요에 따라 봉사 가능합니다."
 ];
 
 export const volunteerLanguageOptions = ["English", "Español", "Français", "Italiano", "Português", "日本語", "中文"];
 
-export const availabilityOptions = ["주간", "야간", "주간,야간 관계 없음"];
+export const volunteerDayOptions = ["평일", "주말", "모두 가능"];
+
+export const volunteerTimeOptions = ["오전", "오후", "저녁", "종일 가능"];
+
+export const availabilityOptions = ["평일 / 오전", "평일 / 오후", "주말 / 오전", "주말 / 오후", "모두 가능 / 종일 가능"];
 
 export const emptyApplication = (email = ""): ApplicationPayload => ({
   representative: {
@@ -68,6 +74,8 @@ export const emptyVolunteer = (): VolunteerPayload => ({
   birthDate: "",
   phone: "",
   email: "",
+  parishGroup: "",
+  affiliation: "",
   postcode: "",
   address: "",
   addressDetail: "",

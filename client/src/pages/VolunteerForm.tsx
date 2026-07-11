@@ -3,7 +3,7 @@ import { CheckCircle2, Search, User, ClipboardList, Sparkles, ShieldCheck, Chevr
 import { VolunteerPayload } from "../types.js";
 import { calculateAge } from "../utils/age.js";
 import { openKakaoPostcode } from "../utils/postcode.js";
-import { today, emptyVolunteer, volunteerFields, volunteerLanguageOptions, availabilityOptions, splitVolunteerLanguages, formatKoreanPhoneNumber } from "../utils/constants.js";
+import { today, emptyVolunteer, volunteerFields, volunteerLanguageOptions, volunteerDayOptions, volunteerTimeOptions, splitVolunteerLanguages, formatKoreanPhoneNumber } from "../utils/constants.js";
 import { SectionTitle, FieldLabel, DateSelect, RequiredMark } from "../components/FormFields.js";
 import { Toggle } from "../components/Toggle.js";
 
@@ -12,6 +12,34 @@ type VolunteerFormProps = {
   initial?: VolunteerPayload;
   submitLabel?: string;
 };
+
+const foreignLanguageField = "외국어 지원";
+
+const supportFieldDescriptions: Record<string, string> = {
+  "순례자 환대 및 안내": "안내, 접수, 식사 배분, 이동 지원, 장애인 지원 등",
+  "행사 운영 지원": "행사 진행 보조, 프로그램 운영 지원 등",
+  "환경 및 시설 관리 지원": "청소, 세탁, 물품 관리, 시설 점검 등",
+  "외국어 지원": "외국어 안내 및 통역",
+  "의료 지원": "응급 환자 대응 등",
+  "어느 분야든 필요에 따라 봉사 가능합니다.": "본당 운영 상황에 따른 배치 가능"
+};
+
+function parseAvailability(value = "") {
+  if (value === "주간") return { days: ["모두 가능"], times: ["오전", "오후"] };
+  if (value === "야간") return { days: ["모두 가능"], times: ["저녁"] };
+  if (value === "주간,야간 관계 없음") return { days: ["모두 가능"], times: ["종일 가능"] };
+  const match = value.match(/^요일: (.+) \/ 시간: (.+)$/);
+  if (!match) return { days: [], times: [] };
+  return {
+    days: match[1].split(",").map((item) => item.trim()).filter(Boolean),
+    times: match[2].split(",").map((item) => item.trim()).filter(Boolean)
+  };
+}
+
+function formatAvailability(days: string[], times: string[]) {
+  if (days.length === 0 || times.length === 0) return "";
+  return `요일: ${days.join(", ")} / 시간: ${times.join(", ")}`;
+}
 
 export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사자 신청 접수" }: VolunteerFormProps) {
   const [form, setForm] = useState<VolunteerPayload>(initial ?? emptyVolunteer());
@@ -43,6 +71,7 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
   const age = calculateAge(form.birthDate);
   const signatureText = `${form.name}${form.baptismalName ? ` (${form.baptismalName})` : ""}`.trim();
   const selectedSupportLanguages = splitVolunteerLanguages(form.supportLanguage);
+  const selectedAvailability = parseAvailability(form.availability);
   const appliedDateText = form.appliedDate
     ? `${form.appliedDate.slice(0, 4)}년 ${form.appliedDate.slice(5, 7)}월 ${form.appliedDate.slice(8, 10)}일`
     : "202X년 XX월 XX일";
@@ -66,9 +95,9 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
     setForm((prev) => ({
       ...prev,
       supportFields: next,
-      supportLanguage: next.includes("통역 및 언어 지원") ? prev.supportLanguage : ""
+      supportLanguage: next.includes(foreignLanguageField) ? prev.supportLanguage : ""
     }));
-    if (!next.includes("통역 및 언어 지원")) {
+    if (!next.includes(foreignLanguageField)) {
       setOtherLanguageEnabled(false);
       setOtherLanguage("");
     }
@@ -79,6 +108,24 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
       ? selectedSupportLanguages.filter((item) => item !== language)
       : [...selectedSupportLanguages, language];
     update("supportLanguage", next.join(", "));
+  };
+
+  const toggleAvailability = (type: "days" | "times", value: string) => {
+    const current = selectedAvailability[type];
+    let nextValues = current.includes(value)
+      ? current.filter((item) => item !== value)
+      : [...current, value];
+    if (type === "days") {
+      if (value === "모두 가능" && nextValues.includes("모두 가능")) nextValues = ["모두 가능"];
+      if (value !== "모두 가능") nextValues = nextValues.filter((item) => item !== "모두 가능");
+    }
+    if (type === "times") {
+      if (value === "종일 가능" && nextValues.includes("종일 가능")) nextValues = ["종일 가능"];
+      if (value !== "종일 가능") nextValues = nextValues.filter((item) => item !== "종일 가능");
+    }
+    const days = type === "days" ? nextValues : selectedAvailability.days;
+    const times = type === "times" ? nextValues : selectedAvailability.times;
+    update("availability", formatAvailability(days, times));
   };
 
   const openAddress = () =>
@@ -111,8 +158,8 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
       ...selectedSupportLanguages,
       ...(otherLanguageEnabled && otherLanguage.trim() ? [otherLanguage.trim()] : [])
     ].join(", ");
-    if (form.supportFields.includes("통역 및 언어 지원") && !supportLanguageValue)
-      return setError("통역 및 언어 지원을 선택한 경우 지원 언어를 1개 이상 선택해 주세요.");
+    if (form.supportFields.includes(foreignLanguageField) && !supportLanguageValue)
+      return setError("외국어 지원을 선택한 경우 지원 언어를 1개 이상 선택해 주세요.");
     if (otherLanguageEnabled && !otherLanguage.trim())
       return setError("기타 언어를 선택한 경우 지원 가능한 언어를 입력해 주세요.");
     if (!form.availability) return setError("활동 가능 시간을 선택해 주세요.");
@@ -134,6 +181,15 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
 
   return (
     <form className="volunteer-form" onSubmit={submit}>
+      <div className="volunteer-form-intro">
+        <span>2027 서울 세계청년대회(WYD)</span>
+        <h2>본당 자원봉사자 신청서</h2>
+        <p>
+          세곡동 성당은 2027 서울 세계청년대회(WYD)에 참여하기 위해 전 세계에서 오는 청년 순례자들에게
+          그리스도의 사랑과 환대를 전할 자원봉사자를 모집합니다. 교우 여러분의 많은 관심과 참여를 바랍니다.
+        </p>
+      </div>
+
       <div className="application-step-panel applicant-info-panel p-5 sm:p-10 space-y-7">
         <SectionTitle icon={<User />} title="1. 인적 사항" />
         <div className="applicant-info-grid">
@@ -175,6 +231,14 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
             <FieldLabel optional>이메일</FieldLabel>
             <input type="email" value={form.email ?? ""} onChange={(e) => update("email", e.target.value)} placeholder="myemail@gmail.com" />
           </label>
+          <label>
+            <FieldLabel optional>구역</FieldLabel>
+            <input value={form.parishGroup ?? ""} onChange={(e) => update("parishGroup", e.target.value)} placeholder="예: 3구역" />
+          </label>
+          <label>
+            <FieldLabel optional>소속 단체</FieldLabel>
+            <input value={form.affiliation ?? ""} onChange={(e) => update("affiliation", e.target.value)} placeholder="예: 청년부, 성가대" />
+          </label>
         </div>
         <label className="address-lookup-field">
           <FieldLabel required>주소</FieldLabel>
@@ -203,7 +267,7 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
       </div>
 
       <div className="application-step-panel p-8 sm:p-10 space-y-7">
-        <SectionTitle icon={<ClipboardList />} title="2. 지원 분야 (복수지원 가능)" />
+        <SectionTitle icon={<ClipboardList />} title="2. 희망 봉사 분야 (복수 선택 가능)" />
         <div className="volunteer-check-grid">
           {volunteerFields.map((field) => (
             <button
@@ -215,19 +279,11 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
             >
               <i>{form.supportFields.includes(field) && <CheckCircle2 size={16} />}</i>
               <strong>{field}</strong>
-              <small>
-                {field === "행사 진행 및 안내"
-                  ? "대회 기간 내 행사장 안내 및 질서 유지"
-                  : field === "통역 및 언어 지원"
-                    ? "외국어 안내 및 순례자 소통 지원"
-                    : field === "의료 봉사"
-                      ? "응급 환자 대응 및 의료 지원"
-                      : "환경, 청소, 세탁, 시설안전 점검 등"}
-              </small>
+              <small>{supportFieldDescriptions[field] ?? ""}</small>
             </button>
           ))}
         </div>
-        {form.supportFields.includes("통역 및 언어 지원") && (
+        {form.supportFields.includes(foreignLanguageField) && (
           <fieldset className="choice-field">
             <legend>
               지원 언어 <RequiredMark />
@@ -262,17 +318,32 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
       </div>
 
       <div className="application-step-panel p-8 sm:p-10 space-y-7">
-        <SectionTitle icon={<Sparkles />} title="3. 활동 가능 기간 및 역량" />
-        <p className="form-note">구체적인 활동 일자는 교구 안내와 지원자 여건에 따라 추후 확정됩니다.</p>
+        <SectionTitle icon={<Sparkles />} title="3. 봉사 가능 기간 (복수 선택 가능)" />
+        <p className="form-note">본 대회 일정은 2027. 8. 3. ~ 8. 8. 이며, 구체적인 봉사 일정은 차후에 안내합니다.</p>
         <fieldset className="choice-field">
-          <legend>활동가능 시간</legend>
+          <legend>요일</legend>
           <div className="chips">
-            {availabilityOptions.map((option) => (
+            {volunteerDayOptions.map((option) => (
               <button
                 type="button"
                 key={option}
-                className={form.availability === option ? "chip selected" : "chip"}
-                onClick={() => update("availability", option)}
+                className={selectedAvailability.days.includes(option) ? "chip selected" : "chip"}
+                onClick={() => toggleAvailability("days", option)}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="choice-field">
+          <legend>시간</legend>
+          <div className="chips">
+            {volunteerTimeOptions.map((option) => (
+              <button
+                type="button"
+                key={option}
+                className={selectedAvailability.times.includes(option) ? "chip selected" : "chip"}
+                onClick={() => toggleAvailability("times", option)}
               >
                 {option}
               </button>
@@ -280,13 +351,13 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
           </div>
         </fieldset>
         <label>
-          <FieldLabel required>봉사 경력 및 보유 재능</FieldLabel>
+          <FieldLabel required>WYD 자원봉사에 활용할 수 있는 경험과 재능</FieldLabel>
           <textarea
             required
             rows={6}
             value={form.experience}
             onChange={(e) => update("experience", e.target.value)}
-            placeholder="성당 내 활동 경력이나 업무 관련 기술, 자격증 등이 있다면 자유롭게 기재해 주세요."
+            placeholder="본당 활동 경험, 봉사 경력, 직무 경험, 자격증, 외국어 능력, 의료·응급처치 등 보유한 재능과 경험을 자유롭게 적어 주세요."
           />
         </label>
       </div>
@@ -304,8 +375,7 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
           </strong>
         </div>
         <div className="volunteer-letter-footer">
-          <strong>천주교 서울대교구 세곡동성당 WYD 본당 위원회 귀하</strong>
-          <span>서울특별시 강남구 헌릉로618길 34 세곡동성당 / 대표 번호 02-459-8211</span>
+          <strong>천주교 서울대교구 세곡동 성당 WYD 분과 귀하</strong>
         </div>
       </div>
 

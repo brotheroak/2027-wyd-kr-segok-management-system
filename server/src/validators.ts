@@ -14,8 +14,24 @@ const phoneSchema = z.string()
   .refine((value) => value.replace(/\D/g, "").length >= 8, "연락처 숫자는 8자리 이상이어야 합니다.");
 
 const genderSchema = z.enum(["남성", "여성"]);
-const supportFieldSchema = z.enum(["행사 진행 및 안내", "통역 및 언어 지원", "의료 봉사", "안전관리"]);
-const availabilitySchema = z.enum(["주간", "야간", "주간,야간 관계 없음"]);
+const supportFieldSchema = z.enum([
+  "순례자 환대 및 안내",
+  "행사 운영 지원",
+  "환경 및 시설 관리 지원",
+  "외국어 지원",
+  "의료 지원",
+  "어느 분야든 필요에 따라 봉사 가능합니다.",
+  // legacy values kept so existing records remain editable
+  "행사 진행 및 안내",
+  "통역 및 언어 지원",
+  "의료 봉사",
+  "안전관리"
+]);
+const availabilitySchema = z.string().min(1).max(120).refine((value) => {
+  const trimmed = value.trim();
+  if (["주간", "야간", "주간,야간 관계 없음"].includes(trimmed)) return true;
+  return /^요일: .+ \/ 시간: .+$/.test(trimmed);
+}, "봉사 가능 요일과 시간을 선택해 주세요.");
 const districtSchema = z.object({
   no: z.string().regex(/^(?:[1-9]|1[0-2]|99)$/),
   name: z.string().min(1),
@@ -94,6 +110,8 @@ export const volunteerSchema = z.object({
   birthDate: dateSchema,
   phone: phoneSchema,
   email: z.union([z.string().email(), z.literal("")]).optional(),
+  parishGroup: z.string().max(80).optional(),
+  affiliation: z.string().max(120).optional(),
   postcode: z.string().optional(),
   address: z.string().min(3),
   addressDetail: z.string().optional(),
@@ -104,7 +122,7 @@ export const volunteerSchema = z.object({
   privacyConsent: z.literal(true),
   appliedDate: dateSchema,
   signatureName: z.string().min(2)
-}).refine((data) => !data.supportFields.includes("통역 및 언어 지원") || Boolean(data.supportLanguage?.trim()), {
-  message: "통역 및 언어 지원을 선택한 경우 지원 언어를 입력해 주세요.",
+}).refine((data) => !data.supportFields.some((field) => field === "외국어 지원" || field === "통역 및 언어 지원") || Boolean(data.supportLanguage?.trim()), {
+  message: "외국어 지원을 선택한 경우 지원 언어를 입력해 주세요.",
   path: ["supportLanguage"]
 });

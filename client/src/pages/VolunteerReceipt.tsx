@@ -46,6 +46,10 @@ export function VolunteerReceipt({ volunteer, onEdit, onCancel, onLogout }: Volu
         </dd>
         <dt>연락처</dt>
         <dd>{volunteer.phone}</dd>
+        <dt>신청 구역</dt>
+        <dd>{volunteer.parishGroup || "-"}</dd>
+        <dt>소속 단체</dt>
+        <dd>{volunteer.affiliation || "-"}</dd>
         <dt>봉사 경력 및 보유 재능</dt>
         <dd>{volunteer.experience}</dd>
       </dl>

@@ -22,7 +22,7 @@
   - `RATE_LIMIT_WINDOW_MS=60000`
   - `RATE_LIMIT_MAX=120`
   - `USER_SESSION_MINUTES=5`
-  - `ADMIN_SESSION_MINUTES=5`
+  - `ADMIN_SESSION_MINUTES=30`
   - `ALLOWED_ORIGINS=https://운영도메인`
 
 이 값은 예상 최대 동시접속 100명에 약간의 여유를 둔 시작점입니다. 접수 개시 직후 429가 많으면 rate limit을 먼저 조정하고, 503이 늘면 Cloud SQL 연결/CPU/메모리를 확인한 뒤 `max-instances` 증설을 검토합니다.
