@@ -684,6 +684,17 @@ function rowToVolunteer(row: any) {
   const castBool = (val: any) => val === true || val === 1 || val === "1";
   const address = plain(row.address);
   const addressDetail = plain(row.addressDetail);
+  const computedDistrict = assignDistrict(address, addressDetail);
+  const district = (row.districtConfidence === "manual" || computedDistrict.no === "99") && row.districtNo
+    ? {
+        no: row.districtNo,
+        name: row.districtName ?? (row.districtNo === "99" ? "구역외" : `${row.districtNo}구역`),
+        ban: row.districtBan ?? `${row.districtNo}-1`,
+        label: row.districtLabel ?? (row.districtNo === "99" ? "구역외 (99구역)" : `${row.districtNo}구역 ${row.districtBan ?? `${row.districtNo}-1`}반`),
+        confidence: row.districtConfidence ?? "low",
+        reason: row.districtReason ?? ""
+      }
+    : computedDistrict;
   return {
     id: row.id,
     volunteerNo: row.volunteerNo,
@@ -699,7 +710,7 @@ function rowToVolunteer(row: any) {
     postcode: row.postcode,
     address,
     addressDetail,
-    district: assignDistrict(address, addressDetail),
+    district,
     supportFields: JSON.parse(row.supportFields),
     supportLanguage: row.supportLanguage,
     availability: row.availability,
@@ -722,6 +733,8 @@ async function upsertVolunteer(payload: VolunteerPayload, existingId?: string) {
   const parsed = volunteerSchema.parse(payload);
   const id = existingId ?? nanoid();
   const timestamp = nowIso();
+  const autoDistrict = assignDistrict(parsed.address, parsed.addressDetail ?? "");
+  const district = normalizeDistrictOverride(parsed.district, autoDistrict);
   const volunteerNo = existingId
     ? (await db.select({ volunteerNo: tables.volunteers.volunteerNo }).from(tables.volunteers).where(eq(tables.volunteers.id, existingId)))[0].volunteerNo
     : await makeVolunteerNo();
@@ -738,6 +751,12 @@ async function upsertVolunteer(payload: VolunteerPayload, existingId?: string) {
     postcode: parsed.postcode ?? "",
     address: pii(parsed.address),
     addressDetail: pii(parsed.addressDetail ?? ""),
+    districtNo: district.no,
+    districtName: district.name,
+    districtBan: district.ban,
+    districtLabel: district.label,
+    districtConfidence: district.confidence,
+    districtReason: district.reason,
     supportFields: JSON.stringify(parsed.supportFields),
     supportLanguage: parsed.supportLanguage ?? "",
     availability: parsed.availability,

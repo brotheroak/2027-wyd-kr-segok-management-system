@@ -63,7 +63,7 @@ npm run db:setup
 - 필수 인덱스 생성
 - SQLite WAL 모드 활성화
 - `INITIAL_ADMIN_EMAIL`과 `INITIAL_ADMIN_PASSWORD`가 지정된 경우에만 초기 관리자 계정 시딩
-- 기존 DB에 `applicant_pin`, `email_hash`, 홈스테이 `district_*`, 관리자 승인 관련 컬럼이 없으면 보수 마이그레이션
+- 기존 DB에 `applicant_pin`, `email_hash`, 홈스테이/자원봉사자 `district_*`, 관리자 승인 관련 컬럼이 없으면 보수 마이그레이션
 
 저장소에는 기본 관리자 비밀번호를 두지 않습니다. 운영에서는 개별 운영자 계정을 명시적으로 생성하고 MFA 등록을 완료합니다.
 
@@ -82,7 +82,7 @@ node scripts/create-admin.mjs privacy@example.org StrongPassword123! privacy_adm
 | --- | --- | --- |
 | 1 | DB 연결성 확인 `SELECT 1` | 서버 시작 중단 |
 | 2 | `admins` 테이블 존재 확인 | `npm run db:setup` 실행 안내 후 중단 |
-| 3 | `verification_codes.email_hash`, 홈스테이 `district_*` 보수 마이그레이션 | 컬럼 또는 인덱스 생성 |
+| 3 | `verification_codes.email_hash`, 홈스테이/자원봉사자 `district_*` 보수 마이그레이션 | 컬럼 또는 인덱스 생성 |
 
 `/api/ready`는 실행 중인 서버의 DB 연결 상태를 점검합니다. Kubernetes readiness probe, Docker healthcheck, 로드밸런서 상태 확인에 사용합니다.
 
@@ -171,6 +171,13 @@ erDiagram
         string affiliation
         string postcode
         string address
+        string address_detail
+        string district_no
+        string district_name
+        string district_ban
+        string district_label
+        string district_confidence
+        string district_reason
         string support_fields
         string support_language
         string availability
@@ -248,6 +255,8 @@ erDiagram
 ### `volunteers`
 
 자원봉사자 신청서를 저장합니다. 희망 봉사 분야는 `support_fields`에 문자열 목록 형태로 저장하고, 외국어 지원 언어는 `support_language`에 쉼표 구분 문자열로 저장합니다. 신청자가 입력한 구역과 소속 단체는 각각 `parish_group`, `affiliation`에 저장합니다.
+
+홈스테이 신청과 동일하게 주소 입력 시 구역반 편성표 기준으로 `district_no`, `district_name`, `district_ban`, `district_label`, `district_confidence`, `district_reason`을 자동 계산해 저장합니다. 신청 화면에서 운영자가 수동 설정한 경우 `district_confidence`는 `manual`로 저장되며, 이후 조회와 엑셀 다운로드는 저장된 값을 우선 사용합니다.
 
 ### `verification_codes`
 
@@ -329,6 +338,7 @@ enc:v1:
 | `idx_capabilities_lookup` | `host_capabilities.capability_key`, `host_capabilities.capability_value` |
 | `idx_volunteers_status` | `volunteers.status` |
 | `idx_volunteers_lookup` | `volunteers.name`, `volunteers.phone` |
+| `idx_volunteers_district` | `volunteers.district_no`, `volunteers.district_ban` |
 | `idx_verification_codes_email_hash` | `verification_codes.email_hash` |
 
 암호화가 켜진 운영 환경에서는 일부 개인정보 인덱스의 검색 효율이 제한됩니다. 이 인덱스들은 개발, 과거 평문 데이터, 상태 필터링, 구조적 호환성을 위한 성격이 강합니다.

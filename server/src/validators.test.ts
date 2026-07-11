@@ -123,6 +123,20 @@ test("자원봉사자 신청서는 정상 입력값을 통과시킨다", () => {
   assert.equal(result.success, true);
 });
 
+test("자원봉사자 신청서는 수동 설정 구역반을 허용한다", () => {
+  const result = volunteerSchema.safeParse(validVolunteer({
+    district: {
+      no: "3",
+      name: "3구역",
+      ban: "3-1",
+      label: "3구역 3-1반",
+      confidence: "manual",
+      reason: "운영자가 주소 기준 매핑을 확인 후 수동 설정"
+    }
+  }));
+  assert.equal(result.success, true);
+});
+
 test("자원봉사자 신청서는 개인정보 동의가 필수다", () => {
   const payload = validVolunteer({ privacyConsent: false });
   assert.equal(volunteerSchema.safeParse(payload).success, false);

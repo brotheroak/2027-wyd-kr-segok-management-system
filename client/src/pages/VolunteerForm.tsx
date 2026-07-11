@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { CheckCircle2, Search, User, ClipboardList, Sparkles, ShieldCheck, ChevronRight } from "lucide-react";
-import { VolunteerPayload } from "../types.js";
+import React, { useState, useEffect, useRef } from "react";
+import { CheckCircle2, Search, User, ClipboardList, Sparkles, ShieldCheck, ChevronRight, MapPinned } from "lucide-react";
+import { DistrictInfo, VolunteerPayload } from "../types.js";
+import { api } from "../api.js";
 import { calculateAge } from "../utils/age.js";
 import { openKakaoPostcode } from "../utils/postcode.js";
 import { today, emptyVolunteer, volunteerFields, volunteerLanguageOptions, volunteerDayOptions, volunteerTimeOptions, splitVolunteerLanguages, formatKoreanPhoneNumber } from "../utils/constants.js";
-import { SectionTitle, FieldLabel, DateSelect, RequiredMark } from "../components/FormFields.js";
+import { districtBansByNo, districtGuideSections, districtLabel, districtName, districtOptions, makeManualDistrict } from "../utils/districts.js";
+import { SectionTitle, FieldLabel, DateSelect, RequiredMark, Select } from "../components/FormFields.js";
 import { Toggle } from "../components/Toggle.js";
 
 type VolunteerFormProps = {
@@ -72,12 +74,16 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
   const [availabilitySelection, setAvailabilitySelection] = useState(() => parseAvailability(initial?.availability ?? ""));
   const [otherLanguageEnabled, setOtherLanguageEnabled] = useState(false);
   const [otherLanguage, setOtherLanguage] = useState("");
+  const [districtManual, setDistrictManual] = useState(initial?.district?.confidence === "manual");
+  const [districtGuideOpen, setDistrictGuideOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const districtRequestId = useRef(0);
 
   useEffect(() => {
     if (initial) {
       setForm(initial);
+      setDistrictManual(initial.district?.confidence === "manual");
       setAvailabilitySelection(parseAvailability(initial.availability));
       const langs = splitVolunteerLanguages(initial.supportLanguage);
       const defaultLangs = new Set(volunteerLanguageOptions);
@@ -91,16 +97,49 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
       }
     } else {
       setForm(emptyVolunteer());
+      setDistrictManual(false);
       setAvailabilitySelection(parseAvailability(""));
       setOtherLanguageEnabled(false);
       setOtherLanguage("");
     }
   }, [initial]);
 
+  useEffect(() => {
+    if (districtManual) return;
+    const address = form.address.trim();
+    const addressDetail = form.addressDetail?.trim() ?? "";
+
+    if (!address) {
+      setForm((prev) => prev.district ? { ...prev, district: undefined } : prev);
+      return;
+    }
+
+    const requestId = ++districtRequestId.current;
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await api<{ district: DistrictInfo }>("/api/district/assign", {
+          method: "POST",
+          body: JSON.stringify({ address, addressDetail })
+        });
+        if (requestId !== districtRequestId.current) return;
+        setForm((prev) => ({ ...prev, district: result.district }));
+      } catch {
+        // The server re-runs district assignment at submit time.
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [form.address, form.addressDetail, districtManual]);
+
   const age = calculateAge(form.birthDate);
   const signatureText = `${form.name}${form.baptismalName ? ` (${form.baptismalName})` : ""}`.trim();
   const selectedSupportLanguages = splitVolunteerLanguages(form.supportLanguage);
   const selectedAvailability = availabilitySelection;
+  const selectedDistrictNo = form.district?.no ?? "12";
+  const selectedDistrictBans = districtBansByNo[selectedDistrictNo] ?? districtBansByNo["12"];
+  const selectedDistrictBan = form.district?.ban && selectedDistrictBans.includes(form.district.ban)
+    ? form.district.ban
+    : selectedDistrictBans[0];
   const appliedDateText = form.appliedDate
     ? `${form.appliedDate.slice(0, 4)}년 ${form.appliedDate.slice(5, 7)}월 ${form.appliedDate.slice(8, 10)}일`
     : "202X년 XX월 XX일";
@@ -146,6 +185,28 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
       ? selectedSupportLanguages.filter((item) => item !== language)
       : [...selectedSupportLanguages, language];
     update("supportLanguage", next.join(", "));
+  };
+
+  const updateDistrictNo = (no: string) => {
+    setDistrictManual(true);
+    setForm((prev) => ({
+      ...prev,
+      district: makeManualDistrict(no)
+    }));
+  };
+
+  const updateDistrictBan = (ban: string) => {
+    setDistrictManual(true);
+    setForm((prev) => ({
+      ...prev,
+      district: makeManualDistrict(prev.district?.no ?? "12", ban)
+    }));
+  };
+
+  const resetDistrictAuto = () => {
+    districtRequestId.current += 1;
+    setDistrictManual(false);
+    setForm((prev) => ({ ...prev, district: undefined }));
   };
 
   const toggleAvailability = (type: "days" | "times", value: string) => {
@@ -317,6 +378,42 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
             <input id="volunteer-address-detail" value={form.addressDetail} onChange={(e) => update("addressDetail", e.target.value)} placeholder="동/호수 등 상세 주소" />
           </label>
         </div>
+        <div className="district-assignment-panel">
+          <div className="district-assignment-head">
+            <div>
+              <span>{districtManual ? "수동 설정 구역반" : "자동 매핑 구역반"}</span>
+              <strong>{form.district?.label ?? "주소 입력 후 자동 판별"}</strong>
+            </div>
+            <em className={districtManual ? "manual" : "auto"}>{districtManual ? "수동" : "자동"}</em>
+          </div>
+          <div className="district-assignment-controls">
+            <label>
+              <FieldLabel>구역</FieldLabel>
+              <Select
+                value={selectedDistrictNo}
+                onChange={updateDistrictNo}
+                options={districtOptions}
+                renderOption={(no) => (no === "99" ? "구역외 (99구역)" : `${districtName(no)}`)}
+              />
+            </label>
+            <label>
+              <FieldLabel>반</FieldLabel>
+              <Select
+                value={selectedDistrictBan}
+                onChange={updateDistrictBan}
+                options={selectedDistrictBans}
+                renderOption={(ban) => selectedDistrictNo === "99" ? "구역외" : districtLabel(selectedDistrictNo, ban)}
+              />
+            </label>
+            <button type="button" className="secondary district-auto-button" onClick={resetDistrictAuto}>
+              주소 기준 다시 매핑
+            </button>
+          </div>
+          {form.district?.reason && <p>{form.district.reason}</p>}
+          <button type="button" className="district-guide-link" onClick={() => setDistrictGuideOpen(true)}>
+            <MapPinned size={16} /> 구역반 편성 안내 보기
+          </button>
+        </div>
       </div>
 
       <div className="application-step-panel p-8 sm:p-10 space-y-7">
@@ -438,6 +535,47 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
           {submitLabel} <ChevronRight size={20} />
         </button>
       </div>
+      {districtGuideOpen && (
+        <div className="district-guide-modal" role="dialog" aria-modal="true" aria-labelledby="volunteer-district-guide-title" onClick={() => setDistrictGuideOpen(false)}>
+          <div className="district-guide-dialog" onClick={(event) => event.stopPropagation()}>
+            <div className="district-guide-head">
+              <div>
+                <span>세곡동성당 구역반 편성 기준</span>
+                <h3 id="volunteer-district-guide-title">구역반 안내</h3>
+              </div>
+              <button type="button" className="modal-close-button" onClick={() => setDistrictGuideOpen(false)} aria-label="구역반 안내 닫기">
+                닫기
+              </button>
+            </div>
+            <div className="district-guide-current">
+              <MapPinned size={18} />
+              <span>현재 입력 주소 기준</span>
+              <strong>{form.district?.label ?? "주소 입력 후 자동 판별"}</strong>
+            </div>
+            <div className="district-guide-body">
+              {districtGuideSections.map((section) => (
+                <section
+                  key={section.no}
+                  className={section.no === selectedDistrictNo ? "district-guide-section active" : "district-guide-section"}
+                >
+                  <div className="district-guide-section-head">
+                    <strong>{section.name}</strong>
+                    <span>{section.areas.join(" · ")}</span>
+                  </div>
+                  <dl>
+                    {section.bans.map((item) => (
+                      <React.Fragment key={item.ban}>
+                        <dt>{item.ban}반</dt>
+                        <dd>{item.description}</dd>
+                      </React.Fragment>
+                    ))}
+                  </dl>
+                </section>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
