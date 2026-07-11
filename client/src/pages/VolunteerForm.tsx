@@ -14,6 +14,7 @@ type VolunteerFormProps = {
 };
 
 const foreignLanguageField = "외국어 지원";
+const flexibleSupportField = "어느 분야든 필요에 따라 봉사 가능합니다.";
 
 const supportFieldDescriptions: Record<string, string> = {
   "순례자 환대 및 안내": "안내, 접수, 식사 배분, 이동 지원, 장애인 지원 등",
@@ -21,28 +22,54 @@ const supportFieldDescriptions: Record<string, string> = {
   "환경 및 시설 관리 지원": "청소, 세탁, 물품 관리, 시설 점검 등",
   "외국어 지원": "외국어 안내 및 통역",
   "의료 지원": "응급 환자 대응 등",
-  "어느 분야든 필요에 따라 봉사 가능합니다.": "본당 운영 상황에 따른 배치 가능"
+  [flexibleSupportField]: "본당 운영 상황에 따른 배치 가능"
 };
+
+const coreVolunteerFields = volunteerFields.filter((field) => field !== flexibleSupportField);
+const allDayOption = "모두 가능";
+const allTimeOption = "종일 가능";
+const concreteDayOptions = volunteerDayOptions.filter((option) => option !== allDayOption);
+const concreteTimeOptions = volunteerTimeOptions.filter((option) => option !== allTimeOption);
 
 function parseAvailability(value = "") {
   if (value === "주간") return { days: ["모두 가능"], times: ["오전", "오후"] };
   if (value === "야간") return { days: ["모두 가능"], times: ["저녁"] };
   if (value === "주간,야간 관계 없음") return { days: ["모두 가능"], times: ["종일 가능"] };
   const match = value.match(/^요일: (.+) \/ 시간: (.+)$/);
-  if (!match) return { days: [], times: [] };
-  return {
+  if (!match) return normalizeAvailabilitySelection({ days: [], times: [] });
+  return normalizeAvailabilitySelection({
     days: match[1].split(",").map((item) => item.trim()).filter(Boolean),
     times: match[2].split(",").map((item) => item.trim()).filter(Boolean)
+  });
+}
+
+function normalizeAvailabilitySelection(selection: { days: string[]; times: string[] }) {
+  const selectedDays = new Set(selection.days);
+  const selectedTimes = new Set(selection.times);
+  if (selectedDays.has(allDayOption) || concreteDayOptions.every((option) => selectedDays.has(option))) {
+    concreteDayOptions.forEach((option) => selectedDays.add(option));
+    selectedDays.add(allDayOption);
+  }
+  if (selectedTimes.has(allTimeOption) || concreteTimeOptions.every((option) => selectedTimes.has(option))) {
+    concreteTimeOptions.forEach((option) => selectedTimes.add(option));
+    selectedTimes.add(allTimeOption);
+  }
+  return {
+    days: volunteerDayOptions.filter((option) => selectedDays.has(option)),
+    times: volunteerTimeOptions.filter((option) => selectedTimes.has(option))
   };
 }
 
 function formatAvailability(days: string[], times: string[]) {
-  if (days.length === 0 || times.length === 0) return "";
-  return `요일: ${days.join(", ")} / 시간: ${times.join(", ")}`;
+  const concreteDays = days.filter((item) => item !== allDayOption);
+  const concreteTimes = times.filter((item) => item !== allTimeOption);
+  if (concreteDays.length === 0 || concreteTimes.length === 0) return "";
+  return `요일: ${concreteDays.join(", ")} / 시간: ${concreteTimes.join(", ")}`;
 }
 
 export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사자 신청 접수" }: VolunteerFormProps) {
   const [form, setForm] = useState<VolunteerPayload>(initial ?? emptyVolunteer());
+  const [availabilitySelection, setAvailabilitySelection] = useState(() => parseAvailability(initial?.availability ?? ""));
   const [otherLanguageEnabled, setOtherLanguageEnabled] = useState(false);
   const [otherLanguage, setOtherLanguage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -51,6 +78,7 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
   useEffect(() => {
     if (initial) {
       setForm(initial);
+      setAvailabilitySelection(parseAvailability(initial.availability));
       const langs = splitVolunteerLanguages(initial.supportLanguage);
       const defaultLangs = new Set(volunteerLanguageOptions);
       const others = langs.filter(l => !defaultLangs.has(l));
@@ -63,6 +91,7 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
       }
     } else {
       setForm(emptyVolunteer());
+      setAvailabilitySelection(parseAvailability(""));
       setOtherLanguageEnabled(false);
       setOtherLanguage("");
     }
@@ -71,7 +100,7 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
   const age = calculateAge(form.birthDate);
   const signatureText = `${form.name}${form.baptismalName ? ` (${form.baptismalName})` : ""}`.trim();
   const selectedSupportLanguages = splitVolunteerLanguages(form.supportLanguage);
-  const selectedAvailability = parseAvailability(form.availability);
+  const selectedAvailability = availabilitySelection;
   const appliedDateText = form.appliedDate
     ? `${form.appliedDate.slice(0, 4)}년 ${form.appliedDate.slice(5, 7)}월 ${form.appliedDate.slice(8, 10)}일`
     : "202X년 XX월 XX일";
@@ -89,9 +118,18 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
   };
 
   const toggleField = (field: string) => {
-    const next = form.supportFields.includes(field)
-      ? form.supportFields.filter((item) => item !== field)
-      : [...form.supportFields, field];
+    let next: string[];
+    if (field === flexibleSupportField) {
+      const allCoreSelected = coreVolunteerFields.every((item) => form.supportFields.includes(item));
+      next = allCoreSelected ? [] : [...coreVolunteerFields, flexibleSupportField];
+    } else {
+      const nextCoreFields = form.supportFields.includes(field)
+        ? coreVolunteerFields.filter((item) => item !== field && form.supportFields.includes(item))
+        : [...coreVolunteerFields.filter((item) => form.supportFields.includes(item)), field];
+      next = coreVolunteerFields.every((item) => nextCoreFields.includes(item))
+        ? [...nextCoreFields, flexibleSupportField]
+        : nextCoreFields;
+    }
     setForm((prev) => ({
       ...prev,
       supportFields: next,
@@ -111,20 +149,35 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
   };
 
   const toggleAvailability = (type: "days" | "times", value: string) => {
-    const current = selectedAvailability[type];
-    let nextValues = current.includes(value)
-      ? current.filter((item) => item !== value)
-      : [...current, value];
+    const currentSelection = availabilitySelection;
+    const current = currentSelection[type];
+    let nextValues: string[];
     if (type === "days") {
-      if (value === "모두 가능" && nextValues.includes("모두 가능")) nextValues = ["모두 가능"];
-      if (value !== "모두 가능") nextValues = nextValues.filter((item) => item !== "모두 가능");
+      if (value === allDayOption) {
+        const allSelected = concreteDayOptions.every((item) => current.includes(item));
+        nextValues = allSelected ? [] : [...concreteDayOptions, allDayOption];
+      } else {
+        const nextConcrete = current.includes(value)
+          ? concreteDayOptions.filter((item) => item !== value && current.includes(item))
+          : [...concreteDayOptions.filter((item) => current.includes(item)), value];
+        nextValues = nextConcrete.length === concreteDayOptions.length ? [...nextConcrete, allDayOption] : nextConcrete;
+      }
+    } else if (value === allTimeOption) {
+      const allSelected = concreteTimeOptions.every((item) => current.includes(item));
+      nextValues = allSelected ? [] : [...concreteTimeOptions, allTimeOption];
+    } else {
+      const nextConcrete = current.includes(value)
+        ? concreteTimeOptions.filter((item) => item !== value && current.includes(item))
+        : [...concreteTimeOptions.filter((item) => current.includes(item)), value];
+      nextValues = nextConcrete.length === concreteTimeOptions.length ? [...nextConcrete, allTimeOption] : nextConcrete;
     }
-    if (type === "times") {
-      if (value === "종일 가능" && nextValues.includes("종일 가능")) nextValues = ["종일 가능"];
-      if (value !== "종일 가능") nextValues = nextValues.filter((item) => item !== "종일 가능");
-    }
-    const days = type === "days" ? nextValues : selectedAvailability.days;
-    const times = type === "times" ? nextValues : selectedAvailability.times;
+    const nextSelection = normalizeAvailabilitySelection({
+      days: type === "days" ? nextValues : currentSelection.days,
+      times: type === "times" ? nextValues : currentSelection.times
+    });
+    setAvailabilitySelection(nextSelection);
+    const days = nextSelection.days;
+    const times = nextSelection.times;
     update("availability", formatAvailability(days, times));
   };
 
