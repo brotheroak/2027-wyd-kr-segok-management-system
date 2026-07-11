@@ -99,6 +99,7 @@ timeout=30s
 | 세션 | `nanoid(48)` 토큰, 신청자 기본 5분 만료, 관리자 기본 30분 만료 및 활동 중 갱신, 서버 저장 세션 |
 | 접근 제어 | 역할별 API guard, 개인정보 원본 접근 분리 |
 | 입력 검증 | Zod schema, JSON body 제한, 주소/구역반 서버 재검증 |
+| 저장 무결성 | 접수번호 생성 트랜잭션 잠금, 신청서 optimistic locking(409), 인증번호 원자적 교체·1회 소비 |
 | 오류 처리 | 알려진 스캔 경로 404, API 오류 메시지 단순화 |
 | 가용성 | IP rate limit, 웹퍼널, Cloud Run max-instances 상한 |
 

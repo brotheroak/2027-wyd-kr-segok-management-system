@@ -50,11 +50,12 @@
 html {
   scrollbar-gutter: stable;
   overflow-y: scroll;
+  font-size: calc(16px * var(--font-scale));
 }
 
 body {
   margin: 0;
-  font-size: calc(16px * var(--font-scale));
+  font-size: 1rem;
   background: var(--bg);
   overflow-x: hidden;
   word-break: keep-all;
@@ -1821,6 +1822,13 @@ input:focus, select:focus, textarea:focus {
   background: linear-gradient(180deg, #ffffff 0%, #fefcf9 100%);
   cursor: pointer;
   box-shadow: var(--soft-shadow-sm);
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.toggle.checked {
+  border-color: rgba(79, 105, 78, 0.48);
+  background: linear-gradient(180deg, #f3faf3 0%, #edf6ee 100%);
+  box-shadow: 0 8px 22px rgba(79, 105, 78, 0.1), inset 0 0 0 1px rgba(79, 105, 78, 0.08);
 }
 
 .toggle input {
@@ -2423,6 +2431,33 @@ input:focus, select:focus, textarea:focus {
   text-align: center;
   text-align-last: center;
   white-space: nowrap;
+}
+
+.admin-register-form .button-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-register-form .button-row > button {
+  width: 100%;
+  min-height: 46px;
+  justify-content: center;
+}
+
+.logo-description-item {
+  display: grid;
+  gap: 8px;
+}
+
+.logo-description-item > p,
+.intro-symbol-card > p {
+  margin: 0;
+}
+
+.intro-symbol-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
 }
 
 .status-badge {

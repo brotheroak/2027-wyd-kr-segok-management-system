@@ -50,6 +50,7 @@ export type ApplicationPayload = {
     signatureName: string;
   };
   district?: DistrictInfo;
+  updatedAt?: string;
 };
 
 export type VolunteerPayload = {
@@ -72,4 +73,5 @@ export type VolunteerPayload = {
   appliedDate: string;
   signatureName: string;
   district?: DistrictInfo;
+  updatedAt?: string;
 };

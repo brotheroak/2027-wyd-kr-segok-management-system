@@ -9,7 +9,7 @@ type ToggleProps = {
 
 export function Toggle({ label, checked, onChange }: ToggleProps) {
   return (
-    <label className="toggle">
+    <label className={checked ? "toggle checked" : "toggle"}>
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
       <span>{checked ? <CheckCircle2 size={20} /> : <span className="circle" />}</span>
       {label}

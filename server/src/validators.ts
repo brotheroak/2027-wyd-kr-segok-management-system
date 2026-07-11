@@ -81,7 +81,8 @@ export const applicationSchema = z.object({
     appliedDate: dateSchema,
     signatureName: z.string().min(2)
   }),
-  district: districtSchema
+  district: districtSchema,
+  updatedAt: z.string().datetime().optional()
 }).refine((data) => {
   if (data.members.length === 0) return true;
   // 1번 구성원은 '가족대표'로 고정
@@ -122,7 +123,8 @@ export const volunteerSchema = z.object({
   privacyConsent: z.literal(true),
   appliedDate: dateSchema,
   signatureName: z.string().min(2),
-  district: districtSchema
+  district: districtSchema,
+  updatedAt: z.string().datetime().optional()
 }).refine((data) => !data.supportFields.some((field) => field === "외국어 지원" || field === "통역 및 언어 지원") || Boolean(data.supportLanguage?.trim()), {
   message: "외국어 지원을 선택한 경우 지원 언어를 입력해 주세요.",
   path: ["supportLanguage"]

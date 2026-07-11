@@ -254,9 +254,11 @@ erDiagram
 
 ### `volunteers`
 
-자원봉사자 신청서를 저장합니다. 희망 봉사 분야는 `support_fields`에 문자열 목록 형태로 저장하고, 외국어 지원 언어는 `support_language`에 쉼표 구분 문자열로 저장합니다. 신청자가 입력한 구역과 소속 단체는 각각 `parish_group`, `affiliation`에 저장합니다.
+자원봉사자 신청서를 저장합니다. 희망 봉사 분야는 `support_fields`에 문자열 목록 형태로 저장하고, 외국어 지원 언어는 `support_language`에 쉼표 구분 문자열로 저장합니다. `parish_group`은 주소 기반 자동·수동 구역반 판정의 `district_name`과 동일한 값으로 서버에서 정규화하며, 소속 단체는 `affiliation`에 저장합니다.
 
 홈스테이 신청과 동일하게 주소 입력 시 구역반 편성표 기준으로 `district_no`, `district_name`, `district_ban`, `district_label`, `district_confidence`, `district_reason`을 자동 계산해 저장합니다. 신청 화면에서 운영자가 수동 설정한 경우 `district_confidence`는 `manual`로 저장되며, 이후 조회와 엑셀 다운로드는 저장된 값을 우선 사용합니다.
+
+신규 홈스테이·자원봉사 접수번호는 PostgreSQL 트랜잭션 범위의 일일 advisory lock 안에서 생성합니다. 신청서 수정은 클라이언트가 받은 `updated_at`을 조건으로 갱신하여, 같은 신청서를 두 화면에서 동시에 수정하면 먼저 저장된 요청만 반영하고 뒤 요청에는 HTTP 409를 반환합니다.
 
 ### `verification_codes`
 

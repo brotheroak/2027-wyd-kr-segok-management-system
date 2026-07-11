@@ -110,7 +110,7 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
     const addressDetail = form.addressDetail?.trim() ?? "";
 
     if (!address) {
-      setForm((prev) => prev.district ? { ...prev, district: undefined } : prev);
+      setForm((prev) => prev.district || prev.parishGroup ? { ...prev, district: undefined, parishGroup: "" } : prev);
       return;
     }
 
@@ -122,7 +122,7 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
           body: JSON.stringify({ address, addressDetail })
         });
         if (requestId !== districtRequestId.current) return;
-        setForm((prev) => ({ ...prev, district: result.district }));
+        setForm((prev) => ({ ...prev, district: result.district, parishGroup: result.district.name }));
       } catch {
         // The server re-runs district assignment at submit time.
       }
@@ -135,11 +135,11 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
   const signatureText = `${form.name}${form.baptismalName ? ` (${form.baptismalName})` : ""}`.trim();
   const selectedSupportLanguages = splitVolunteerLanguages(form.supportLanguage);
   const selectedAvailability = availabilitySelection;
-  const selectedDistrictNo = form.district?.no ?? "12";
-  const selectedDistrictBans = districtBansByNo[selectedDistrictNo] ?? districtBansByNo["12"];
+  const selectedDistrictNo = form.district?.no ?? "";
+  const selectedDistrictBans = districtBansByNo[selectedDistrictNo] ?? [];
   const selectedDistrictBan = form.district?.ban && selectedDistrictBans.includes(form.district.ban)
     ? form.district.ban
-    : selectedDistrictBans[0];
+    : selectedDistrictBans[0] ?? "";
   const appliedDateText = form.appliedDate
     ? `${form.appliedDate.slice(0, 4)}년 ${form.appliedDate.slice(5, 7)}월 ${form.appliedDate.slice(8, 10)}일`
     : "202X년 XX월 XX일";
@@ -191,7 +191,8 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
     setDistrictManual(true);
     setForm((prev) => ({
       ...prev,
-      district: makeManualDistrict(no)
+      district: makeManualDistrict(no),
+      parishGroup: districtName(no)
     }));
   };
 
@@ -199,14 +200,15 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
     setDistrictManual(true);
     setForm((prev) => ({
       ...prev,
-      district: makeManualDistrict(prev.district?.no ?? "12", ban)
+      district: makeManualDistrict(prev.district?.no ?? "12", ban),
+      parishGroup: districtName(prev.district?.no ?? "12")
     }));
   };
 
   const resetDistrictAuto = () => {
     districtRequestId.current += 1;
     setDistrictManual(false);
-    setForm((prev) => ({ ...prev, district: undefined }));
+    setForm((prev) => ({ ...prev, district: undefined, parishGroup: "" }));
   };
 
   const toggleAvailability = (type: "days" | "times", value: string) => {
@@ -346,8 +348,8 @@ export function VolunteerForm({ onSubmit, initial, submitLabel = "자원봉사�
             <input type="email" value={form.email ?? ""} onChange={(e) => update("email", e.target.value)} placeholder="myemail@gmail.com" />
           </label>
           <label>
-            <FieldLabel optional>구역</FieldLabel>
-            <input value={form.parishGroup ?? ""} onChange={(e) => update("parishGroup", e.target.value)} placeholder="예: 3구역" />
+            <FieldLabel optional>구역 (주소 기준 자동 연동)</FieldLabel>
+            <input value={form.district?.name ?? form.parishGroup ?? ""} readOnly placeholder="주소 입력 후 자동 표시" />
           </label>
           <label>
             <FieldLabel optional>소속 단체</FieldLabel>

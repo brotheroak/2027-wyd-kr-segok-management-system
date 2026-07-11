@@ -153,11 +153,11 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
                 />
               </div>
               <div className="logo-description-list space-y-4 text-sm leading-relaxed text-[var(--muted)]">
-                <div>
+                <div className="logo-description-item">
                   <strong className="text-[var(--color-catholic-navy)] font-bold text-[16px] block">한글 '서울'과 'WYD'의 조화</strong>
                   <p>한국 전통 서예의 유려한 붓터치를 기반으로 한글 '서울'의 자모를 형상화하고, 그 자모의 흐름 안에 영어 약자인 'W', 'Y', 'D'를 유기적으로 조합하여 동서양 문화의 온전한 결합을 구현했습니다.</p>
                 </div>
-                <div>
+                <div className="logo-description-item">
                   <strong className="text-[var(--color-catholic-navy)] font-bold text-[16px] block">전통 삼색(적, 청, 황)의 영성</strong>
                   <ul className="list-disc pl-5 mt-1 space-y-1">
                     <li>🔴 <strong>Cross Red (적색)</strong>: 예수 그리스도의 거룩한 희생과 헌신, 순교자들의 신앙 열정</li>
@@ -176,7 +176,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
               <h3 className="text-xl font-bold text-[var(--color-catholic-navy)]">대회 공식 순례 상징물</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-[var(--muted)]">
-              <div className="panel p-6 rounded-2xl bg-gray-50/50 border border-[var(--control-border-soft)] space-y-2">
+              <div className="panel intro-symbol-card p-6 rounded-2xl bg-gray-50/50 border border-[var(--control-border-soft)]">
                 <strong className="text-[var(--color-catholic-navy)] font-bold text-[16px] block">젊은이 십자가 (WYD Cross)</strong>
                 <p className="leading-relaxed">
                   1984년 교황 요한 바오로 2세가 젊은이들에게 선물한 3.8m의 나무 십자가입니다. 
@@ -184,7 +184,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
                   매 대회 개최국과 대륙의 교구들을 걸쳐 순례하며 평화와 화해의 은총을 나르고 있습니다.
                 </p>
               </div>
-              <div className="panel p-6 rounded-2xl bg-gray-50/50 border border-[var(--control-border-soft)] space-y-2">
+              <div className="panel intro-symbol-card p-6 rounded-2xl bg-gray-50/50 border border-[var(--control-border-soft)]">
                 <strong className="text-[var(--color-catholic-navy)] font-bold text-[16px] block">로마 백성의 구원자 성모 성화 (Salus Populi Romani)</strong>
                 <p className="leading-relaxed">
                   2003년부터 젊은이 십자가와 함께 순례하기 시작한 성화의 복제품입니다. 

@@ -34,6 +34,13 @@ const publicCustomOrigins = (process.env.PUBLIC_CUSTOM_ORIGINS
   .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 
+class StaleWriteError extends Error {
+  constructor() {
+    super("다른 화면에서 먼저 수정된 신청서입니다. 최신 내용을 다시 불러온 뒤 수정해 주세요.");
+    this.name = "StaleWriteError";
+  }
+}
+
 // We no longer require ADMIN_PIN or PRIVACY_ADMIN_PIN in production,
 // as individual credentials and OTP (MFA) are used instead!
 // But for fallback or checking, we can keep the setup secure.
@@ -412,17 +419,22 @@ function visibleApplicationFor(session: Session, application: any) {
   return canAccessPersonalData(session) ? application : anonymizeApplication(application);
 }
 
-async function makeApplicationNo() {
+async function lockDailySequence(tx: any, kind: "application" | "volunteer", ymd: string) {
+  if (!isPg) return;
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`wyd:${kind}:${ymd}`}))`);
+}
+
+async function makeApplicationNo(source: any = db) {
   const ymd = seoulDateKey();
-  const countRows = await db.select({
+  const countRows = await source.select({
     id: tables.applications.id
   }).from(tables.applications).where(like(tables.applications.applicationNo, `WYD-${ymd}-%`));
   return `WYD-${ymd}-${String(countRows.length + 1).padStart(4, "0")}`;
 }
 
-async function makeVolunteerNo() {
+async function makeVolunteerNo(source: any = db) {
   const ymd = seoulDateKey();
-  const countRows = await db.select({
+  const countRows = await source.select({
     id: tables.volunteers.id
   }).from(tables.volunteers).where(like(tables.volunteers.volunteerNo, `VOL-${ymd}-%`));
   return `VOL-${ymd}-${String(countRows.length + 1).padStart(4, "0")}`;
@@ -459,11 +471,14 @@ async function upsertApplication(payload: ApplicationPayload, existingId?: strin
   if (!existingId && !/^\d{4}$/.test(applicantPin)) {
     throw new Error("신청 확인용 숫자 비밀번호 4자리를 입력해 주세요.");
   }
-  const applicationNo = existingId
-    ? (await db.select({ applicationNo: tables.applications.applicationNo }).from(tables.applications).where(eq(tables.applications.id, existingId)))[0].applicationNo
-    : await makeApplicationNo();
-
   await db.transaction(async (tx: any) => {
+    const ymd = seoulDateKey();
+    if (!existingId) await lockDailySequence(tx, "application", ymd);
+    const existingRows = existingId
+      ? await tx.select({ applicationNo: tables.applications.applicationNo }).from(tables.applications).where(eq(tables.applications.id, existingId))
+      : [];
+    if (existingId && !existingRows[0]) throw new Error("수정할 홈스테이 신청을 찾을 수 없습니다.");
+    const applicationNo = existingId ? existingRows[0].applicationNo : await makeApplicationNo(tx);
     const data: any = {
       repName: pii(parsed.representative.name),
       baptismalName: pii(parsed.representative.baptismalName ?? ""),
@@ -507,7 +522,11 @@ async function upsertApplication(payload: ApplicationPayload, existingId?: strin
     if (existingId) {
       data.status = sql`CASE WHEN ${tables.applications.status} = 'canceled' THEN 'submitted' ELSE ${tables.applications.status} END`;
       data.canceledAt = null;
-      await tx.update(tables.applications).set(data).where(eq(tables.applications.id, existingId));
+      const updateCondition = parsed.updatedAt
+        ? and(eq(tables.applications.id, existingId), eq(tables.applications.updatedAt, parsed.updatedAt))
+        : eq(tables.applications.id, existingId);
+      const updatedRows = await tx.update(tables.applications).set(data).where(updateCondition).returning({ id: tables.applications.id });
+      if (updatedRows.length === 0) throw new StaleWriteError();
       await tx.delete(tables.familyMembers).where(eq(tables.familyMembers.applicationId, existingId));
     } else {
       data.id = id;
@@ -735,10 +754,6 @@ async function upsertVolunteer(payload: VolunteerPayload, existingId?: string) {
   const timestamp = nowIso();
   const autoDistrict = assignDistrict(parsed.address, parsed.addressDetail ?? "");
   const district = normalizeDistrictOverride(parsed.district, autoDistrict);
-  const volunteerNo = existingId
-    ? (await db.select({ volunteerNo: tables.volunteers.volunteerNo }).from(tables.volunteers).where(eq(tables.volunteers.id, existingId)))[0].volunteerNo
-    : await makeVolunteerNo();
-
   const data: any = {
     name: pii(parsed.name),
     baptismalName: pii(parsed.baptismalName ?? ""),
@@ -746,7 +761,7 @@ async function upsertVolunteer(payload: VolunteerPayload, existingId?: string) {
     birthDate: parsed.birthDate,
     phone: pii(parsed.phone),
     email: pii(parsed.email ?? ""),
-    parishGroup: pii(parsed.parishGroup ?? ""),
+    parishGroup: pii(district.name),
     affiliation: pii(parsed.affiliation ?? ""),
     postcode: parsed.postcode ?? "",
     address: pii(parsed.address),
@@ -767,17 +782,31 @@ async function upsertVolunteer(payload: VolunteerPayload, existingId?: string) {
     updatedAt: timestamp
   };
 
-  if (existingId) {
-    data.status = sql`CASE WHEN ${tables.volunteers.status} = 'canceled' THEN 'submitted' ELSE ${tables.volunteers.status} END`;
-    data.canceledAt = null;
-    await db.update(tables.volunteers).set(data).where(eq(tables.volunteers.id, existingId));
-  } else {
-    data.id = id;
-    data.volunteerNo = volunteerNo;
-    data.status = "submitted";
-    data.createdAt = timestamp;
-    await db.insert(tables.volunteers).values(data);
-  }
+  await db.transaction(async (tx: any) => {
+    const ymd = seoulDateKey();
+    if (!existingId) await lockDailySequence(tx, "volunteer", ymd);
+    const existingRows = existingId
+      ? await tx.select({ volunteerNo: tables.volunteers.volunteerNo }).from(tables.volunteers).where(eq(tables.volunteers.id, existingId))
+      : [];
+    if (existingId && !existingRows[0]) throw new Error("수정할 자원봉사 신청을 찾을 수 없습니다.");
+    const volunteerNo = existingId ? existingRows[0].volunteerNo : await makeVolunteerNo(tx);
+
+    if (existingId) {
+      data.status = sql`CASE WHEN ${tables.volunteers.status} = 'canceled' THEN 'submitted' ELSE ${tables.volunteers.status} END`;
+      data.canceledAt = null;
+      const updateCondition = parsed.updatedAt
+        ? and(eq(tables.volunteers.id, existingId), eq(tables.volunteers.updatedAt, parsed.updatedAt))
+        : eq(tables.volunteers.id, existingId);
+      const updatedRows = await tx.update(tables.volunteers).set(data).where(updateCondition).returning({ id: tables.volunteers.id });
+      if (updatedRows.length === 0) throw new StaleWriteError();
+    } else {
+      data.id = id;
+      data.volunteerNo = volunteerNo;
+      data.status = "submitted";
+      data.createdAt = timestamp;
+      await tx.insert(tables.volunteers).values(data);
+    }
+  });
   return getVolunteer(id);
 }
 
@@ -1155,14 +1184,17 @@ app.post("/api/auth/request-code", async (req, res) => {
   const emailHash = stableHash(email);
   
   // Clean expired codes first
-  await db.delete(tables.verificationCodes).where(eq(tables.verificationCodes.email, emailHash));
-  await db.insert(tables.verificationCodes).values({
+  const verificationCodeData = {
     email: emailHash,
     emailHash,
     code: hashVerificationCode(emailHash, code),
     expiresAt: addMinutes(10),
     attempts: 0,
     createdAt: nowIso()
+  };
+  await db.insert(tables.verificationCodes).values(verificationCodeData).onConflictDoUpdate({
+    target: tables.verificationCodes.email,
+    set: verificationCodeData
   });
 
   const delivery = await sendVerificationMessage({ email, phone, code });
@@ -1197,15 +1229,23 @@ app.post("/api/auth/verify-code", async (req, res) => {
     return res.status(401).json({ message: "인증번호가 올바르지 않거나 만료되었습니다." });
   }
 
-  await db.delete(tables.verificationCodes).where(eq(tables.verificationCodes.email, emailHash));
   const token = nanoid(48);
-  await db.insert(tables.sessions).values({
-    token,
-    email: pii(email),
-    role: "user",
-    expiresAt: addMinutes(userSessionMinutes),
-    createdAt: nowIso()
+  let consumed = false;
+  await db.transaction(async (tx: any) => {
+    const deletedRows = await tx.delete(tables.verificationCodes)
+      .where(and(eq(tables.verificationCodes.email, emailHash), eq(tables.verificationCodes.code, row.code)))
+      .returning({ email: tables.verificationCodes.email });
+    if (deletedRows.length === 0) return;
+    consumed = true;
+    await tx.insert(tables.sessions).values({
+      token,
+      email: pii(email),
+      role: "user",
+      expiresAt: addMinutes(userSessionMinutes),
+      createdAt: nowIso()
+    });
   });
+  if (!consumed) return res.status(401).json({ message: "이미 사용되었거나 만료된 인증번호입니다." });
   
   const latestApp = await latestApplicationByEmail(email);
   res.json({ token, email, application: latestApp });
@@ -1457,9 +1497,13 @@ app.post("/api/my/application", requireSession("user"), async (req, res) => {
   const existing = await applicationForUserSession(session);
   if (!existing) return res.status(404).json({ message: "접수 내역이 없습니다." });
   if (!payload.representative.email) payload.representative.email = existing.representative.email;
-  const application = await upsertApplication(payload, existing.id);
-  await logAudit(session.email, "applicant_updated_application", application?.id);
-  res.json({ application });
+  try {
+    const application = await upsertApplication(payload, existing.id);
+    await logAudit(session.email, "applicant_updated_application", application?.id);
+    res.json({ application });
+  } catch (error) {
+    res.status(error instanceof StaleWriteError ? 409 : 400).json({ message: (error as Error).message });
+  }
 });
 
 app.delete("/api/my/application", requireSession("user"), async (req, res) => {
@@ -1489,9 +1533,13 @@ app.post("/api/my/volunteer", requireSession("user"), async (req, res) => {
   const existing = await volunteerForUserSession(session);
   if (!existing) return res.status(404).json({ message: "접수 내역이 없습니다." });
   if (!payload.email) payload.email = existing.email;
-  const volunteer = await upsertVolunteer(payload, existing.id);
-  await logAudit(session.email, "volunteer_updated_application", volunteer?.id);
-  res.json({ volunteer });
+  try {
+    const volunteer = await upsertVolunteer(payload, existing.id);
+    await logAudit(session.email, "volunteer_updated_application", volunteer?.id);
+    res.json({ volunteer });
+  } catch (error) {
+    res.status(error instanceof StaleWriteError ? 409 : 400).json({ message: (error as Error).message });
+  }
 });
 
 app.delete("/api/my/volunteer", requireSession("user"), async (req, res) => {
@@ -1626,9 +1674,13 @@ app.patch("/api/admin/applications/:id/status", requireAdmin, async (req, res) =
 app.put("/api/admin/applications/:id", requirePrivacyAdmin, async (req, res) => {
   const session = res.locals.session as Session;
   const id = String(req.params.id);
-  const application = await upsertApplication(req.body as ApplicationPayload, id);
-  await logAudit(actorFrom(session), "privacy_admin_updated_application", id);
-  res.json({ application });
+  try {
+    const application = await upsertApplication(req.body as ApplicationPayload, id);
+    await logAudit(actorFrom(session), "privacy_admin_updated_application", id);
+    res.json({ application });
+  } catch (error) {
+    res.status(error instanceof StaleWriteError ? 409 : 400).json({ message: (error as Error).message });
+  }
 });
 
 app.delete("/api/admin/applications/:id", requireAdmin, async (req, res) => {
@@ -1895,9 +1947,13 @@ app.patch("/api/admin/volunteers/:id/status", requireAdmin, async (req, res) => 
 app.put("/api/admin/volunteers/:id", requirePrivacyAdmin, async (req, res) => {
   const session = res.locals.session as Session;
   const id = String(req.params.id);
-  const volunteer = await upsertVolunteer(req.body as VolunteerPayload, id);
-  await logAudit(actorFrom(session), "privacy_admin_updated_volunteer", id);
-  res.json({ volunteer });
+  try {
+    const volunteer = await upsertVolunteer(req.body as VolunteerPayload, id);
+    await logAudit(actorFrom(session), "privacy_admin_updated_volunteer", id);
+    res.json({ volunteer });
+  } catch (error) {
+    res.status(error instanceof StaleWriteError ? 409 : 400).json({ message: (error as Error).message });
+  }
 });
 
 app.get("/api/admin/match-candidates", requireAdmin, async (req, res) => {
