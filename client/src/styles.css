@@ -1569,7 +1569,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 .intro-section-title {
-  margin-bottom: 0;
+  margin-bottom: 24px;
 }
 
 .intro-card-title {
@@ -3365,6 +3365,10 @@ td small {
 }
 
 @media (max-width: 720px) {
+  .intro-section-title {
+    margin-bottom: 18px;
+  }
+
   :root {
     --page-gutter: 14px;
   }
