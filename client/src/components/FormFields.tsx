@@ -11,7 +11,7 @@ type SectionTitleProps = {
 export function SectionTitle({ icon, title, action }: SectionTitleProps) {
   return (
     <div className="section-title">
-      {icon}
+      <span className="section-title-icon" aria-hidden="true">{icon}</span>
       <h3>{title}</h3>
       {action && <div className="title-action">{action}</div>}
     </div>

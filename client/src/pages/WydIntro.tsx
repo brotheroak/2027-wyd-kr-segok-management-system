@@ -110,8 +110,8 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
       {/* Tab 1: 세계청년대회란? */}
       {tab === "what" && (
         <section className="panel p-5 sm:p-8 rounded-3xl bg-white border border-[var(--control-border)] space-y-6">
-          <div className="section-title flex items-center space-x-2 border-b border-[var(--control-border-soft)] pb-4">
-            <Compass className="text-[var(--gold-600)]" size={24} />
+          <div className="section-title intro-section-title border-b border-[var(--control-border-soft)] pb-4">
+            <span className="section-title-icon" aria-hidden="true"><Compass /></span>
             <h3 className="text-xl font-bold text-[var(--color-catholic-navy)]">세계청년대회(World Youth Day) 소개</h3>
           </div>
           <div className="space-y-4 text-sm leading-relaxed text-[var(--muted)]">
@@ -140,8 +140,8 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
         <section className="panel p-5 sm:p-8 rounded-3xl bg-white border border-[var(--control-border)] space-y-8">
           {/* Logo Section */}
           <div className="space-y-4">
-            <div className="section-title flex items-center space-x-2 border-b border-[var(--control-border-soft)] pb-4">
-              <Award className="text-[var(--gold-600)]" size={24} />
+            <div className="section-title intro-section-title border-b border-[var(--control-border-soft)] pb-4">
+              <span className="section-title-icon" aria-hidden="true"><Award /></span>
               <h3 className="text-xl font-bold text-[var(--color-catholic-navy)]">2027 서울 WYD 로고 디자인 해설</h3>
             </div>
             <div className="logo-concept-content flex flex-col md:flex-row items-center md:items-start gap-8">
@@ -171,8 +171,8 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
 
           {/* Symbol Section */}
           <div className="space-y-4">
-            <div className="section-title flex items-center space-x-2 border-b border-[var(--control-border-soft)] pb-4">
-              <Sparkles className="text-[var(--gold-600)]" size={24} />
+            <div className="section-title intro-section-title border-b border-[var(--control-border-soft)] pb-4">
+              <span className="section-title-icon" aria-hidden="true"><Sparkles /></span>
               <h3 className="text-xl font-bold text-[var(--color-catholic-navy)]">대회 공식 순례 상징물</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-[var(--muted)]">
@@ -200,8 +200,8 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
       {/* Tab 3: 주요 프로그램 & 일정 */}
       {tab === "schedule" && (
         <section className="panel p-5 sm:p-8 rounded-3xl bg-white border border-[var(--control-border)] space-y-6">
-          <div className="section-title flex items-center space-x-2 border-b border-[var(--control-border-soft)] pb-4">
-            <Calendar className="text-[var(--gold-600)]" size={24} />
+          <div className="section-title intro-section-title border-b border-[var(--control-border-soft)] pb-4">
+            <span className="section-title-icon" aria-hidden="true"><Calendar /></span>
             <h3 className="text-xl font-bold text-[var(--color-catholic-navy)]">2027 서울 WYD 주간 주요 프로그램</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-4 text-center">
@@ -257,8 +257,8 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="panel action-card-item p-5 sm:p-8 rounded-3xl bg-white border border-[var(--control-border)] flex flex-col justify-between space-y-6 hover:shadow-md transition">
             <div className="space-y-3">
-              <div className="flex items-center space-x-3 text-[var(--gold-600)]">
-                <Users size={32} />
+              <div className="intro-card-title">
+                <span className="section-title-icon" aria-hidden="true"><Users /></span>
                 <h4 className="text-xl font-bold text-[var(--color-catholic-navy)]">홈스테이 호스트 가정 신청</h4>
               </div>
               <p className="text-[15px] leading-relaxed text-[var(--muted)]">
@@ -272,8 +272,8 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
           </div>
           <div className="panel action-card-item p-5 sm:p-8 rounded-3xl bg-white border border-[var(--control-border)] flex flex-col justify-between space-y-6 hover:shadow-md transition">
             <div className="space-y-3">
-              <div className="flex items-center space-x-3 text-[var(--gold-600)]">
-                <HeartHandshake size={32} />
+              <div className="intro-card-title">
+                <span className="section-title-icon" aria-hidden="true"><HeartHandshake /></span>
                 <h4 className="text-xl font-bold text-[var(--color-catholic-navy)]">자원봉사자 신청</h4>
               </div>
               <p className="text-[15px] leading-relaxed text-[var(--muted)]">
@@ -300,7 +300,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
                 <span>Homestay</span>
                 <h4>홈스테이 집계표</h4>
               </div>
-              <HeartHandshake aria-hidden="true" size={24} />
+              <span className="public-summary-icon" aria-hidden="true"><HeartHandshake /></span>
             </div>
             <div className="public-summary-metrics">{renderSummaryCards(homestayRows)}</div>
           </article>
@@ -310,7 +310,7 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
                 <span>Volunteer</span>
                 <h4>자원봉사자 집계표</h4>
               </div>
-              <Users aria-hidden="true" size={24} />
+              <span className="public-summary-icon" aria-hidden="true"><Users /></span>
             </div>
             <div className="public-summary-metrics">{renderSummaryCards(volunteerRows)}</div>
           </article>

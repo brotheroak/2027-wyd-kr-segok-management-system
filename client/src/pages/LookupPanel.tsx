@@ -37,7 +37,7 @@ export function LookupPanel({ onFound }: LookupPanelProps) {
   return (
     <form className="panel login-panel" onSubmit={lookup}>
       <div className="section-title">
-        <Search />
+        <span className="section-title-icon" aria-hidden="true"><Search /></span>
         <div>
           <h3>접수 내역 조회</h3>
           <p>

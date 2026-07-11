@@ -49,7 +49,7 @@ export function LoginPanel({ title, onVerified }: LoginPanelProps) {
   return (
     <div className="panel login-panel">
       <div className="section-title">
-        <Mail />
+        <span className="section-title-icon" aria-hidden="true"><Mail /></span>
         <div>
           <h3>{title}</h3>
           <p>이메일 인증으로 본인 신청서를 확인합니다.</p>

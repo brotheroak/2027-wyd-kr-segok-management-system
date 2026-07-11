@@ -823,16 +823,52 @@ button.brand:focus-visible .brand-mark {
 .section-title {
   margin-bottom: 24px;
   align-items: center;
+  gap: 12px;
 }
 
-.section-title > svg, .section-title > span {
-  color: var(--gold);
+.section-title-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--gold-600);
+  line-height: 0;
+}
+
+.section-title-icon svg,
+.section-title > svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  display: block;
+  stroke-width: 2.15;
+}
+
+.section-title > svg {
+  color: var(--gold-600);
 }
 
 .section-title h3 {
+  margin: 0;
   font-family: var(--display-font);
   font-weight: 700;
   letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.section-title > div {
+  min-width: 0;
+}
+
+.section-title > div h3 {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.section-title > div p {
+  margin-top: 4px;
+  line-height: 1.45;
 }
 
 .title-action {
@@ -1531,6 +1567,22 @@ input:focus, select:focus, textarea:focus {
   text-decoration: none;
 }
 
+.intro-section-title {
+  margin-bottom: 0;
+}
+
+.intro-card-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--gold-600);
+}
+
+.intro-card-title h4 {
+  margin: 0;
+  line-height: 1.35;
+}
+
 .public-summary-tables {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1565,13 +1617,23 @@ input:focus, select:focus, textarea:focus {
   margin-bottom: 16px;
 }
 
-.public-summary-heading svg {
+.public-summary-icon {
+  width: 44px;
+  height: 44px;
   flex: 0 0 auto;
-  box-sizing: content-box;
-  padding: 10px;
+  display: inline-grid;
+  place-items: center;
   border-radius: 16px;
   color: var(--gold-600);
   background: rgba(178, 141, 55, 0.1);
+  line-height: 0;
+}
+
+.public-summary-icon svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+  stroke-width: 2.15;
 }
 
 .public-summary-heading span {
