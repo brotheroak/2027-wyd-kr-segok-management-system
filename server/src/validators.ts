@@ -144,6 +144,8 @@ export const pilgrimSchema = z.object({
   pilgrimNo: z.string().trim().max(40).optional(),
   name: z.string().trim().min(2).max(80),
   baptismalName: z.string().trim().max(80).optional().default(""),
+  email: z.union([z.string().trim().email(), z.literal("")]).optional().default(""),
+  preferredLanguage: z.enum(["ko", "en", "es", "it", "fr", "pt"]).optional().default("en"),
   gender: z.enum(["남성", "여성"]),
   diocese: z.string().trim().min(1).max(100),
   region: z.string().trim().min(1).max(100),

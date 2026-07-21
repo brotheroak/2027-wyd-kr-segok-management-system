@@ -117,9 +117,12 @@
 
 ### 순례자·호스트 관리
 
-- 개인정보 관리자만 순례자의 성명, 세례명, 교구, 지역, 학년, 나이, 성별, 식단, 알레르기, 발열·건강 메모를 조회·수정합니다.
+- 개인정보 관리자만 순례자의 성명, 세례명, 선택 이메일, 기본 언어, 교구, 지역, 학년, 나이, 성별, 식단, 알레르기, 발열·건강 메모를 조회·수정합니다.
 - 승인된 홈스테이 호스트에 순례자를 배정하거나 해제합니다.
-- 순례자 번호를 바코드 카드로 출력하고 카메라 또는 수기 번호 입력으로 카드를 조회합니다. 카메라는 HTTPS 또는 localhost에서 브라우저 권한을 명시적으로 요청합니다.
+- 운영자는 순례자 전용 카드 링크를 이메일, SMS 또는 링크 복사로 송부합니다. SMTP/SMS가 설정되지 않은 환경에서도 링크 발급과 복사는 가능합니다.
+- 순례자 카드는 성명·세례명·바코드·등록 정보와 구조화된 식단 정보를 한국어, 영어, 스페인어, 이탈리아어, 프랑스어, 포르투갈어로 표시합니다.
+- 확정된 호스트는 본인 접수 인증 후 카메라 또는 링크 입력으로 자기 가정에 배정된 순례자 카드만 조회합니다. 카메라는 HTTPS 또는 localhost에서 브라우저 권한을 명시적으로 요청합니다.
+- 카드 URL은 `#토큰` 형식으로 만들어 웹 서버와 Cloud Run 접근 로그에 비밀 토큰이 경로로 기록되지 않게 합니다.
 - 식사 제공 시각과 메모를 이력으로 남겨 중복 배식과 특이 식단을 확인합니다.
 
 ### FAQ·Q&A
@@ -187,6 +190,9 @@
 | GET/POST | `/api/volunteer/shifts`, `/api/volunteer/shifts/:id/signup` | 인증 봉사자 일정 조회·신청 |
 | GET/POST/PUT/DELETE | `/api/admin/shifts` | 운영자 봉사 일정 관리 |
 | GET/POST/PUT/DELETE | `/api/admin/pilgrims` | 순례자·호스트 매핑 관리 |
+| POST | `/api/admin/pilgrims/:id/share` | 순례자 카드 링크 발급 및 이메일/SMS 발송 |
+| POST | `/api/pilgrims/card` | 비밀 토큰 기반 순례자 본인 카드 조회 |
+| POST | `/api/host/pilgrims/resolve` | 인증·배정 확인 후 호스트용 순례자 카드 조회 |
 | POST | `/api/admin/pilgrims/:id/meals` | 순례자 식사 이력 기록 |
 | GET/POST | `/api/community`, `/api/community/qna` | 공개 FAQ·Q&A 조회/등록 |
 | GET/POST/PUT/DELETE | `/api/admin/community` | 운영자 FAQ·Q&A 관리 |

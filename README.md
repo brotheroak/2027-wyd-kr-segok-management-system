@@ -50,6 +50,8 @@ npm run dev
 - `DATA_ENCRYPTION_KEY`: 운영 시작 전 생성한 긴 난수. 운영 중 변경하면 기존 암호화 개인정보를 복호화할 수 없습니다.
 - `ALLOWED_ORIGINS`: 운영 도메인
 - `SMTP_*` 또는 `SMS_WEBHOOK_*`: 인증번호 발송 서비스
+- `PUBLIC_SITE_URL`: 순례자 카드 발송 링크에 사용할 대표 HTTPS 주소
+- `PILGRIM_CARD_EXPIRY_DATE`: 순례자 카드 링크 만료 시각(ISO 8601, 기본 2027-08-31)
 - `DATABASE_URL`: Cloud Run 운영에서는 필수. 미설정 시 로컬/단일 VM용 SQLite 파일 DB 사용
 
 운영자 계정 생성:

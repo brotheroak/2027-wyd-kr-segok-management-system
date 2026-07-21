@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.server.json && vite build",
     "start": "node dist/server/index.js",
     "stress": "node scripts/stress-test.mjs",
-    "test": "node --test --import tsx server/src/crypto.test.ts server/src/password.test.ts server/src/totp.test.ts server/src/validators.test.ts server/src/districts.test.ts server/src/search.test.ts",
+    "test": "node --test --import tsx server/src/crypto.test.ts server/src/password.test.ts server/src/totp.test.ts server/src/validators.test.ts server/src/districts.test.ts server/src/search.test.ts server/src/pilgrimDiet.test.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
     "db:setup": "node scripts/setup-db.mjs"
   },

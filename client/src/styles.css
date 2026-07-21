@@ -3929,6 +3929,64 @@ td small {
 .pilgrim-barcode-card { margin: 20px; padding: 20px; border: 1px solid #e2dbce; text-align: center; background: #fff; }
 .pilgrim-barcode-card > * { display: block; margin: 6px auto; }
 .pilgrim-barcode-card svg { max-width: 100%; }
+.pilgrim-share-panel { display: grid; gap: 14px; margin: 20px; padding: 20px; border-block: 1px solid #e5ddcf; background: #f8f6f1; }
+.pilgrim-share-panel > div:first-child p { margin: 5px 0 0; color: #667085; }
+.pilgrim-share-channels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pilgrim-share-channels button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; border: 1px solid #d9d2c5; background: #fff; color: #344054; font-weight: 800; }
+.pilgrim-share-channels button.active { border-color: #aa842f; background: #f4ead0; color: #725716; }
+.pilgrim-share-fields { display: grid; grid-template-columns: minmax(140px, .7fr) minmax(220px, 1.3fr) auto; align-items: end; gap: 10px; }
+.pilgrim-share-fields label { display: grid; gap: 6px; font-weight: 800; }
+.pilgrim-share-fields .primary { min-height: 48px; }
+.pilgrim-card-link { color: #765814; font-weight: 800; text-decoration: underline; overflow-wrap: anywhere; }
+.receipt-pilgrim-button { width: 100%; margin-top: 18px; }
+
+.pilgrim-self-page { min-height: 100vh; padding: 28px max(20px, calc((100vw - 980px) / 2)); background: #f3f1ec; color: #111c32; }
+.pilgrim-self-header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; max-width: 920px; margin: 0 auto 18px; padding: 18px 22px; border: 1px solid #d5c28f; background: #111c32; color: #fff; }
+.pilgrim-self-header > svg { width: 38px; height: 38px; color: #e0bd5e; }
+.pilgrim-self-header span { color: #dcb95c; font-size: .74rem; font-weight: 900; }
+.pilgrim-self-header h1 { margin: 3px 0 0; font-size: 1.55rem; }
+.pilgrim-self-header label { display: flex; align-items: center; gap: 8px; }
+.pilgrim-self-header select { min-width: 132px; color: #111c32; background: #fff; }
+.pilgrim-self-card { display: grid; gap: 0; max-width: 920px; margin: auto; border: 1px solid #d9cda9; background: #fff; box-shadow: 0 22px 55px rgba(17, 28, 50, .13); }
+.pilgrim-card-identity { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 30px; background: #18243b; color: #fff; }
+.pilgrim-card-identity span { color: #d8b85b; font-weight: 800; }
+.pilgrim-card-identity h2 { margin: 7px 0 2px; font-size: 2.2rem; }
+.pilgrim-card-identity p { margin: 0; color: #dce2eb; font-size: 1.08rem; }
+.pilgrim-card-identity > svg { width: 62px; height: 62px; color: #d8b85b; }
+.pilgrim-card-barcode { display: grid; justify-items: center; gap: 7px; padding: 25px 20px; border-bottom: 1px solid #e7e0d5; text-align: center; }
+.pilgrim-card-barcode svg { width: min(100%, 720px); height: 90px; }
+.pilgrim-card-barcode p { margin: 0; color: #667085; }
+.pilgrim-card-details { padding: 26px 30px; }
+.pilgrim-card-details h3,
+.pilgrim-diet-card h3 { display: flex; align-items: center; gap: 9px; margin: 0 0 18px; font-size: 1.18rem; }
+.pilgrim-card-details h3 svg,
+.pilgrim-diet-card h3 svg { width: 23px; color: #9b7620; }
+.pilgrim-card-details dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: #e7e0d5; border: 1px solid #e7e0d5; }
+.pilgrim-card-details dl div { padding: 15px; background: #fff; }
+.pilgrim-card-details dt { color: #667085; font-size: .82rem; font-weight: 800; }
+.pilgrim-card-details dd { margin: 5px 0 0; font-weight: 800; overflow-wrap: anywhere; }
+.pilgrim-diet-card { padding: 27px 30px 32px; border-top: 1px solid #e7e0d5; background: #faf8f3; }
+.diet-guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.diet-guide-grid > div { padding: 16px; border-left: 4px solid #c5a85c; background: #fff; }
+.diet-guide-grid > div:last-child { grid-column: 1 / -1; }
+.diet-guide-grid .can-eat { border-color: #16856b; background: #f0faf7; }
+.diet-guide-grid .must-avoid { border-color: #c14b4b; background: #fff5f4; }
+.diet-guide-grid span { font-weight: 900; }
+.diet-guide-grid p { margin: 7px 0 0; color: #475467; line-height: 1.65; white-space: pre-wrap; }
+.pilgrim-card-error,
+.pilgrim-card-loading { display: grid; justify-items: center; gap: 12px; max-width: 920px; margin: auto; padding: 60px 20px; border: 1px solid #e1d7c2; background: #fff; text-align: center; }
+.host-pilgrim-page { display: grid; gap: 22px; }
+.host-auth-required { display: grid; justify-items: center; gap: 12px; text-align: center; }
+.host-auth-required > svg { width: 42px; height: 42px; color: #9b7620; }
+.host-scanner-panel { display: grid; gap: 16px; }
+.host-language-select { display: grid; grid-template-columns: auto auto minmax(150px, 260px); align-items: center; justify-content: end; gap: 9px; font-weight: 800; }
+.host-scan-error { display: flex; align-items: center; gap: 8px; margin: 0; padding: 13px; color: #9f2f2f; background: #fff2f1; }
+.host-pilgrim-card { padding: 0; overflow: hidden; }
+.host-pilgrim-card > header { display: flex; align-items: center; gap: 14px; padding: 22px 26px; background: #18243b; color: #fff; }
+.host-pilgrim-card > header > svg { width: 42px; height: 42px; color: #d8b85b; }
+.host-pilgrim-card > header span { color: #d8b85b; font-weight: 800; }
+.host-pilgrim-card > header h3 { margin: 3px 0; font-size: 1.45rem; }
+.host-pilgrim-card > header p { margin: 0; color: #dce2eb; }
 .pilgrim-alerts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 0 20px; }
 .pilgrim-alerts > div { padding: 15px; border: 1px solid #e4ddd0; background: #faf8f3; }
 .pilgrim-alerts svg { width: 20px; color: #9b7620; }
@@ -3967,4 +4025,21 @@ td small {
   .community-inquiry-modal .community-form > label textarea { min-height: 180px; }
   .schedule-auth-note { grid-template-columns: auto 1fr; }
   .schedule-auth-note .secondary { grid-column: 1 / -1; width: 100%; }
+  .pilgrim-share-channels { grid-template-columns: 1fr; }
+  .pilgrim-share-fields { grid-template-columns: 1fr; }
+  .pilgrim-self-page { padding: 0; }
+  .pilgrim-self-header { grid-template-columns: auto 1fr; margin: 0; padding: 15px 16px; border-inline: 0; }
+  .pilgrim-self-header label { grid-column: 1 / -1; }
+  .pilgrim-self-header select { width: 100%; }
+  .pilgrim-self-card { border-inline: 0; }
+  .pilgrim-card-identity { padding: 23px 20px; }
+  .pilgrim-card-identity h2 { font-size: 1.75rem; }
+  .pilgrim-card-identity > svg { width: 46px; height: 46px; }
+  .pilgrim-card-details,
+  .pilgrim-diet-card { padding: 22px 18px; }
+  .pilgrim-card-details dl,
+  .diet-guide-grid { grid-template-columns: 1fr; }
+  .diet-guide-grid > div:last-child { grid-column: auto; }
+  .host-language-select { grid-template-columns: auto 1fr; justify-content: stretch; }
+  .host-language-select select { grid-column: 1 / -1; width: 100%; }
 }

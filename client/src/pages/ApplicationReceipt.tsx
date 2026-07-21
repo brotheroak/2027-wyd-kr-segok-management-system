@@ -1,5 +1,5 @@
 import React from "react";
-import { Pencil, XCircle, Users, Home, BedDouble, Languages, Search } from "lucide-react";
+import { Pencil, XCircle, Users, Home, BedDouble, Languages, Search, ScanBarcode } from "lucide-react";
 import { ApplicationPayload } from "../types.js";
 import { Metric } from "../components/Metric.js";
 
@@ -8,9 +8,10 @@ type ApplicationReceiptProps = {
   onEdit: () => void;
   onCancel: () => void;
   onLogout?: () => void;
+  onOpenPilgrimScanner?: () => void;
 };
 
-export function ApplicationReceipt({ application, onEdit, onCancel, onLogout }: ApplicationReceiptProps) {
+export function ApplicationReceipt({ application, onEdit, onCancel, onLogout, onOpenPilgrimScanner }: ApplicationReceiptProps) {
   const statusLabel = application.status === "confirmed" ? "확정" : application.status === "canceled" ? "취소" : "접수";
   const confirmCancel = () => {
     const confirmed = window.confirm("홈스테이 신청을 취소하시겠습니까?\n취소 후에는 운영자가 취소 상태로 확인하게 됩니다.");
@@ -50,6 +51,9 @@ export function ApplicationReceipt({ application, onEdit, onCancel, onLogout }: 
         <dt>공간 설명</dt>
         <dd>{application.homestay.spaceDescription}</dd>
       </dl>
+      {onOpenPilgrimScanner && application.status !== "canceled" && (
+        <button className="primary receipt-pilgrim-button" onClick={onOpenPilgrimScanner}><ScanBarcode size={19} /> 배정 순례자 카드 확인</button>
+      )}
       {onLogout && (
         <div className="receipt-secondary-actions">
           <p>현재 접수 내역 확인을 마치고 다른 신청을 조회할 수 있습니다.</p>

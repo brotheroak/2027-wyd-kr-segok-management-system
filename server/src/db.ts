@@ -134,7 +134,8 @@ export async function initDb() {
           UNIQUE(shift_id, volunteer_id)
         );
         CREATE TABLE IF NOT EXISTS pilgrims (
-          id TEXT PRIMARY KEY, pilgrim_no TEXT UNIQUE NOT NULL, name TEXT NOT NULL, baptismal_name TEXT NOT NULL DEFAULT '', gender TEXT NOT NULL,
+          id TEXT PRIMARY KEY, pilgrim_no TEXT UNIQUE NOT NULL, name TEXT NOT NULL, baptismal_name TEXT NOT NULL DEFAULT '',
+          email TEXT NOT NULL DEFAULT '', preferred_language TEXT NOT NULL DEFAULT 'en', access_token TEXT, access_token_hash TEXT UNIQUE, access_token_expires_at TEXT, gender TEXT NOT NULL,
           diocese TEXT NOT NULL, region TEXT NOT NULL, grade TEXT NOT NULL, age INTEGER NOT NULL,
           diet_type TEXT NOT NULL DEFAULT '일반식', diet_notes TEXT NOT NULL DEFAULT '', allergies TEXT NOT NULL DEFAULT '',
           health_notes TEXT NOT NULL DEFAULT '', fever_status TEXT NOT NULL DEFAULT '정상',
@@ -159,7 +160,15 @@ export async function initDb() {
         CREATE INDEX IF NOT EXISTS idx_meal_logs_pilgrim ON pilgrim_meal_logs(pilgrim_id, recorded_at);
         CREATE INDEX IF NOT EXISTS idx_qna_status ON qna_posts(status, created_at);
       `);
-      await client.query("ALTER TABLE pilgrims ADD COLUMN IF NOT EXISTS baptismal_name TEXT NOT NULL DEFAULT ''");
+      await client.query(`
+        ALTER TABLE pilgrims ADD COLUMN IF NOT EXISTS baptismal_name TEXT NOT NULL DEFAULT '';
+        ALTER TABLE pilgrims ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT '';
+        ALTER TABLE pilgrims ADD COLUMN IF NOT EXISTS preferred_language TEXT NOT NULL DEFAULT 'en';
+        ALTER TABLE pilgrims ADD COLUMN IF NOT EXISTS access_token TEXT;
+        ALTER TABLE pilgrims ADD COLUMN IF NOT EXISTS access_token_hash TEXT;
+        ALTER TABLE pilgrims ADD COLUMN IF NOT EXISTS access_token_expires_at TEXT;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_pilgrims_access_token_hash ON pilgrims(access_token_hash);
+      `);
       console.log("[DB] PostgreSQL database is ready and schema validation passed.");
     } catch (err) {
       console.error("[DB] Database readiness check failed!");
@@ -237,7 +246,8 @@ export async function initDb() {
           UNIQUE(shift_id, volunteer_id)
         );
         CREATE TABLE IF NOT EXISTS pilgrims (
-          id TEXT PRIMARY KEY, pilgrim_no TEXT UNIQUE NOT NULL, name TEXT NOT NULL, baptismal_name TEXT NOT NULL DEFAULT '', gender TEXT NOT NULL,
+          id TEXT PRIMARY KEY, pilgrim_no TEXT UNIQUE NOT NULL, name TEXT NOT NULL, baptismal_name TEXT NOT NULL DEFAULT '',
+          email TEXT NOT NULL DEFAULT '', preferred_language TEXT NOT NULL DEFAULT 'en', access_token TEXT, access_token_hash TEXT UNIQUE, access_token_expires_at TEXT, gender TEXT NOT NULL,
           diocese TEXT NOT NULL, region TEXT NOT NULL, grade TEXT NOT NULL, age INTEGER NOT NULL,
           diet_type TEXT NOT NULL DEFAULT '일반식', diet_notes TEXT NOT NULL DEFAULT '', allergies TEXT NOT NULL DEFAULT '',
           health_notes TEXT NOT NULL DEFAULT '', fever_status TEXT NOT NULL DEFAULT '정상', host_application_id TEXT,
@@ -263,9 +273,15 @@ export async function initDb() {
         CREATE INDEX IF NOT EXISTS idx_qna_status ON qna_posts(status, created_at);
       `);
       const pilgrimColumns = sqliteDbInstance.prepare("PRAGMA table_info(pilgrims)").all() as Array<{ name: string }>;
-      if (!pilgrimColumns.some((column) => column.name === "baptismal_name")) {
-        sqliteDbInstance.exec("ALTER TABLE pilgrims ADD COLUMN baptismal_name TEXT NOT NULL DEFAULT ''");
+      const pilgrimMigrationColumns: Array<[string, string]> = [
+        ["baptismal_name", "TEXT NOT NULL DEFAULT ''"], ["email", "TEXT NOT NULL DEFAULT ''"],
+        ["preferred_language", "TEXT NOT NULL DEFAULT 'en'"], ["access_token", "TEXT"],
+        ["access_token_hash", "TEXT"], ["access_token_expires_at", "TEXT"]
+      ];
+      for (const [name, definition] of pilgrimMigrationColumns) {
+        if (!pilgrimColumns.some((column) => column.name === name)) sqliteDbInstance.exec(`ALTER TABLE pilgrims ADD COLUMN ${name} ${definition}`);
       }
+      sqliteDbInstance.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_pilgrims_access_token_hash ON pilgrims(access_token_hash)");
       console.log("[DB] SQLite database is ready and schema validation passed.");
     } catch (err) {
       console.error("[DB] Database readiness check failed!");

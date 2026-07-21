@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 import { nanoid } from "nanoid";
 import { db, tables, initDb, isPg, checkDbReady } from "./db.js";
 import { decryptText, encryptText, encryptionEnabled, requireEncryptionKeyInProduction } from "./crypto.js";
-import { notificationStatus, sendVerificationMessage } from "./notifications.js";
+import { notificationStatus, sendPilgrimCardMessage, sendVerificationMessage } from "./notifications.js";
+import { normalizePilgrimLanguage, pilgrimDietGuide } from "./pilgrimDiet.js";
 import { applicationSchema, volunteerSchema, volunteerShiftSchema, pilgrimSchema, faqSchema, qnaSchema } from "./validators.js";
 import type { ApplicationPayload, FamilyMember, VolunteerPayload, PilgrimPayload, VolunteerShiftPayload } from "./types.js";
 import { assignDistrict, normalizeDistrictOverride } from "./districts.js";
@@ -208,6 +209,7 @@ const nowIso = () => new Date().toISOString();
 const addMinutes = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
 const stableHash = (value: string) => createHash("sha256").update(value.trim().toLowerCase()).digest("hex");
+const hashAccessToken = (value: string) => createHash("sha256").update(value.trim()).digest("hex");
 const hashVerificationCode = (emailHash: string, code: string) => stableHash(`${emailHash}:${code}`);
 const hashApplicantPin = (applicationId: string, pin: string) => createHash("sha256").update(`${applicationId}:${pin}`).digest("hex");
 const verifyApplicantPin = (applicationId: string, pin: string, stored: string) => {
@@ -225,6 +227,12 @@ const seoulDateKey = () => {
   const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
   return `${value("year")}${value("month")}${value("day")}`;
 };
+
+function pilgrimCardExpiry() {
+  const configured = new Date(process.env.PILGRIM_CARD_EXPIRY_DATE ?? "2027-08-31T14:59:59.000Z");
+  if (!Number.isNaN(configured.getTime()) && configured.getTime() > Date.now()) return configured.toISOString();
+  return new Date(Date.now() + 400 * 24 * 60 * 60_000).toISOString();
+}
 
 function generateTotpSecret() {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -898,6 +906,27 @@ async function encryptExistingPersonalData() {
           addressDetail: pii(plain(row.addressDetail ?? "")),
           signatureName: pii(plain(row.signatureName))
         }).where(eq(tables.volunteers.id, row.id));
+      }
+    }
+
+    const pilgrims = await tx.select().from(tables.pilgrims);
+    for (const row of pilgrims) {
+      if (!row.name.startsWith("enc:v1:")) {
+        await tx.update(tables.pilgrims).set({
+          name: pii(plain(row.name)),
+          baptismalName: pii(plain(row.baptismalName ?? "")),
+          email: pii(plain(row.email ?? "")),
+          accessToken: row.accessToken ? pii(plain(row.accessToken)) : null,
+          gender: pii(plain(row.gender)),
+          diocese: pii(plain(row.diocese)),
+          region: pii(plain(row.region)),
+          grade: pii(plain(row.grade)),
+          dietType: pii(plain(row.dietType)),
+          dietNotes: pii(plain(row.dietNotes ?? "")),
+          allergies: pii(plain(row.allergies ?? "")),
+          healthNotes: pii(plain(row.healthNotes ?? "")),
+          feverStatus: pii(plain(row.feverStatus))
+        }).where(eq(tables.pilgrims.id, row.id));
       }
     }
 
@@ -2077,6 +2106,8 @@ function rowToPilgrim(row: any) {
     pilgrimNo: row.pilgrimNo,
     name: plain(row.name),
     baptismalName: plain(row.baptismalName ?? ""),
+    email: plain(row.email ?? ""),
+    preferredLanguage: normalizePilgrimLanguage(row.preferredLanguage),
     gender: plain(row.gender),
     diocese: plain(row.diocese),
     region: plain(row.region),
@@ -2088,9 +2119,55 @@ function rowToPilgrim(row: any) {
     healthNotes: plain(row.healthNotes ?? ""),
     feverStatus: plain(row.feverStatus),
     hostApplicationId: row.hostApplicationId ?? undefined,
+    cardExpiresAt: row.accessTokenExpiresAt ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
+}
+
+function validPilgrimAccessToken(row: any) {
+  return Boolean(row.accessToken && row.accessTokenHash && row.accessTokenExpiresAt && row.accessTokenExpiresAt > nowIso());
+}
+
+function pilgrimCardResponse(row: any, language: unknown) {
+  const pilgrim = rowToPilgrim(row);
+  const selectedLanguage = normalizePilgrimLanguage(language ?? pilgrim.preferredLanguage);
+  return {
+    pilgrimNo: pilgrim.pilgrimNo,
+    name: pilgrim.name,
+    baptismalName: pilgrim.baptismalName,
+    gender: pilgrim.gender,
+    diocese: pilgrim.diocese,
+    region: pilgrim.region,
+    grade: pilgrim.grade,
+    age: pilgrim.age,
+    dietType: pilgrim.dietType,
+    dietNotes: pilgrim.dietNotes,
+    allergies: pilgrim.allergies,
+    preferredLanguage: pilgrim.preferredLanguage,
+    language: selectedLanguage,
+    dietGuide: pilgrimDietGuide(pilgrim.dietType, selectedLanguage)
+  };
+}
+
+function extractPilgrimCardToken(value: unknown) {
+  const input = String(value ?? "").trim();
+  if (!input) return "";
+  try {
+    const parsed = new URL(input);
+    if (parsed.hash.length > 1) return decodeURIComponent(parsed.hash.slice(1));
+    return decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() ?? "");
+  } catch {
+    return input.split("/").filter(Boolean).pop() ?? "";
+  }
+}
+
+async function pilgrimByCardToken(value: unknown) {
+  const token = extractPilgrimCardToken(value);
+  if (!/^[A-Za-z0-9_-]{32,128}$/.test(token)) return null;
+  const rows = await db.select().from(tables.pilgrims).where(eq(tables.pilgrims.accessTokenHash, hashAccessToken(token)));
+  const row = rows[0];
+  return row && validPilgrimAccessToken(row) ? row : null;
 }
 
 async function makePilgrimNo(tx: any) {
@@ -2228,9 +2305,10 @@ app.get("/api/admin/pilgrims", requirePrivacyAdmin, async (req, res) => {
   const rows = await db.select().from(tables.pilgrims).orderBy(desc(tables.pilgrims.updatedAt));
   const hosts = await db.select().from(tables.applications);
   const logs = await db.select().from(tables.pilgrimMealLogs).orderBy(desc(tables.pilgrimMealLogs.recordedAt));
-  const pilgrims = rows.map(rowToPilgrim).filter((item: any) => matchesIntegratedSearch([item.pilgrimNo, item.name, item.baptismalName, item.gender, item.diocese, item.region, item.grade, item.dietType, item.allergies, item.feverStatus], query)).map((item: any) => {
+  const pilgrims = rows.map((row: any) => ({ row, item: rowToPilgrim(row) })).filter(({ item }: any) => matchesIntegratedSearch([item.pilgrimNo, item.name, item.baptismalName, item.email, item.gender, item.diocese, item.region, item.grade, item.dietType, item.allergies, item.feverStatus], query)).map(({ row, item }: any) => {
     const host = hosts.find((hostRow: any) => hostRow.id === item.hostApplicationId);
-    return { ...item, host: host ? { applicationNo: host.applicationNo, name: plain(host.repName), address: plain(host.address) } : null, mealLogs: logs.filter((log: any) => log.pilgrimId === item.id).map((log: any) => ({ id: log.id, mealType: log.mealType, note: plain(log.note), recordedAt: log.recordedAt })) };
+    const token = validPilgrimAccessToken(row) ? plain(row.accessToken) : "";
+    return { ...item, cardUrl: token ? `${absolutePublicUrl(req, "/pilgrim/card")}#${encodeURIComponent(token)}` : undefined, host: host ? { applicationNo: host.applicationNo, name: plain(host.repName), address: plain(host.address) } : null, mealLogs: logs.filter((log: any) => log.pilgrimId === item.id).map((log: any) => ({ id: log.id, mealType: log.mealType, note: plain(log.note), recordedAt: log.recordedAt })) };
   });
   res.json({ pilgrims, hosts: hosts.filter((host: any) => host.status === "confirmed").map((host: any) => ({ id: host.id, applicationNo: host.applicationNo, name: plain(host.repName), address: plain(host.address), capacity: host.capacity })) });
 });
@@ -2242,7 +2320,7 @@ app.post("/api/admin/pilgrims", requirePrivacyAdmin, async (req, res) => {
     let created: any;
     await db.transaction(async (tx: any) => {
       const pilgrimNo = parsed.pilgrimNo || await makePilgrimNo(tx);
-      created = { id: nanoid(), pilgrimNo, name: pii(parsed.name), baptismalName: pii(parsed.baptismalName), gender: pii(parsed.gender), diocese: pii(parsed.diocese), region: pii(parsed.region), grade: pii(parsed.grade), age: parsed.age, dietType: pii(parsed.dietType), dietNotes: pii(parsed.dietNotes), allergies: pii(parsed.allergies), healthNotes: pii(parsed.healthNotes), feverStatus: pii(parsed.feverStatus), hostApplicationId: parsed.hostApplicationId || null, createdAt: now, updatedAt: now };
+      created = { id: nanoid(), pilgrimNo, name: pii(parsed.name), baptismalName: pii(parsed.baptismalName), email: pii(parsed.email), preferredLanguage: parsed.preferredLanguage, accessToken: null, accessTokenHash: null, accessTokenExpiresAt: null, gender: pii(parsed.gender), diocese: pii(parsed.diocese), region: pii(parsed.region), grade: pii(parsed.grade), age: parsed.age, dietType: pii(parsed.dietType), dietNotes: pii(parsed.dietNotes), allergies: pii(parsed.allergies), healthNotes: pii(parsed.healthNotes), feverStatus: pii(parsed.feverStatus), hostApplicationId: parsed.hostApplicationId || null, createdAt: now, updatedAt: now };
       await tx.insert(tables.pilgrims).values(created);
     });
     res.status(201).json({ pilgrim: rowToPilgrim(created) });
@@ -2255,10 +2333,66 @@ app.put("/api/admin/pilgrims/:id", requirePrivacyAdmin, async (req, res) => {
     const id = String(req.params.id);
     const current = (await db.select().from(tables.pilgrims).where(eq(tables.pilgrims.id, id)))[0];
     if (!current) return res.status(404).json({ message: "순례자 정보를 찾을 수 없습니다." });
-    await db.update(tables.pilgrims).set({ pilgrimNo: parsed.pilgrimNo || current.pilgrimNo, name: pii(parsed.name), baptismalName: pii(parsed.baptismalName), gender: pii(parsed.gender), diocese: pii(parsed.diocese), region: pii(parsed.region), grade: pii(parsed.grade), age: parsed.age, dietType: pii(parsed.dietType), dietNotes: pii(parsed.dietNotes), allergies: pii(parsed.allergies), healthNotes: pii(parsed.healthNotes), feverStatus: pii(parsed.feverStatus), hostApplicationId: parsed.hostApplicationId || null, updatedAt: nowIso() }).where(eq(tables.pilgrims.id, id));
+    await db.update(tables.pilgrims).set({ pilgrimNo: parsed.pilgrimNo || current.pilgrimNo, name: pii(parsed.name), baptismalName: pii(parsed.baptismalName), email: pii(parsed.email), preferredLanguage: parsed.preferredLanguage, gender: pii(parsed.gender), diocese: pii(parsed.diocese), region: pii(parsed.region), grade: pii(parsed.grade), age: parsed.age, dietType: pii(parsed.dietType), dietNotes: pii(parsed.dietNotes), allergies: pii(parsed.allergies), healthNotes: pii(parsed.healthNotes), feverStatus: pii(parsed.feverStatus), hostApplicationId: parsed.hostApplicationId || null, updatedAt: nowIso() }).where(eq(tables.pilgrims.id, id));
     const rows = await db.select().from(tables.pilgrims).where(eq(tables.pilgrims.id, id));
     res.json({ pilgrim: rows[0] ? rowToPilgrim(rows[0]) : null });
   } catch (error) { res.status(400).json({ message: (error as Error).message }); }
+});
+
+app.post("/api/admin/pilgrims/:id/share", requirePrivacyAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  const id = String(req.params.id);
+  const channel = String(req.body.channel ?? "copy");
+  const language = normalizePilgrimLanguage(req.body.language);
+  const recipient = String(req.body.recipient ?? "").trim();
+  const rotate = req.body.rotate === true;
+  if (!["copy", "email", "sms"].includes(channel)) return res.status(400).json({ message: "지원하지 않는 발송 방식입니다." });
+
+  const row = (await db.select().from(tables.pilgrims).where(eq(tables.pilgrims.id, id)))[0];
+  if (!row) return res.status(404).json({ message: "순례자 정보를 찾을 수 없습니다." });
+  const pilgrim = rowToPilgrim(row);
+  const email = channel === "email" ? recipient || pilgrim.email : "";
+  const phone = channel === "sms" ? recipient : "";
+  if (channel === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ message: "발송할 이메일 주소를 확인해 주세요." });
+  if (channel === "sms" && !/^\+?[0-9 -]{9,20}$/.test(phone)) return res.status(400).json({ message: "발송할 휴대전화 번호를 확인해 주세요." });
+
+  const token = !rotate && validPilgrimAccessToken(row) ? plain(row.accessToken) : randomBytes(32).toString("base64url");
+  const expiresAt = !rotate && validPilgrimAccessToken(row) ? row.accessTokenExpiresAt : pilgrimCardExpiry();
+  await db.update(tables.pilgrims).set({
+    email: pii(channel === "email" ? email : pilgrim.email),
+    preferredLanguage: language,
+    accessToken: pii(token),
+    accessTokenHash: hashAccessToken(token),
+    accessTokenExpiresAt: expiresAt,
+    updatedAt: nowIso()
+  }).where(eq(tables.pilgrims.id, id));
+
+  const cardUrl = `${absolutePublicUrl(req, "/pilgrim/card")}#${encodeURIComponent(token)}`;
+  const delivery = channel === "copy"
+    ? { deliveries: ["copy"], errors: [] as string[] }
+    : await sendPilgrimCardMessage({ email: email || undefined, phone: phone || undefined, name: pilgrim.name, cardUrl, language });
+  await logAudit(actorFrom(session), "admin_shared_pilgrim_card", id, { channel, delivered: delivery.deliveries, errors: delivery.errors.length, rotated: rotate });
+  res.json({ cardUrl, expiresAt, ...delivery, notificationStatus: notificationStatus() });
+});
+
+app.post("/api/pilgrims/card", async (req, res) => {
+  const row = await pilgrimByCardToken(req.body.token);
+  if (!row) return res.status(404).json({ message: "유효하지 않거나 만료된 순례자 카드입니다." });
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.json({ pilgrim: pilgrimCardResponse(row, req.body.language), cardExpiresAt: row.accessTokenExpiresAt });
+});
+
+app.post("/api/host/pilgrims/resolve", requireSession("user"), async (req, res) => {
+  const session = res.locals.session as Session;
+  const application = await applicationForUserSession(session);
+  if (!application || application.status !== "confirmed") return res.status(403).json({ message: "확정된 홈스테이 호스트 인증이 필요합니다." });
+  const row = await pilgrimByCardToken(req.body.cardValue);
+  if (!row) return res.status(404).json({ message: "유효하지 않거나 만료된 순례자 카드입니다." });
+  if (row.hostApplicationId !== application.id) return res.status(403).json({ message: "이 호스트 가정에 배정된 순례자가 아닙니다." });
+  const language = normalizePilgrimLanguage(req.body.language);
+  await logAudit(application.representative.phone, "host_viewed_assigned_pilgrim", application.id, { pilgrimId: row.id });
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.json({ pilgrim: pilgrimCardResponse(row, language) });
 });
 
 app.delete("/api/admin/pilgrims/:id", requirePrivacyAdmin, async (req, res) => {
@@ -2362,8 +2496,16 @@ function absolutePublicUrl(req: express.Request, pathname: string) {
 
 function buildOgMeta(req: express.Request) {
   const isAdminRoute = req.path.startsWith("/admin");
+  const isPrivateCardRoute = req.path.startsWith("/pilgrim/card");
   const pathname = isAdminRoute ? "/admin" : req.path || "/";
-  const profile = isAdminRoute
+  const profile = isPrivateCardRoute
+    ? {
+        title: "2027 WYD 순례자 카드",
+        description: "세곡동성당 WYD 순례자 전용 등록 카드",
+        image: "/images/og-preview.png",
+        robots: "noindex,nofollow,noarchive"
+      }
+    : isAdminRoute
     ? {
         title: "2027 WYD 운영자 콘솔",
         description: "홈스테이와 자원봉사 신청 현황을 안전하게 관리하는 세곡동성당 운영자 화면",
@@ -2405,7 +2547,7 @@ function buildOgMeta(req: express.Request) {
 
 function sendSpaIndex(req: express.Request, res: express.Response) {
   const html = fs.readFileSync(indexHtmlPath, "utf8");
-  const title = req.path.startsWith("/admin") ? "2027 WYD 운영자 콘솔" : "2027 WYD 세곡동 성당";
+  const title = req.path.startsWith("/admin") ? "2027 WYD 운영자 콘솔" : req.path.startsWith("/pilgrim/card") ? "2027 WYD 순례자 카드" : "2027 WYD 세곡동 성당";
   const ogMeta = `<!-- OG_META_START -->\n    ${buildOgMeta(req)}\n    <!-- OG_META_END -->`;
   const rendered = html
     .replace(/<!-- OG_META_START -->[\s\S]*?<!-- OG_META_END -->/, ogMeta)

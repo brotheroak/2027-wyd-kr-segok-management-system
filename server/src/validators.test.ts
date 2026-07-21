@@ -271,3 +271,10 @@ test("순례자 세례명은 선택 입력이며 길이를 제한한다", () => 
   assert.equal(pilgrimSchema.safeParse(payload).success, true);
   assert.equal(pilgrimSchema.safeParse({ ...payload, baptismalName: "가".repeat(81) }).success, false);
 });
+
+test("순례자 이메일은 선택 입력이고 기본 표시 언어를 검증한다", () => {
+  const payload = { name: "김순례", gender: "여성", diocese: "서울대교구", region: "강남", grade: "대학생", age: 20, dietType: "일반식" };
+  assert.equal(pilgrimSchema.safeParse({ ...payload, email: "", preferredLanguage: "en" }).success, true);
+  assert.equal(pilgrimSchema.safeParse({ ...payload, email: "pilgrim@example.org", preferredLanguage: "es" }).success, true);
+  assert.equal(pilgrimSchema.safeParse({ ...payload, email: "not-an-email", preferredLanguage: "xx" }).success, false);
+});

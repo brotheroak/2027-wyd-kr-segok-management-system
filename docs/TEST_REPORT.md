@@ -24,7 +24,7 @@
 | 항목 | 결과 | 비고 |
 | --- | --- | --- |
 | 타입 검사 | 통과 | `npm run typecheck` |
-| 단위 테스트 | 통과 | `npm test`, 46개 통과 (순례자 세례명 선택 입력·길이 검증 포함) |
+| 단위 테스트 | 통과 | `npm test`, 50개 통과 (순례자 이메일·언어 검증, 6개 언어 식단 가이드 및 영문 식단 별칭 포함) |
 | 운영 스크립트 문법 검사 | 통과 | `scripts/setup-db.mjs`, `scripts/create-admin.mjs` |
 | 프로덕션 빌드 | 통과 | `npm run build`, Vite chunk size 경고만 있음 |
 | 헬스 체크 | 통과 | `/api/health`, `/api/ready`, `/api/funnel/status` |

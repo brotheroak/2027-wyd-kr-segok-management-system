@@ -1,15 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Camera, HeartPulse, Link2, Printer, ScanBarcode, Search, Trash2, Utensils } from "lucide-react";
+import { Camera, Copy, HeartPulse, Link2, Mail, MessageSquare, Printer, ScanBarcode, Search, Send, Trash2, Utensils } from "lucide-react";
 import { api } from "../../api.js";
 import type { Pilgrim } from "../../types.js";
+import { pilgrimLanguageOptions, type PilgrimCardLanguage } from "../../utils/pilgrimCardI18n.js";
 
 type Host = { id: string; applicationNo: string; name: string; address: string; capacity: number };
-type PilgrimForm = Omit<Pilgrim, "id" | "host" | "mealLogs" | "createdAt" | "updatedAt">;
+type PilgrimForm = Omit<Pilgrim, "id" | "host" | "mealLogs" | "createdAt" | "updatedAt" | "cardUrl" | "cardExpiresAt">;
 
 const emptyPilgrim = (): PilgrimForm => ({
   pilgrimNo: "",
   name: "",
   baptismalName: "",
+  email: "",
+  preferredLanguage: "en",
   gender: "남성",
   diocese: "",
   region: "",
@@ -32,18 +35,28 @@ function cameraErrorMessage(error: unknown) {
   return "카메라를 시작하지 못했습니다. 브라우저의 카메라 권한과 HTTPS 접속 여부를 확인해 주세요.";
 }
 
-function BarcodeCard({ pilgrim }: { pilgrim: Pilgrim }) {
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] ?? char));
+}
+
+function cardBarcodeValue(cardUrl?: string) {
+  if (!cardUrl) return undefined;
+  try { return decodeURIComponent(new URL(cardUrl).hash.slice(1)); }
+  catch { return cardUrl; }
+}
+
+function BarcodeCard({ pilgrim, value }: { pilgrim: Pilgrim; value?: string }) {
   const ref = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
     let active = true;
     import("jsbarcode").then(({ default: JsBarcode }) => {
       if (active && ref.current) {
-        JsBarcode(ref.current, pilgrim.pilgrimNo, { format: "CODE128", width: 2, height: 58, displayValue: true, margin: 8 });
+        JsBarcode(ref.current, value ?? pilgrim.pilgrimNo, { format: "CODE128", width: value ? 1.1 : 2, height: 58, displayValue: !value, margin: 8 });
       }
     });
     return () => { active = false; };
-  }, [pilgrim.pilgrimNo]);
+  }, [pilgrim.pilgrimNo, value]);
 
   return (
     <div className="pilgrim-barcode-card" id={`barcode-${pilgrim.id}`}>
@@ -66,6 +79,11 @@ export function PilgrimHostAdminPanel({ token, canViewPersonalData }: { token: s
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraStatus, setCameraStatus] = useState("");
   const [message, setMessage] = useState("");
+  const [shareChannel, setShareChannel] = useState<"copy" | "email" | "sms">("copy");
+  const [shareRecipient, setShareRecipient] = useState("");
+  const [shareLanguage, setShareLanguage] = useState<PilgrimCardLanguage>("en");
+  const [shareMessage, setShareMessage] = useState("");
+  const [sharing, setSharing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const load = () => api<{ pilgrims: Pilgrim[]; hosts: Host[] }>(`/api/admin/pilgrims?q=${encodeURIComponent(query)}`, {}, token).then((data) => {
@@ -108,7 +126,7 @@ export function PilgrimHostAdminPanel({ token, canViewPersonalData }: { token: s
           setScanValue(value);
           const found = pilgrims.find((item) => item.pilgrimNo.toLowerCase() === value.toLowerCase());
           if (found) {
-            setSelected(found);
+            openSelected(found);
             setCameraOpen(false);
           }
         });
@@ -153,7 +171,7 @@ export function PilgrimHostAdminPanel({ token, canViewPersonalData }: { token: s
 
   const identify = () => {
     const found = pilgrims.find((item) => item.pilgrimNo.toLowerCase() === scanValue.trim().toLowerCase());
-    if (found) setSelected(found);
+    if (found) openSelected(found);
     else setMessage("일치하는 순례자 ID가 없습니다.");
   };
 
@@ -163,6 +181,8 @@ export function PilgrimHostAdminPanel({ token, canViewPersonalData }: { token: s
       pilgrimNo: item.pilgrimNo,
       name: item.name,
       baptismalName: item.baptismalName,
+      email: item.email,
+      preferredLanguage: item.preferredLanguage,
       gender: item.gender,
       diocese: item.diocese,
       region: item.region,
@@ -178,10 +198,52 @@ export function PilgrimHostAdminPanel({ token, canViewPersonalData }: { token: s
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const printBarcode = (item: Pilgrim) => {
-    const content = document.getElementById(`barcode-${item.id}`)?.outerHTML;
-    if (!content) return;
+  const openSelected = (item: Pilgrim) => {
+    setSelected(item);
+    setShareChannel("copy");
+    setShareRecipient(item.email || "");
+    setShareLanguage(item.preferredLanguage);
+    setShareMessage("");
+  };
+
+  const issueCard = async (item: Pilgrim, channel: "copy" | "email" | "sms" = "copy", recipient = "") => {
+    const data = await api<{ cardUrl: string; expiresAt: string; deliveries: string[]; errors: string[] }>(`/api/admin/pilgrims/${item.id}/share`, { method: "POST", body: JSON.stringify({ channel, recipient, language: shareLanguage }) }, token);
+    setPilgrims((current) => current.map((pilgrim) => pilgrim.id === item.id ? { ...pilgrim, cardUrl: data.cardUrl, cardExpiresAt: data.expiresAt, email: channel === "email" ? recipient : pilgrim.email, preferredLanguage: shareLanguage } : pilgrim));
+    setSelected((current) => current?.id === item.id ? { ...current, cardUrl: data.cardUrl, cardExpiresAt: data.expiresAt, email: channel === "email" ? recipient : current.email, preferredLanguage: shareLanguage } : current);
+    return data;
+  };
+
+  const shareCard = async () => {
+    if (!selected) return;
+    setSharing(true);
+    setShareMessage("");
+    try {
+      const data = await issueCard(selected, shareChannel, shareRecipient);
+      if (shareChannel === "copy") {
+        await navigator.clipboard.writeText(data.cardUrl).catch(() => undefined);
+        setShareMessage(`카드 링크를 발급했습니다. ${data.cardUrl}`);
+      } else if (data.deliveries.includes(shareChannel)) {
+        setShareMessage(`${shareChannel === "email" ? "이메일" : "SMS"}로 순례자 카드를 발송했습니다.`);
+      } else {
+        setShareMessage(`링크는 발급했지만 발송하지 못했습니다. ${data.errors.join(" / ")}`);
+      }
+    } catch (error) { setShareMessage((error as Error).message); }
+    finally { setSharing(false); }
+  };
+
+  const printBarcode = async (item: Pilgrim) => {
     const win = window.open("", "_blank", "width=500,height=500");
+    if (!win) return;
+    let cardUrl = item.cardUrl;
+    try {
+      if (!cardUrl) cardUrl = (await issueCard(item)).cardUrl;
+    } catch (error) { win.close(); setMessage((error as Error).message); return; }
+    const container = document.createElement("div");
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    container.appendChild(svg);
+    const { default: JsBarcode } = await import("jsbarcode");
+    JsBarcode(svg, cardBarcodeValue(cardUrl) ?? cardUrl, { format: "CODE128", width: 1.2, height: 64, displayValue: false, margin: 8 });
+    const content = `<div class="pilgrim-barcode-card"><strong>2027 WYD SEOUL · SEGOK</strong><h3>${escapeHtml(item.name)}${item.baptismalName ? ` (${escapeHtml(item.baptismalName)})` : ""}</h3>${container.innerHTML}<span>${escapeHtml(item.pilgrimNo)}</span></div>`;
     win?.document.write(`<html><head><title>${item.pilgrimNo}</title><style>body{font-family:sans-serif;display:grid;place-items:center;padding:40px}.pilgrim-barcode-card{text-align:center;border:1px solid #bbb;padding:24px}.pilgrim-barcode-card>*{display:block;margin:8px auto}</style></head><body>${content}<script>window.onload=()=>window.print()<\/script></body></html>`);
     win?.document.close();
   };
@@ -212,6 +274,8 @@ export function PilgrimHostAdminPanel({ token, canViewPersonalData }: { token: s
             <label><span>순례자 ID (자동 생성 가능)</span><input value={form.pilgrimNo} onChange={(e) => setForm({ ...form, pilgrimNo: e.target.value })} /></label>
             <label><span>성명</span><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
             <label><span>세례명</span><input value={form.baptismalName} onChange={(e) => setForm({ ...form, baptismalName: e.target.value })} placeholder="선택 입력" /></label>
+            <label><span>이메일 (선택)</span><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="pilgrim@example.org" /></label>
+            <label><span>기본 표시 언어</span><select value={form.preferredLanguage} onChange={(e) => setForm({ ...form, preferredLanguage: e.target.value as PilgrimCardLanguage })}>{pilgrimLanguageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
             <label><span>성별</span><select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}><option>남성</option><option>여성</option></select></label>
             <label><span>나이</span><input type="number" min={10} max={100} value={form.age} onChange={(e) => setForm({ ...form, age: Number(e.target.value) })} /></label>
             <label><span>교구</span><input required value={form.diocese} onChange={(e) => setForm({ ...form, diocese: e.target.value })} /></label>
@@ -229,20 +293,20 @@ export function PilgrimHostAdminPanel({ token, canViewPersonalData }: { token: s
 
         <div>
           <div className="pilgrim-list-tools">
-            <label className="community-search"><Search /><input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder="ID, 성명, 세례명, 교구, 지역, 식단 검색" /></label>
+            <label className="community-search"><Search /><input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder="ID, 성명, 세례명, 이메일, 교구, 지역, 식단 검색" /></label>
             <button className="secondary" onClick={() => load()}>검색</button>
           </div>
           <div className="pilgrim-list">
             {pilgrims.map((item) => (
-              <article key={item.id} onClick={() => setSelected(item)}>
+              <article key={item.id} onClick={() => openSelected(item)}>
                 <div><span className={`health-dot ${item.feverStatus !== "정상" ? "warning" : ""}`} /><strong>{item.name}{item.baptismalName ? ` (${item.baptismalName})` : ""}</strong><small>{item.pilgrimNo}</small></div>
                 <dl><span>{item.gender} · 만 {item.age}세</span><span>{item.diocese} / {item.region} / {item.grade}</span><span><Utensils /> {item.dietType}{item.allergies ? ` · 알레르기: ${item.allergies}` : ""}</span><span><Link2 /> {item.host ? `${item.host.name} (${item.host.applicationNo})` : "호스트 미배정"}</span></dl>
                 <div className="icon-actions">
                   <button onClick={(event) => { event.stopPropagation(); edit(item); }}>수정</button>
-                  <button title="바코드 출력" onClick={(event) => { event.stopPropagation(); printBarcode(item); }}><Printer size={17} /></button>
+                  <button title="바코드 출력" onClick={(event) => { event.stopPropagation(); void printBarcode(item); }}><Printer size={17} /></button>
                   <button title="삭제" onClick={async (event) => { event.stopPropagation(); if (!confirm("순례자 정보를 삭제하시겠습니까?")) return; await api(`/api/admin/pilgrims/${item.id}`, { method: "DELETE" }, token); await load(); }}><Trash2 size={17} /></button>
                 </div>
-                <div className="print-only"><BarcodeCard pilgrim={item} /></div>
+                <div className="print-only"><BarcodeCard pilgrim={item} value={cardBarcodeValue(item.cardUrl)} /></div>
               </article>
             ))}
             {!pilgrims.length && <p className="empty-copy">등록된 순례자가 없습니다.</p>}
@@ -254,7 +318,22 @@ export function PilgrimHostAdminPanel({ token, canViewPersonalData }: { token: s
         <div className="fixed inset-0 z-50 bg-catholic-navy/70 p-4 flex items-center justify-center" onClick={() => setSelected(null)}>
           <div className="pilgrim-detail-modal" onClick={(event) => event.stopPropagation()}>
             <header><div><span>{selected.pilgrimNo}</span><h2>{selected.name}{selected.baptismalName ? ` (${selected.baptismalName})` : ""} 순례자 카드</h2></div><button className="modal-close-button" onClick={() => setSelected(null)}>닫기</button></header>
-            <BarcodeCard pilgrim={selected} />
+            <BarcodeCard pilgrim={selected} value={cardBarcodeValue(selected.cardUrl)} />
+            <section className="pilgrim-share-panel">
+              <div><span>순례자 카드 송부</span><p>전용 링크에는 순례자 바코드와 다국어 등록·식단 정보가 표시됩니다.</p></div>
+              <div className="pilgrim-share-channels">
+                <button type="button" className={shareChannel === "copy" ? "active" : ""} onClick={() => setShareChannel("copy")}><Copy size={17} /> 링크 복사</button>
+                <button type="button" className={shareChannel === "email" ? "active" : ""} onClick={() => { setShareChannel("email"); setShareRecipient(selected.email || ""); }}><Mail size={17} /> 이메일</button>
+                <button type="button" className={shareChannel === "sms" ? "active" : ""} onClick={() => { setShareChannel("sms"); setShareRecipient(""); }}><MessageSquare size={17} /> SMS</button>
+              </div>
+              <div className="pilgrim-share-fields">
+                <label><span>표시 언어</span><select value={shareLanguage} onChange={(event) => setShareLanguage(event.target.value as PilgrimCardLanguage)}>{pilgrimLanguageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+                {shareChannel !== "copy" && <label><span>{shareChannel === "email" ? "수신 이메일" : "수신 휴대전화"}</span><input type={shareChannel === "email" ? "email" : "tel"} value={shareRecipient} onChange={(event) => setShareRecipient(event.target.value)} placeholder={shareChannel === "email" ? "pilgrim@example.org" : "+82 10-0000-0000"} /></label>}
+                <button className="primary" type="button" disabled={sharing} onClick={() => void shareCard()}><Send size={18} /> {sharing ? "처리 중" : shareChannel === "copy" ? "링크 발급 및 복사" : "카드 발송"}</button>
+              </div>
+              {selected.cardUrl && <a className="pilgrim-card-link" href={selected.cardUrl} target="_blank" rel="noreferrer">발급된 순례자 카드 열기</a>}
+              {shareMessage && <p className="form-message">{shareMessage}</p>}
+            </section>
             <div className="pilgrim-alerts">
               <div><Utensils /><span>식단</span><strong>{selected.dietType}</strong><p>{selected.dietNotes || "추가 요청 없음"}</p></div>
               <div><HeartPulse /><span>알레르기·건강</span><strong>{selected.feverStatus}</strong><p>{selected.allergies || "알레르기 없음"} / {selected.healthNotes || "특이사항 없음"}</p></div>

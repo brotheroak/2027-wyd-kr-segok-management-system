@@ -25,6 +25,8 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
               ? "접수 확인"
               : view === "schedule"
                 ? "봉사 일정"
+              : view === "host"
+                ? "배정 순례자 확인"
               : view === "community"
                 ? "FAQ 및 Q&A"
               : view === "privacy"
@@ -91,6 +93,13 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
               onClick={(event) => { event.preventDefault(); navigate("/community"); }}
             >
               FAQ / Q&A
+            </a>
+            <a
+              className={view === "host" ? "active" : ""}
+              href="/host/pilgrims"
+              onClick={(event) => { event.preventDefault(); navigate("/host/pilgrims"); }}
+            >
+              순례자 확인
             </a>
           </nav>
           <div className="accessibility" aria-label="글자 크기 조절">

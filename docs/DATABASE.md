@@ -277,7 +277,7 @@ erDiagram
 
 ### 순례자·식사 이력 테이블
 
-`pilgrims`는 바코드에 사용하는 비민감 식별번호와 성명·세례명을 포함한 순례자 정보를 저장하고 `host_application_id`로 호스트를 연결합니다. `pilgrim_meal_logs`는 식사 종류, 기록자, 기록 시각을 누적합니다. 순례자 생성 번호 발급과 호스트 삭제 시 배정 해제는 트랜잭션으로 처리합니다. 기존 DB는 서버 readiness 과정에서 `baptismal_name` 컬럼을 자동 추가합니다.
+`pilgrims`는 바코드에 사용하는 비민감 식별번호와 성명·세례명·선택 이메일·기본 언어를 저장하고 `host_application_id`로 호스트를 연결합니다. 카드 비밀값 원문은 `access_token`에 암호화 저장하고 조회용 SHA-256 값은 `access_token_hash`, 만료 시각은 `access_token_expires_at`에 저장합니다. 공개 URL에는 토큰을 fragment로 넣어 서버 접근 로그에 노출하지 않습니다. `pilgrim_meal_logs`는 식사 종류, 기록자, 기록 시각을 누적합니다. 순례자 생성 번호 발급과 호스트 삭제 시 배정 해제는 트랜잭션으로 처리합니다. 기존 DB는 서버 readiness 과정에서 관련 컬럼과 고유 인덱스를 자동 추가합니다.
 
 ### FAQ·Q&A 테이블
 
@@ -327,7 +327,7 @@ enc:v1:
 | `volunteers` | `name`, `baptismal_name`, `phone`, `email`, `parish_group`, `affiliation`, `address`, `address_detail`, `signature_name` |
 | `sessions` | `email` |
 | `audit_logs` | `actor` |
-| `pilgrims` | `name`, `baptismal_name`, `gender`, `diocese`, `region`, `grade`, `diet_type`, `diet_notes`, `allergies`, `health_notes`, `fever_status` |
+| `pilgrims` | `name`, `baptismal_name`, `email`, `access_token`, `gender`, `diocese`, `region`, `grade`, `diet_type`, `diet_notes`, `allergies`, `health_notes`, `fever_status` |
 | `pilgrim_meal_logs` | `note`, `recorded_by` |
 | `qna_posts` | `author_name`, `content`, `answer` |
 

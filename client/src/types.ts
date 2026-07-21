@@ -57,7 +57,7 @@ export type ApplicationPayload = {
 };
 
 export type AdminRole = "admin" | "privacy_admin" | "super_admin";
-export type ApplyView = "intro" | "apply" | "homestay" | "volunteer" | "check" | "schedule" | "community" | "privacy" | "terms";
+export type ApplyView = "intro" | "apply" | "homestay" | "volunteer" | "check" | "schedule" | "community" | "host" | "privacy" | "terms";
 
 export type VolunteerPayload = {
   id?: string;
@@ -104,6 +104,8 @@ export type Pilgrim = {
   pilgrimNo: string;
   name: string;
   baptismalName: string;
+  email: string;
+  preferredLanguage: "ko" | "en" | "es" | "it" | "fr" | "pt";
   gender: string;
   diocese: string;
   region: string;
@@ -115,6 +117,8 @@ export type Pilgrim = {
   healthNotes: string;
   feverStatus: string;
   hostApplicationId?: string;
+  cardUrl?: string;
+  cardExpiresAt?: string;
   host?: { applicationNo: string; name: string; address: string } | null;
   mealLogs?: Array<{ id: string; mealType: string; note: string; recordedAt: string }>;
   createdAt?: string;

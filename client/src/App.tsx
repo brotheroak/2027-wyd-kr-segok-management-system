@@ -15,6 +15,8 @@ import { PrivacyPage } from "./pages/PrivacyPage.js";
 import { TermsPage } from "./pages/TermsPage.js";
 import { CommunityPage } from "./pages/CommunityPage.js";
 import { VolunteerSchedulePanel } from "./pages/VolunteerSchedulePanel.js";
+import { HostPilgrimScanner } from "./pages/HostPilgrimScanner.js";
+import { PilgrimCardPage } from "./pages/PilgrimCardPage.js";
 import { EmptyState } from "./components/FormFields.js";
 import { AppFooter } from "./components/AppFooter.js";
 
@@ -39,10 +41,14 @@ export function App() {
   const isPrivacyPage = currentPath.startsWith("/privacy");
   const isTermsPage = currentPath.startsWith("/terms");
   const isCommunityPage = currentPath.startsWith("/community");
-  const keepsApplicantSession = currentPath.startsWith("/check") || currentPath.startsWith("/apply") || currentPath.startsWith("/schedule");
+  const isPilgrimCardPage = currentPath === "/pilgrim/card";
+  const pilgrimCardToken = isPilgrimCardPage && window.location.hash.length > 1 ? decodeURIComponent(window.location.hash.slice(1)) : "";
+  const keepsApplicantSession = currentPath.startsWith("/check") || currentPath.startsWith("/apply") || currentPath.startsWith("/schedule") || currentPath.startsWith("/host/pilgrims");
   
   const applicantView: ApplyView = currentPath.startsWith("/community")
     ? "community"
+    : currentPath.startsWith("/host/pilgrims")
+      ? "host"
     : currentPath.startsWith("/schedule")
       ? "schedule"
     : currentPath.startsWith("/check")
@@ -165,7 +171,7 @@ export function App() {
       const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!(target instanceof HTMLAnchorElement)) return;
       const url = new URL(target.href);
-      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/schedule", "/community", "/privacy", "/terms"]);
+      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/schedule", "/community", "/host/pilgrims", "/privacy", "/terms"]);
       if (url.origin !== window.location.origin || !internalPaths.has(url.pathname)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -199,6 +205,8 @@ export function App() {
       document.removeEventListener("animationend", onButtonAnimationEnd, true);
     };
   }, []);
+
+  if (isPilgrimCardPage) return <PilgrimCardPage token={pilgrimCardToken} />;
 
   if (isAdminPage) {
     return (
@@ -281,6 +289,10 @@ export function App() {
               onAuthenticate={() => navigate("/check")}
             />
           </section>
+        )}
+
+        {applicantView === "host" && (
+          <HostPilgrimScanner token={application && application.status !== "canceled" ? userToken ?? undefined : undefined} onAuthenticate={() => navigate("/check")} />
         )}
 
         {applicantView === "homestay" && (
@@ -391,6 +403,7 @@ export function App() {
               <ApplicationReceipt
                 application={application}
                 onEdit={() => navigate("/apply/homestay")}
+                onOpenPilgrimScanner={() => navigate("/host/pilgrims")}
                 onCancel={async () => {
                   const data = await api<{ application: ApplicationPayload }>("/api/my/application", { method: "DELETE" }, userToken);
                   setApplication(data.application);
