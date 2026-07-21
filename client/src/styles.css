@@ -3908,6 +3908,18 @@ td small {
 .admin-qna-list header small { color: #7b8494; }
 .qna-list article > p,
 .admin-qna-list article > p { line-height: 1.7; white-space: pre-wrap; }
+.admin-qna-list article.answered { border-color: #b8d7ca; }
+.qna-answer-state { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.qna-answer-state > span { display: inline-flex; align-items: center; min-height: 28px; padding: 4px 10px; border-radius: 999px; font-size: .76rem; font-weight: 900; }
+.qna-answer-state > span.waiting { color: #775b17; background: #fff5d9; }
+.qna-answer-state > span.answered { color: #116c55; background: #e9f8f1; }
+.qna-answer-state small { color: #7b8494; }
+.admin-qna-list textarea.answer-readonly { color: #384354; border-color: #dfe4e1; background: #f5f8f6; cursor: default; }
+.qna-save-feedback { display: flex; align-items: center; gap: 8px; margin: 0; padding: 11px 13px; border-radius: 6px; font-weight: 800; }
+.qna-save-feedback svg { width: 19px; height: 19px; flex: 0 0 19px; }
+.qna-save-feedback.success { color: #116c55; background: #eaf8f2; }
+.qna-save-feedback.error { color: #9f2f2f; background: #fff0ef; }
+.qna-answer-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .qna-list blockquote { margin: 12px 0 0; padding: 14px; border-left: 3px solid #ba9238; background: #faf7ef; white-space: pre-wrap; }
 .qna-list blockquote b { display: block; margin-bottom: 6px; }
 .empty-copy { padding: 28px; text-align: center; color: #7b8494; }

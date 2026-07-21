@@ -2470,10 +2470,16 @@ app.put("/api/admin/faqs/:id", requireAdmin, async (req, res) => {
 app.delete("/api/admin/faqs/:id", requireAdmin, async (req, res) => { await db.delete(tables.faqs).where(eq(tables.faqs.id, String(req.params.id))); res.json({ deleted: true }); });
 
 app.patch("/api/admin/qna/:id/answer", requireAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  const id = String(req.params.id);
   const answer = String(req.body.answer ?? "").trim();
   if (answer.length < 2) return res.status(400).json({ message: "답변을 입력해 주세요." });
-  await db.update(tables.qnaPosts).set({ answer: pii(answer), status: "answered", answeredAt: nowIso() }).where(eq(tables.qnaPosts.id, String(req.params.id)));
-  res.json({ answered: true });
+  const existing = (await db.select({ id: tables.qnaPosts.id, status: tables.qnaPosts.status }).from(tables.qnaPosts).where(eq(tables.qnaPosts.id, id)))[0];
+  if (!existing) return res.status(404).json({ message: "문의를 찾을 수 없습니다." });
+  const answeredAt = nowIso();
+  await db.update(tables.qnaPosts).set({ answer: pii(answer), status: "answered", answeredAt }).where(eq(tables.qnaPosts.id, id));
+  await logAudit(actorFrom(session), "admin_saved_qna_answer", id, { revised: existing.status === "answered" });
+  res.json({ qna: { id, answer, status: "answered", answeredAt } });
 });
 
 app.delete("/api/admin/qna/:id", requireAdmin, async (req, res) => { await db.delete(tables.qnaPosts).where(eq(tables.qnaPosts.id, String(req.params.id))); res.json({ deleted: true }); });
