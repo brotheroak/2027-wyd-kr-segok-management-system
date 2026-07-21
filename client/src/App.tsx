@@ -15,6 +15,7 @@ import { PrivacyPage } from "./pages/PrivacyPage.js";
 import { TermsPage } from "./pages/TermsPage.js";
 import { CommunityPage } from "./pages/CommunityPage.js";
 import { VolunteerSchedulePanel } from "./pages/VolunteerSchedulePanel.js";
+import { VolunteerLoginModal } from "./pages/VolunteerLoginModal.js";
 import { HostPilgrimScanner } from "./pages/HostPilgrimScanner.js";
 import { PilgrimCardPage } from "./pages/PilgrimCardPage.js";
 import { EmptyState } from "./components/FormFields.js";
@@ -66,6 +67,7 @@ export function App() {
   const [application, setApplication] = useState<ApplicationPayload | null>(null);
   const [volunteer, setVolunteer] = useState<VolunteerPayload | null>(null);
   const [volunteerReceipt, setVolunteerReceipt] = useState<VolunteerPayload | null>(null);
+  const [volunteerLoginOpen, setVolunteerLoginOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--font-scale", String(fontScale));
@@ -286,7 +288,9 @@ export function App() {
             </div>
             <VolunteerSchedulePanel
               token={volunteer && volunteer.status !== "canceled" ? userToken ?? undefined : undefined}
-              onAuthenticate={() => navigate("/check")}
+              volunteer={volunteer && volunteer.status !== "canceled" ? volunteer : undefined}
+              onAuthenticate={() => setVolunteerLoginOpen(true)}
+              onLogout={handleLogout}
             />
           </section>
         )}
@@ -421,7 +425,7 @@ export function App() {
                   }}
                   onLogout={handleLogout}
                 />
-                {volunteer.status !== "canceled" && <VolunteerSchedulePanel token={userToken} />}
+                {volunteer.status !== "canceled" && <VolunteerSchedulePanel token={userToken} volunteer={volunteer} onLogout={handleLogout} />}
               </>
             ) : (
               <EmptyState title="접수 내역이 없습니다" action="신청 화면으로 이동" onClick={() => navigate("/apply")} />
@@ -429,6 +433,15 @@ export function App() {
           </section>
         )}
       </main>
+      {volunteerLoginOpen && (
+        <VolunteerLoginModal
+          onClose={() => setVolunteerLoginOpen(false)}
+          onVerified={(token, loaded) => {
+            onVolunteerAuthorized(token, loaded);
+            setVolunteerLoginOpen(false);
+          }}
+        />
+      )}
     </ApplicantShell>
   );
 }
