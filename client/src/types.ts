@@ -103,6 +103,7 @@ export type Pilgrim = {
   id: string;
   pilgrimNo: string;
   name: string;
+  baptismalName: string;
   gender: string;
   diocese: string;
   region: string;

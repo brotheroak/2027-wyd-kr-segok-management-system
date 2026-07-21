@@ -261,6 +261,13 @@ test("봉사 일정은 종료 시각이 시작 시각보다 늦어야 한다", (
 });
 
 test("순례자 운영 정보는 식단과 건강 상태를 검증한다", () => {
-  const result = pilgrimSchema.safeParse({ name: "김순례", gender: "여성", diocese: "서울대교구", region: "강남", grade: "대학생", age: 20, dietType: "비건", feverStatus: "관찰" });
+  const result = pilgrimSchema.safeParse({ name: "김순례", baptismalName: "마리아", gender: "여성", diocese: "서울대교구", region: "강남", grade: "대학생", age: 20, dietType: "비건", feverStatus: "관찰" });
   assert.equal(result.success, true);
+  if (result.success) assert.equal(result.data.baptismalName, "마리아");
+});
+
+test("순례자 세례명은 선택 입력이며 길이를 제한한다", () => {
+  const payload = { name: "김순례", gender: "여성", diocese: "서울대교구", region: "강남", grade: "대학생", age: 20, dietType: "일반식" };
+  assert.equal(pilgrimSchema.safeParse(payload).success, true);
+  assert.equal(pilgrimSchema.safeParse({ ...payload, baptismalName: "가".repeat(81) }).success, false);
 });

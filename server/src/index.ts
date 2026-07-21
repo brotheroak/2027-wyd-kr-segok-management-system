@@ -54,7 +54,7 @@ function securityHeaders(_req: express.Request, res: express.Response, next: exp
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   res.setHeader("Content-Security-Policy", [
     "default-src 'self'",
@@ -2076,6 +2076,7 @@ function rowToPilgrim(row: any) {
     id: row.id,
     pilgrimNo: row.pilgrimNo,
     name: plain(row.name),
+    baptismalName: plain(row.baptismalName ?? ""),
     gender: plain(row.gender),
     diocese: plain(row.diocese),
     region: plain(row.region),
@@ -2227,7 +2228,7 @@ app.get("/api/admin/pilgrims", requirePrivacyAdmin, async (req, res) => {
   const rows = await db.select().from(tables.pilgrims).orderBy(desc(tables.pilgrims.updatedAt));
   const hosts = await db.select().from(tables.applications);
   const logs = await db.select().from(tables.pilgrimMealLogs).orderBy(desc(tables.pilgrimMealLogs.recordedAt));
-  const pilgrims = rows.map(rowToPilgrim).filter((item: any) => matchesIntegratedSearch([item.pilgrimNo, item.name, item.gender, item.diocese, item.region, item.grade, item.dietType, item.allergies, item.feverStatus], query)).map((item: any) => {
+  const pilgrims = rows.map(rowToPilgrim).filter((item: any) => matchesIntegratedSearch([item.pilgrimNo, item.name, item.baptismalName, item.gender, item.diocese, item.region, item.grade, item.dietType, item.allergies, item.feverStatus], query)).map((item: any) => {
     const host = hosts.find((hostRow: any) => hostRow.id === item.hostApplicationId);
     return { ...item, host: host ? { applicationNo: host.applicationNo, name: plain(host.repName), address: plain(host.address) } : null, mealLogs: logs.filter((log: any) => log.pilgrimId === item.id).map((log: any) => ({ id: log.id, mealType: log.mealType, note: plain(log.note), recordedAt: log.recordedAt })) };
   });
@@ -2241,7 +2242,7 @@ app.post("/api/admin/pilgrims", requirePrivacyAdmin, async (req, res) => {
     let created: any;
     await db.transaction(async (tx: any) => {
       const pilgrimNo = parsed.pilgrimNo || await makePilgrimNo(tx);
-      created = { id: nanoid(), pilgrimNo, name: pii(parsed.name), gender: pii(parsed.gender), diocese: pii(parsed.diocese), region: pii(parsed.region), grade: pii(parsed.grade), age: parsed.age, dietType: pii(parsed.dietType), dietNotes: pii(parsed.dietNotes), allergies: pii(parsed.allergies), healthNotes: pii(parsed.healthNotes), feverStatus: pii(parsed.feverStatus), hostApplicationId: parsed.hostApplicationId || null, createdAt: now, updatedAt: now };
+      created = { id: nanoid(), pilgrimNo, name: pii(parsed.name), baptismalName: pii(parsed.baptismalName), gender: pii(parsed.gender), diocese: pii(parsed.diocese), region: pii(parsed.region), grade: pii(parsed.grade), age: parsed.age, dietType: pii(parsed.dietType), dietNotes: pii(parsed.dietNotes), allergies: pii(parsed.allergies), healthNotes: pii(parsed.healthNotes), feverStatus: pii(parsed.feverStatus), hostApplicationId: parsed.hostApplicationId || null, createdAt: now, updatedAt: now };
       await tx.insert(tables.pilgrims).values(created);
     });
     res.status(201).json({ pilgrim: rowToPilgrim(created) });
@@ -2254,7 +2255,7 @@ app.put("/api/admin/pilgrims/:id", requirePrivacyAdmin, async (req, res) => {
     const id = String(req.params.id);
     const current = (await db.select().from(tables.pilgrims).where(eq(tables.pilgrims.id, id)))[0];
     if (!current) return res.status(404).json({ message: "순례자 정보를 찾을 수 없습니다." });
-    await db.update(tables.pilgrims).set({ pilgrimNo: parsed.pilgrimNo || current.pilgrimNo, name: pii(parsed.name), gender: pii(parsed.gender), diocese: pii(parsed.diocese), region: pii(parsed.region), grade: pii(parsed.grade), age: parsed.age, dietType: pii(parsed.dietType), dietNotes: pii(parsed.dietNotes), allergies: pii(parsed.allergies), healthNotes: pii(parsed.healthNotes), feverStatus: pii(parsed.feverStatus), hostApplicationId: parsed.hostApplicationId || null, updatedAt: nowIso() }).where(eq(tables.pilgrims.id, id));
+    await db.update(tables.pilgrims).set({ pilgrimNo: parsed.pilgrimNo || current.pilgrimNo, name: pii(parsed.name), baptismalName: pii(parsed.baptismalName), gender: pii(parsed.gender), diocese: pii(parsed.diocese), region: pii(parsed.region), grade: pii(parsed.grade), age: parsed.age, dietType: pii(parsed.dietType), dietNotes: pii(parsed.dietNotes), allergies: pii(parsed.allergies), healthNotes: pii(parsed.healthNotes), feverStatus: pii(parsed.feverStatus), hostApplicationId: parsed.hostApplicationId || null, updatedAt: nowIso() }).where(eq(tables.pilgrims.id, id));
     const rows = await db.select().from(tables.pilgrims).where(eq(tables.pilgrims.id, id));
     res.json({ pilgrim: rows[0] ? rowToPilgrim(rows[0]) : null });
   } catch (error) { res.status(400).json({ message: (error as Error).message }); }

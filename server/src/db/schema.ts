@@ -160,6 +160,7 @@ export const sqlitePilgrims = sqliteTable("pilgrims", {
   id: sqliteText("id").primaryKey(),
   pilgrimNo: sqliteText("pilgrim_no").unique().notNull(),
   name: sqliteText("name").notNull(),
+  baptismalName: sqliteText("baptismal_name").notNull().default(""),
   gender: sqliteText("gender").notNull(),
   diocese: sqliteText("diocese").notNull(),
   region: sqliteText("region").notNull(),
@@ -355,6 +356,7 @@ export const pgVolunteerShiftSignups = pgTable("volunteer_shift_signups", {
 
 export const pgPilgrims = pgTable("pilgrims", {
   id: pgText("id").primaryKey(), pilgrimNo: pgText("pilgrim_no").unique().notNull(), name: pgText("name").notNull(), gender: pgText("gender").notNull(),
+  baptismalName: pgText("baptismal_name").notNull().default(""),
   diocese: pgText("diocese").notNull(), region: pgText("region").notNull(), grade: pgText("grade").notNull(), age: pgInteger("age").notNull(),
   dietType: pgText("diet_type").notNull().default("일반식"), dietNotes: pgText("diet_notes").notNull().default(""),
   allergies: pgText("allergies").notNull().default(""), healthNotes: pgText("health_notes").notNull().default(""),

@@ -143,6 +143,7 @@ export const volunteerShiftSchema = z.object({
 export const pilgrimSchema = z.object({
   pilgrimNo: z.string().trim().max(40).optional(),
   name: z.string().trim().min(2).max(80),
+  baptismalName: z.string().trim().max(80).optional().default(""),
   gender: z.enum(["남성", "여성"]),
   diocese: z.string().trim().min(1).max(100),
   region: z.string().trim().min(1).max(100),
