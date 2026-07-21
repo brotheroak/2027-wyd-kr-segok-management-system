@@ -2102,7 +2102,18 @@ async function makePilgrimNo(tx: any) {
 async function shiftView(shift: any, volunteerId?: string, includeSignups = false) {
   const rows = await db.select().from(tables.volunteerShiftSignups).where(eq(tables.volunteerShiftSignups.shiftId, shift.id));
   const active = rows.filter((row: any) => row.status === "registered");
-  const view: any = { ...shift, signupCount: active.length, registered: volunteerId ? active.some((row: any) => row.volunteerId === volunteerId) : false };
+  const view: any = {
+    id: shift.id,
+    title: shift.title,
+    description: shift.description,
+    location: shift.location,
+    startAt: shift.startAt,
+    endAt: shift.endAt,
+    capacity: shift.capacity,
+    status: shift.status,
+    signupCount: active.length,
+    registered: volunteerId ? active.some((row: any) => row.volunteerId === volunteerId) : false
+  };
   if (includeSignups) {
     const volunteers = await db.select().from(tables.volunteers);
     view.signups = active.map((signup: any) => {
@@ -2112,6 +2123,11 @@ async function shiftView(shift: any, volunteerId?: string, includeSignups = fals
   }
   return view;
 }
+
+app.get("/api/volunteer/shifts/public", async (_req, res) => {
+  const rows = await db.select().from(tables.volunteerShifts).orderBy(tables.volunteerShifts.startAt);
+  res.json({ shifts: await Promise.all(rows.map((row: any) => shiftView(row))) });
+});
 
 app.post("/api/applications/duplicate-check", async (req, res) => {
   const name = String(req.body.name ?? "").trim();

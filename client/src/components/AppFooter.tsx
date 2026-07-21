@@ -46,6 +46,9 @@ export function AppFooter({ navigate, mode = "public" }: AppFooterProps) {
             <a href="/check" onClick={(event) => { event.preventDefault(); navigate("/check"); }}>
               접수 확인
             </a>
+            <a href="/schedule" onClick={(event) => { event.preventDefault(); navigate("/schedule"); }}>
+              봉사 일정
+            </a>
             <a href="/community" onClick={(event) => { event.preventDefault(); navigate("/community"); }}>
               FAQ / Q&A
             </a>

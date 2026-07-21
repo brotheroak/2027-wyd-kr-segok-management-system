@@ -111,6 +111,7 @@
 ### 봉사 일정 관리
 
 - 운영자는 일정명, 활동 분야, 장소, 시작·종료 시각, 정원, 안내를 등록·수정·삭제합니다.
+- 일반 사용자는 공개 `/schedule`에서 일정, 장소, 정원 현황을 확인할 수 있습니다.
 - 자원봉사자는 본인 접수 인증 후 공개된 일정에 신청하거나 취소합니다.
 - 같은 시간대 일정의 중복 신청과 정원 초과는 서버 트랜잭션 안에서 차단합니다.
 
@@ -124,6 +125,7 @@
 ### FAQ·Q&A
 
 - 공개 `/community`에서 FAQ를 검색하고 Q&A를 등록·조회합니다.
+- 문의 등록 폼은 `문의 등록` 버튼을 누르면 모달로 열리며 바깥 영역, 닫기 버튼, `Esc`로 닫을 수 있습니다.
 - 질문 등록에는 개인정보 수집·활용 동의가 필요하며 작성자 이름은 공개 목록에서 마스킹합니다.
 - 운영자는 FAQ를 등록·삭제하고 질문에 답변하거나 게시물을 삭제합니다.
 - 일반 운영자는 개인정보가 마스킹된 값을 봅니다.
@@ -181,7 +183,8 @@
 | PATCH | `/api/admin/users/:id` | 최고 관리자 운영자 승인/권한/상태 변경 |
 | GET | `/api/admin/applications` | 홈스테이 관리자 목록 |
 | GET | `/api/admin/volunteers` | 자원봉사자 관리자 목록 |
-| GET/POST | `/api/volunteer/shifts`, `/api/volunteer/shifts/:id/signup` | 봉사 일정 조회·신청 |
+| GET | `/api/volunteer/shifts/public` | 개인정보 없는 공개 봉사 일정 조회 |
+| GET/POST | `/api/volunteer/shifts`, `/api/volunteer/shifts/:id/signup` | 인증 봉사자 일정 조회·신청 |
 | GET/POST/PUT/DELETE | `/api/admin/shifts` | 운영자 봉사 일정 관리 |
 | GET/POST/PUT/DELETE | `/api/admin/pilgrims` | 순례자·호스트 매핑 관리 |
 | POST | `/api/admin/pilgrims/:id/meals` | 순례자 식사 이력 기록 |

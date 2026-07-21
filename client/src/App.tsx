@@ -39,10 +39,12 @@ export function App() {
   const isPrivacyPage = currentPath.startsWith("/privacy");
   const isTermsPage = currentPath.startsWith("/terms");
   const isCommunityPage = currentPath.startsWith("/community");
-  const keepsApplicantSession = currentPath.startsWith("/check") || currentPath.startsWith("/apply");
+  const keepsApplicantSession = currentPath.startsWith("/check") || currentPath.startsWith("/apply") || currentPath.startsWith("/schedule");
   
   const applicantView: ApplyView = currentPath.startsWith("/community")
     ? "community"
+    : currentPath.startsWith("/schedule")
+      ? "schedule"
     : currentPath.startsWith("/check")
     ? "check"
     : currentPath.startsWith("/apply/volunteer")
@@ -163,7 +165,7 @@ export function App() {
       const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!(target instanceof HTMLAnchorElement)) return;
       const url = new URL(target.href);
-      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/community", "/privacy", "/terms"]);
+      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/schedule", "/community", "/privacy", "/terms"]);
       if (url.origin !== window.location.origin || !internalPaths.has(url.pathname)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -265,6 +267,20 @@ export function App() {
 
         {applicantView === "apply" && (
           <ApplyChoice navigate={navigate} />
+        )}
+
+        {applicantView === "schedule" && (
+          <section className="single">
+            <div className="page-heading">
+              <span>Volunteer Schedule</span>
+              <h2>봉사 일정 확인 및 신청</h2>
+              <p>모집 중인 봉사 일정과 남은 인원을 확인하고 참여 가능한 시간에 신청할 수 있습니다.</p>
+            </div>
+            <VolunteerSchedulePanel
+              token={volunteer && volunteer.status !== "canceled" ? userToken ?? undefined : undefined}
+              onAuthenticate={() => navigate("/check")}
+            />
+          </section>
         )}
 
         {applicantView === "homestay" && (

@@ -23,6 +23,8 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
             ? "자원봉사자 신청"
             : view === "check"
               ? "접수 확인"
+              : view === "schedule"
+                ? "봉사 일정"
               : view === "community"
                 ? "FAQ 및 Q&A"
               : view === "privacy"
@@ -75,6 +77,13 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
               }}
             >
               접수 확인
+            </a>
+            <a
+              className={view === "schedule" ? "active" : ""}
+              href="/schedule"
+              onClick={(event) => { event.preventDefault(); navigate("/schedule"); }}
+            >
+              봉사 일정
             </a>
             <a
               className={view === "community" ? "active" : ""}

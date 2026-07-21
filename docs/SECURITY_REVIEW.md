@@ -1,6 +1,6 @@
 # 보안성 검토
 
-최종 갱신: 2026-07-04 KST
+최종 갱신: 2026-07-21 KST
 
 이 검토는 OWASP ASVS, Authentication Cheat Sheet, Session Management Cheat Sheet, REST Security Cheat Sheet, Denial of Service Cheat Sheet를 기준선으로 삼아 현재 구현과 운영 설정을 점검한 것입니다.
 
@@ -23,6 +23,9 @@
 | 웹 퍼널 | `MAX_CONCURRENT_REQUESTS`로 동시 처리 요청 제한 |
 | 스캔 경로 차단 | `/.env`, `/.git`, `/wp-admin`, `/phpmyadmin` 등 명백한 탐색 경로 즉시 404 |
 | 주소검색 | Kakao/Daum 우편번호 스크립트와 iframe만 CSP에 허용 |
+| 순례자 민감정보 | 이름, 성별, 교구, 지역, 학년, 식단, 알레르기, 건강·발열 정보를 AES-256-GCM 암호화 |
+| 공개 일정 | 운영자 식별자와 신청자 명단을 제외한 일정·정원 집계만 공개 |
+| 바코드·카메라 | 바코드는 비민감 순례자 번호만 포함하고 카메라 영상은 브라우저 안에서만 판독 |
 
 ## 2. 운영 전 필수 체크리스트
 
@@ -111,14 +114,14 @@ timeout=30s
 - OWASP REST Security Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html
 - OWASP Denial of Service Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Denial_of_Service_Cheat_Sheet.html
 
-## 8. 2026-07-04 재점검 결과
+## 8. 2026-07-21 재점검 결과
 
 | 항목 | 결과 |
 | --- | --- |
 | TypeScript 타입 검사 | 통과 |
-| 단위 테스트 | 34개 통과 |
+| 단위 테스트 | 45개 통과 |
 | 프로덕션 빌드 | 통과 |
 | 로컬 readiness | 통과 |
 | 의존성 감사 | `npm audit --audit-level=moderate`, 취약점 0건 |
 
-이번 점검에서 즉시 수정이 필요한 코드 버그는 발견되지 않았습니다. 남은 보완은 애플리케이션 코드보다 운영 인프라 항목인 Cloud Armor/CDN WAF, Cloud SQL 백업 복구 리허설, 발송 채널 quota/abuse 제한에 가깝습니다.
+이번 점검에서 유효한 일반 관리자 세션의 권한 부족 응답을 401에서 403으로 교정했고, 공개 일정 응답을 허용 필드 목록으로 제한했습니다. 일정 정원·시간 중복 신청, 홈스테이 생성·삭제, 순례자 번호 생성은 트랜잭션으로 묶어 partial commit을 방지합니다. 남은 보완은 Cloud Armor/CDN WAF, Cloud SQL 백업 복구 리허설, 발송 채널 quota/abuse 제한 같은 운영 인프라 항목입니다.

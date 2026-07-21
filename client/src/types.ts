@@ -57,7 +57,7 @@ export type ApplicationPayload = {
 };
 
 export type AdminRole = "admin" | "privacy_admin" | "super_admin";
-export type ApplyView = "intro" | "apply" | "homestay" | "volunteer" | "check" | "community" | "privacy" | "terms";
+export type ApplyView = "intro" | "apply" | "homestay" | "volunteer" | "check" | "schedule" | "community" | "privacy" | "terms";
 
 export type VolunteerPayload = {
   id?: string;
