@@ -25,7 +25,7 @@ export function PilgrimCardPage({ token }: { token: string }) {
     setError("");
     api<{ pilgrim: PublicPilgrimCard }>("/api/pilgrims/card", { method: "POST", body: JSON.stringify({ token, language }) })
       .then((data) => { setPilgrim(data.pilgrim); if (!language) setLanguage(data.pilgrim.language); document.documentElement.lang = data.pilgrim.language; })
-      .catch((requestError) => setError((requestError as Error).message));
+      .catch((requestError) => setError((language ?? "en") === "ko" ? (requestError as Error).message : pilgrimCardLabels[language ?? "en"].cardUnavailable));
   }, [token, language]);
 
   const activeLanguage = language ?? "en";
@@ -33,7 +33,7 @@ export function PilgrimCardPage({ token }: { token: string }) {
   return (
     <main className="pilgrim-self-page">
       <header className="pilgrim-self-header"><Church /><div><span>WYD SEOUL 2027 · SEGOK PARISH</span><h1>{labels.card}</h1></div><label><Languages /><select value={activeLanguage} onChange={(event) => setLanguage(event.target.value as PilgrimCardLanguage)}>{pilgrimLanguageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></header>
-      {error ? <section className="pilgrim-card-error"><CircleAlert /><h2>{error}</h2></section> : !pilgrim ? <section className="pilgrim-card-loading">Loading...</section> : (
+      {error ? <section className="pilgrim-card-error"><CircleAlert /><h2>{error}</h2></section> : !pilgrim ? <section className="pilgrim-card-loading">{labels.loading}</section> : (
         <article className="pilgrim-self-card">
           <section className="pilgrim-card-identity"><div><span>{pilgrim.pilgrimNo}</span><h2>{pilgrim.name}</h2><p>{pilgrim.baptismalName || labels.none}</p></div><UserRound /></section>
           <section className="pilgrim-card-barcode"><CardBarcode value={token} /><strong>{pilgrim.pilgrimNo}</strong><p>{labels.scanHelp}</p></section>

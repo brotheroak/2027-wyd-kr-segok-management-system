@@ -9,10 +9,11 @@ type ApplicantShellProps = {
   setFontScale: (value: number) => void;
   view: ApplyView;
   navigate: (path: string) => void;
+  titleOverride?: string;
 };
 
-export function ApplicantShell({ children, fontScale, setFontScale, view, navigate }: ApplicantShellProps) {
-  const title =
+export function ApplicantShell({ children, fontScale, setFontScale, view, navigate, titleOverride }: ApplicantShellProps) {
+  const defaultTitle =
     view === "intro"
       ? "대회 소개"
       : view === "apply"
@@ -27,11 +28,14 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
                 ? "봉사 일정"
               : view === "host"
                 ? "배정 순례자 확인"
+              : view === "pilgrim"
+                ? "순례자·호스트 확인"
               : view === "community"
                 ? "FAQ 및 Q&A"
               : view === "privacy"
                 ? "개인정보처리방침"
                 : "이용정책";
+  const title = titleOverride ?? defaultTitle;
 
   return (
     <div className="applicant-shell">

@@ -21,9 +21,11 @@ import { PilgrimCardPage } from "./pages/PilgrimCardPage.js";
 import { PilgrimAccessPortal } from "./pages/PilgrimAccessPortal.js";
 import { EmptyState } from "./components/FormFields.js";
 import { AppFooter } from "./components/AppFooter.js";
+import { isPilgrimCardLanguage, pilgrimPortalLabels, type PilgrimCardLanguage } from "./utils/pilgrimCardI18n.js";
 
 const USER_TOKEN_KEY = "wydUserToken";
 const USER_EMAIL_KEY = "wydUserEmail";
+const PILGRIM_LANGUAGE_KEY = "wydPilgrimPortalLanguage";
 const AdminConsoleZip = React.lazy(() =>
   import("./pages/Admin/AdminConsole.js").then((module) => ({ default: module.AdminConsoleZip }))
 );
@@ -35,6 +37,15 @@ function revokeUserSession(token: string | null) {
     headers: { Authorization: `Bearer ${token}` },
     keepalive: true
   }).catch(() => undefined);
+}
+
+function initialPilgrimLanguage(): PilgrimCardLanguage {
+  const queryLanguage = new URLSearchParams(window.location.search).get("lang") ?? "";
+  if (isPilgrimCardLanguage(queryLanguage)) return queryLanguage;
+  const storedLanguage = localStorage.getItem(PILGRIM_LANGUAGE_KEY) ?? "";
+  if (isPilgrimCardLanguage(storedLanguage)) return storedLanguage;
+  const browserLanguage = navigator.language.toLowerCase().split("-")[0];
+  return isPilgrimCardLanguage(browserLanguage) ? browserLanguage : "ko";
 }
 
 export function App() {
@@ -70,11 +81,19 @@ export function App() {
   const [volunteer, setVolunteer] = useState<VolunteerPayload | null>(null);
   const [volunteerReceipt, setVolunteerReceipt] = useState<VolunteerPayload | null>(null);
   const [volunteerLoginOpen, setVolunteerLoginOpen] = useState(false);
+  const [pilgrimLanguage, setPilgrimLanguage] = useState<PilgrimCardLanguage>(initialPilgrimLanguage);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--font-scale", String(fontScale));
     localStorage.setItem("fontScale", String(fontScale));
   }, [fontScale]);
+
+  useEffect(() => {
+    if (!isPilgrimPortalPage) return;
+    localStorage.setItem(PILGRIM_LANGUAGE_KEY, pilgrimLanguage);
+    document.documentElement.lang = pilgrimLanguage;
+    return () => { document.documentElement.lang = "ko"; };
+  }, [isPilgrimPortalPage, pilgrimLanguage]);
 
   useEffect(() => {
     const onPopState = () => setCurrentPath(window.location.pathname);
@@ -170,8 +189,8 @@ export function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const openPilgrimCard = (token: string) => {
-    window.history.pushState({}, "", `/pilgrim/card#${encodeURIComponent(token)}`);
+  const openPilgrimCard = (token: string, language: PilgrimCardLanguage) => {
+    window.history.pushState({}, "", `/pilgrim/card?lang=${encodeURIComponent(language)}#${encodeURIComponent(token)}`);
     setCurrentPath("/pilgrim/card");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -251,17 +270,18 @@ export function App() {
 
   if (isPilgrimPortalPage) {
     return (
-      <PilgrimAccessPortal
-        fontScale={fontScale}
-        setFontScale={setFontScale}
-        navigate={navigate}
-        initialMode={currentPath.startsWith("/host/pilgrims") ? "host" : "pilgrim"}
-        hostToken={application && application.status !== "canceled" ? userToken ?? undefined : undefined}
-        hostApplication={application}
-        onHostAuthorized={onApplicationAuthorized}
-        onHostLogout={handleLogout}
-        onOpenPilgrimCard={openPilgrimCard}
-      />
+      <ApplicantShell fontScale={fontScale} setFontScale={setFontScale} view="pilgrim" navigate={navigate} titleOverride={pilgrimPortalLabels[pilgrimLanguage].title}>
+        <PilgrimAccessPortal
+          initialMode={currentPath.startsWith("/host/pilgrims") ? "host" : "pilgrim"}
+          language={pilgrimLanguage}
+          setLanguage={setPilgrimLanguage}
+          hostToken={application && application.status !== "canceled" ? userToken ?? undefined : undefined}
+          hostApplication={application}
+          onHostAuthorized={onApplicationAuthorized}
+          onHostLogout={handleLogout}
+          onOpenPilgrimCard={openPilgrimCard}
+        />
+      </ApplicantShell>
     );
   }
 
