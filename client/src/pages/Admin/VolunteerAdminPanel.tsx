@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Heart, ClipboardList, Languages, ShieldCheck, Search, AlertCircle, User, Sparkles, Download, MapPinned } from "lucide-react";
+import { Heart, ClipboardList, Languages, ShieldCheck, Search, AlertCircle, User, Sparkles, Download, MapPinned, UserRound } from "lucide-react";
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { VolunteerPayload } from "../../types.js";
 import { api } from "../../api.js";
@@ -14,7 +14,7 @@ type VolunteerAdminPanelProps = {
   statusTone: (value?: string) => string;
 };
 
-type VolunteerDashboardTab = "summary" | "district";
+type VolunteerDashboardTab = "summary" | "district" | "gender";
 type DistributionDatum = {
   name: string;
   count: number;
@@ -91,6 +91,11 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
       count,
       percent: percentOf(count, volunteers.length)
     }));
+  const volunteerGenderData: DistributionDatum[] = Object.entries(data?.stats?.genderCounts ?? {}).map(([name, count]) => ({
+    name,
+    count: Number(count),
+    percent: percentOf(Number(count), volunteers.length)
+  }));
 
   const updateStatus = async (volunteer: VolunteerPayload, nextStatus: string) => {
     if (!volunteer.id) return;
@@ -199,6 +204,9 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
             <button className={dashboardTab === "district" ? "active" : ""} onClick={() => setDashboardTab("district")} type="button">
               <MapPinned size={16} /> 구역
             </button>
+            <button className={dashboardTab === "gender" ? "active" : ""} onClick={() => setDashboardTab("gender")} type="button">
+              <UserRound size={16} /> 성별
+            </button>
           </div>
         </div>
 
@@ -255,6 +263,12 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
               <span className="font-serif font-bold text-gray-800 text-base block">구역별 상세 분포</span>
               {renderDistributionList(volunteerDistrictData, "명")}
             </div>
+          </div>
+        )}
+        {dashboardTab === "gender" && (
+          <div className="dashboard-analysis-grid">
+            <div className="dashboard-chart-panel"><span className="font-serif font-bold text-gray-800 text-base block">자원봉사자 성별 분포</span><div className="h-72"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={volunteerGenderData} dataKey="count" nameKey="name" innerRadius={68} outerRadius={92}>{volunteerGenderData.map((item, index) => <Cell key={item.name} fill={chartColors[index % chartColors.length]} />)}</Pie><Tooltip /><Legend /></PieChart></ResponsiveContainer></div></div>
+            <div className="dashboard-chart-panel">{renderDistributionList(volunteerGenderData, "명")}</div>
           </div>
         )}
       </section>

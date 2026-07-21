@@ -206,6 +206,18 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
     setBusy(true);
     setError("");
     try {
+      if (pinRequired) {
+        const duplicate = await api<{ duplicate: boolean }>("/api/applications/duplicate-check", {
+          method: "POST",
+          body: JSON.stringify({
+            name: form.representative.name,
+            phone: form.representative.phone,
+            address: form.representative.address,
+            addressDetail: form.representative.addressDetail
+          })
+        });
+        if (duplicate.duplicate) throw new Error("동일한 연락처 또는 성명·주소로 접수된 홈스테이 신청이 있습니다. 접수 확인에서 기존 신청을 조회해 주세요.");
+      }
       await onSubmit(buildSubmissionPayload());
     } catch (err) {
       setError((err as Error).message);
@@ -247,7 +259,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
     }
     if (currentStep === 4) {
       if (form.homestay.housingType === "기타" && !form.homestay.housingTypeOther?.trim()) return setError("기타 주거형태를 입력해 주세요."), false;
-      if (!form.homestay.capacity || form.homestay.capacity < 1) return setError("가능한 인원 수를 입력해 주세요."), false;
+      if (!form.homestay.capacity || form.homestay.capacity < 2) return setError("홈스테이는 순례자를 2명 이상 수용해야 합니다."), false;
       if (!form.homestay.spaceDescription.trim() || form.homestay.spaceDescription.trim().length < 10)
         return setError("제공 가능한 공간 설명을 10자 이상 입력해 주세요."), false;
       if (!form.homestay.languages.length) return setError("가능한 언어를 1개 이상 선택해 주세요."), false;
@@ -561,7 +573,8 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
         )}
         <label>
           <FieldLabel required>가능한 인원 수</FieldLabel>
-          <input required type="number" min="1" max="20" value={form.homestay.capacity} onChange={(e) => update("homestay.capacity", Number(e.target.value))} />
+          <input required type="number" min="2" max="20" value={form.homestay.capacity} onChange={(e) => update("homestay.capacity", Number(e.target.value))} />
+          <small>순례자 2명 이상부터 호스트로 등록할 수 있습니다.</small>
         </label>
         <label>
           <FieldLabel required>원하는 성별</FieldLabel>

@@ -75,3 +75,6 @@ export type VolunteerPayload = {
   district?: DistrictInfo;
   updatedAt?: string;
 };
+
+export type VolunteerShiftPayload = { title: string; description?: string; location?: string; startAt: string; endAt: string; capacity: number; status?: "open" | "closed" };
+export type PilgrimPayload = { pilgrimNo?: string; name: string; gender: string; diocese: string; region: string; grade: string; age: number; dietType: string; dietNotes?: string; allergies?: string; healthNotes?: string; feverStatus?: string; hostApplicationId?: string };

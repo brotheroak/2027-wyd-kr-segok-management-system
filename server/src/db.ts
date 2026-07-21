@@ -55,6 +55,12 @@ export const tables = {
   sessions: isPg ? schema.pgSessions : schema.sqliteSessions,
   auditLogs: isPg ? schema.pgAuditLogs : schema.sqliteAuditLogs,
   admins: isPg ? schema.pgAdmins : schema.sqliteAdmins,
+  volunteerShifts: isPg ? schema.pgVolunteerShifts : schema.sqliteVolunteerShifts,
+  volunteerShiftSignups: isPg ? schema.pgVolunteerShiftSignups : schema.sqliteVolunteerShiftSignups,
+  pilgrims: isPg ? schema.pgPilgrims : schema.sqlitePilgrims,
+  pilgrimMealLogs: isPg ? schema.pgPilgrimMealLogs : schema.sqlitePilgrimMealLogs,
+  faqs: isPg ? schema.pgFaqs : schema.sqliteFaqs,
+  qnaPosts: isPg ? schema.pgQnaPosts : schema.sqliteQnaPosts,
 };
 
 // Initialize DB schema
@@ -116,6 +122,43 @@ export async function initDb() {
         CREATE INDEX IF NOT EXISTS idx_homestay_applications_district ON homestay_applications(district_no, district_ban);
       `);
       await client.query("CREATE INDEX IF NOT EXISTS idx_verification_codes_email_hash ON verification_codes(email_hash)");
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS volunteer_shifts (
+          id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', location TEXT NOT NULL DEFAULT '',
+          start_at TEXT NOT NULL, end_at TEXT NOT NULL, capacity INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'open',
+          created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS volunteer_shift_signups (
+          id TEXT PRIMARY KEY, shift_id TEXT NOT NULL REFERENCES volunteer_shifts(id) ON DELETE CASCADE,
+          volunteer_id TEXT NOT NULL REFERENCES volunteers(id) ON DELETE CASCADE, status TEXT NOT NULL DEFAULT 'registered', created_at TEXT NOT NULL,
+          UNIQUE(shift_id, volunteer_id)
+        );
+        CREATE TABLE IF NOT EXISTS pilgrims (
+          id TEXT PRIMARY KEY, pilgrim_no TEXT UNIQUE NOT NULL, name TEXT NOT NULL, gender TEXT NOT NULL,
+          diocese TEXT NOT NULL, region TEXT NOT NULL, grade TEXT NOT NULL, age INTEGER NOT NULL,
+          diet_type TEXT NOT NULL DEFAULT '일반식', diet_notes TEXT NOT NULL DEFAULT '', allergies TEXT NOT NULL DEFAULT '',
+          health_notes TEXT NOT NULL DEFAULT '', fever_status TEXT NOT NULL DEFAULT '정상',
+          host_application_id TEXT REFERENCES homestay_applications(id) ON DELETE SET NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS pilgrim_meal_logs (
+          id TEXT PRIMARY KEY, pilgrim_id TEXT NOT NULL REFERENCES pilgrims(id) ON DELETE CASCADE,
+          meal_type TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', recorded_by TEXT NOT NULL, recorded_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS faqs (
+          id TEXT PRIMARY KEY, category TEXT NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0, published BOOLEAN NOT NULL DEFAULT TRUE, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS qna_posts (
+          id TEXT PRIMARY KEY, author_name TEXT NOT NULL, password_hash TEXT NOT NULL, category TEXT NOT NULL,
+          title TEXT NOT NULL, content TEXT NOT NULL, answer TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'waiting',
+          created_at TEXT NOT NULL, answered_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_shift_start ON volunteer_shifts(start_at);
+        CREATE INDEX IF NOT EXISTS idx_shift_signup_volunteer ON volunteer_shift_signups(volunteer_id);
+        CREATE INDEX IF NOT EXISTS idx_pilgrims_host ON pilgrims(host_application_id);
+        CREATE INDEX IF NOT EXISTS idx_meal_logs_pilgrim ON pilgrim_meal_logs(pilgrim_id, recorded_at);
+        CREATE INDEX IF NOT EXISTS idx_qna_status ON qna_posts(status, created_at);
+      `);
       console.log("[DB] PostgreSQL database is ready and schema validation passed.");
     } catch (err) {
       console.error("[DB] Database readiness check failed!");
@@ -181,6 +224,43 @@ export async function initDb() {
       }
       sqliteDbInstance.exec("CREATE INDEX IF NOT EXISTS idx_volunteers_district ON volunteers(district_no, district_ban)");
       sqliteDbInstance.exec("CREATE INDEX IF NOT EXISTS idx_verification_codes_email_hash ON verification_codes(email_hash)");
+      sqliteDbInstance.exec(`
+        CREATE TABLE IF NOT EXISTS volunteer_shifts (
+          id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', location TEXT NOT NULL DEFAULT '',
+          start_at TEXT NOT NULL, end_at TEXT NOT NULL, capacity INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'open',
+          created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS volunteer_shift_signups (
+          id TEXT PRIMARY KEY, shift_id TEXT NOT NULL REFERENCES volunteer_shifts(id) ON DELETE CASCADE,
+          volunteer_id TEXT NOT NULL REFERENCES volunteers(id) ON DELETE CASCADE, status TEXT NOT NULL DEFAULT 'registered', created_at TEXT NOT NULL,
+          UNIQUE(shift_id, volunteer_id)
+        );
+        CREATE TABLE IF NOT EXISTS pilgrims (
+          id TEXT PRIMARY KEY, pilgrim_no TEXT UNIQUE NOT NULL, name TEXT NOT NULL, gender TEXT NOT NULL,
+          diocese TEXT NOT NULL, region TEXT NOT NULL, grade TEXT NOT NULL, age INTEGER NOT NULL,
+          diet_type TEXT NOT NULL DEFAULT '일반식', diet_notes TEXT NOT NULL DEFAULT '', allergies TEXT NOT NULL DEFAULT '',
+          health_notes TEXT NOT NULL DEFAULT '', fever_status TEXT NOT NULL DEFAULT '정상', host_application_id TEXT,
+          created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS pilgrim_meal_logs (
+          id TEXT PRIMARY KEY, pilgrim_id TEXT NOT NULL REFERENCES pilgrims(id) ON DELETE CASCADE,
+          meal_type TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', recorded_by TEXT NOT NULL, recorded_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS faqs (
+          id TEXT PRIMARY KEY, category TEXT NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0, published INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS qna_posts (
+          id TEXT PRIMARY KEY, author_name TEXT NOT NULL, password_hash TEXT NOT NULL, category TEXT NOT NULL,
+          title TEXT NOT NULL, content TEXT NOT NULL, answer TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'waiting',
+          created_at TEXT NOT NULL, answered_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_shift_start ON volunteer_shifts(start_at);
+        CREATE INDEX IF NOT EXISTS idx_shift_signup_volunteer ON volunteer_shift_signups(volunteer_id);
+        CREATE INDEX IF NOT EXISTS idx_pilgrims_host ON pilgrims(host_application_id);
+        CREATE INDEX IF NOT EXISTS idx_meal_logs_pilgrim ON pilgrim_meal_logs(pilgrim_id, recorded_at);
+        CREATE INDEX IF NOT EXISTS idx_qna_status ON qna_posts(status, created_at);
+      `);
       console.log("[DB] SQLite database is ready and schema validation passed.");
     } catch (err) {
       console.error("[DB] Database readiness check failed!");

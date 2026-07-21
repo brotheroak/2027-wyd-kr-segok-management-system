@@ -232,6 +232,20 @@ async function setupPg() {
 
     // Migration patch for PostgreSQL
     await client.query(`
+      CREATE TABLE IF NOT EXISTS volunteer_shifts (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', location TEXT NOT NULL DEFAULT '', start_at TEXT NOT NULL, end_at TEXT NOT NULL, capacity INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS volunteer_shift_signups (id TEXT PRIMARY KEY, shift_id TEXT NOT NULL REFERENCES volunteer_shifts(id) ON DELETE CASCADE, volunteer_id TEXT NOT NULL REFERENCES volunteers(id) ON DELETE CASCADE, status TEXT NOT NULL DEFAULT 'registered', created_at TEXT NOT NULL, UNIQUE(shift_id, volunteer_id));
+      CREATE TABLE IF NOT EXISTS pilgrims (id TEXT PRIMARY KEY, pilgrim_no TEXT UNIQUE NOT NULL, name TEXT NOT NULL, gender TEXT NOT NULL, diocese TEXT NOT NULL, region TEXT NOT NULL, grade TEXT NOT NULL, age INTEGER NOT NULL, diet_type TEXT NOT NULL DEFAULT '일반식', diet_notes TEXT NOT NULL DEFAULT '', allergies TEXT NOT NULL DEFAULT '', health_notes TEXT NOT NULL DEFAULT '', fever_status TEXT NOT NULL DEFAULT '정상', host_application_id TEXT REFERENCES homestay_applications(id) ON DELETE SET NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS pilgrim_meal_logs (id TEXT PRIMARY KEY, pilgrim_id TEXT NOT NULL REFERENCES pilgrims(id) ON DELETE CASCADE, meal_type TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', recorded_by TEXT NOT NULL, recorded_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS faqs (id TEXT PRIMARY KEY, category TEXT NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, published BOOLEAN NOT NULL DEFAULT TRUE, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS qna_posts (id TEXT PRIMARY KEY, author_name TEXT NOT NULL, password_hash TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, answer TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'waiting', created_at TEXT NOT NULL, answered_at TEXT);
+      CREATE INDEX IF NOT EXISTS idx_shift_start ON volunteer_shifts(start_at);
+      CREATE INDEX IF NOT EXISTS idx_shift_signup_volunteer ON volunteer_shift_signups(volunteer_id);
+      CREATE INDEX IF NOT EXISTS idx_pilgrims_host ON pilgrims(host_application_id);
+      CREATE INDEX IF NOT EXISTS idx_meal_logs_pilgrim ON pilgrim_meal_logs(pilgrim_id, recorded_at);
+      CREATE INDEX IF NOT EXISTS idx_qna_status ON qna_posts(status, created_at);
+    `);
+
+    await client.query(`
       ALTER TABLE volunteers ADD COLUMN IF NOT EXISTS applicant_pin TEXT NOT NULL DEFAULT '';
       ALTER TABLE volunteers ADD COLUMN IF NOT EXISTS parish_group TEXT;
       ALTER TABLE volunteers ADD COLUMN IF NOT EXISTS affiliation TEXT;
@@ -429,6 +443,20 @@ function setupSqlite() {
     `);
 
     // Migration patches for SQLite
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS volunteer_shifts (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', location TEXT NOT NULL DEFAULT '', start_at TEXT NOT NULL, end_at TEXT NOT NULL, capacity INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS volunteer_shift_signups (id TEXT PRIMARY KEY, shift_id TEXT NOT NULL REFERENCES volunteer_shifts(id) ON DELETE CASCADE, volunteer_id TEXT NOT NULL REFERENCES volunteers(id) ON DELETE CASCADE, status TEXT NOT NULL DEFAULT 'registered', created_at TEXT NOT NULL, UNIQUE(shift_id, volunteer_id));
+      CREATE TABLE IF NOT EXISTS pilgrims (id TEXT PRIMARY KEY, pilgrim_no TEXT UNIQUE NOT NULL, name TEXT NOT NULL, gender TEXT NOT NULL, diocese TEXT NOT NULL, region TEXT NOT NULL, grade TEXT NOT NULL, age INTEGER NOT NULL, diet_type TEXT NOT NULL DEFAULT '일반식', diet_notes TEXT NOT NULL DEFAULT '', allergies TEXT NOT NULL DEFAULT '', health_notes TEXT NOT NULL DEFAULT '', fever_status TEXT NOT NULL DEFAULT '정상', host_application_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS pilgrim_meal_logs (id TEXT PRIMARY KEY, pilgrim_id TEXT NOT NULL REFERENCES pilgrims(id) ON DELETE CASCADE, meal_type TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', recorded_by TEXT NOT NULL, recorded_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS faqs (id TEXT PRIMARY KEY, category TEXT NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, published INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS qna_posts (id TEXT PRIMARY KEY, author_name TEXT NOT NULL, password_hash TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, answer TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'waiting', created_at TEXT NOT NULL, answered_at TEXT);
+      CREATE INDEX IF NOT EXISTS idx_shift_start ON volunteer_shifts(start_at);
+      CREATE INDEX IF NOT EXISTS idx_shift_signup_volunteer ON volunteer_shift_signups(volunteer_id);
+      CREATE INDEX IF NOT EXISTS idx_pilgrims_host ON pilgrims(host_application_id);
+      CREATE INDEX IF NOT EXISTS idx_meal_logs_pilgrim ON pilgrim_meal_logs(pilgrim_id, recorded_at);
+      CREATE INDEX IF NOT EXISTS idx_qna_status ON qna_posts(status, created_at);
+    `);
+
     const applicationColumns = db.prepare("PRAGMA table_info(homestay_applications)").all();
     if (!applicationColumns.some((column) => column.name === "applicant_pin")) {
       db.exec("ALTER TABLE homestay_applications ADD COLUMN applicant_pin TEXT NOT NULL DEFAULT ''");

@@ -134,6 +134,80 @@ export const sqliteAdmins = sqliteTable("admins", {
   updatedAt: sqliteText("updated_at").notNull(),
 });
 
+export const sqliteVolunteerShifts = sqliteTable("volunteer_shifts", {
+  id: sqliteText("id").primaryKey(),
+  title: sqliteText("title").notNull(),
+  description: sqliteText("description").notNull().default(""),
+  location: sqliteText("location").notNull().default(""),
+  startAt: sqliteText("start_at").notNull(),
+  endAt: sqliteText("end_at").notNull(),
+  capacity: sqliteInteger("capacity").notNull(),
+  status: sqliteText("status").notNull().default("open"),
+  createdBy: sqliteText("created_by").notNull(),
+  createdAt: sqliteText("created_at").notNull(),
+  updatedAt: sqliteText("updated_at").notNull(),
+});
+
+export const sqliteVolunteerShiftSignups = sqliteTable("volunteer_shift_signups", {
+  id: sqliteText("id").primaryKey(),
+  shiftId: sqliteText("shift_id").notNull(),
+  volunteerId: sqliteText("volunteer_id").notNull(),
+  status: sqliteText("status").notNull().default("registered"),
+  createdAt: sqliteText("created_at").notNull(),
+});
+
+export const sqlitePilgrims = sqliteTable("pilgrims", {
+  id: sqliteText("id").primaryKey(),
+  pilgrimNo: sqliteText("pilgrim_no").unique().notNull(),
+  name: sqliteText("name").notNull(),
+  gender: sqliteText("gender").notNull(),
+  diocese: sqliteText("diocese").notNull(),
+  region: sqliteText("region").notNull(),
+  grade: sqliteText("grade").notNull(),
+  age: sqliteInteger("age").notNull(),
+  dietType: sqliteText("diet_type").notNull().default("일반식"),
+  dietNotes: sqliteText("diet_notes").notNull().default(""),
+  allergies: sqliteText("allergies").notNull().default(""),
+  healthNotes: sqliteText("health_notes").notNull().default(""),
+  feverStatus: sqliteText("fever_status").notNull().default("정상"),
+  hostApplicationId: sqliteText("host_application_id"),
+  createdAt: sqliteText("created_at").notNull(),
+  updatedAt: sqliteText("updated_at").notNull(),
+});
+
+export const sqlitePilgrimMealLogs = sqliteTable("pilgrim_meal_logs", {
+  id: sqliteText("id").primaryKey(),
+  pilgrimId: sqliteText("pilgrim_id").notNull(),
+  mealType: sqliteText("meal_type").notNull(),
+  note: sqliteText("note").notNull().default(""),
+  recordedBy: sqliteText("recorded_by").notNull(),
+  recordedAt: sqliteText("recorded_at").notNull(),
+});
+
+export const sqliteFaqs = sqliteTable("faqs", {
+  id: sqliteText("id").primaryKey(),
+  category: sqliteText("category").notNull(),
+  question: sqliteText("question").notNull(),
+  answer: sqliteText("answer").notNull(),
+  sortOrder: sqliteInteger("sort_order").notNull().default(0),
+  published: sqliteInteger("published").notNull().default(1),
+  createdAt: sqliteText("created_at").notNull(),
+  updatedAt: sqliteText("updated_at").notNull(),
+});
+
+export const sqliteQnaPosts = sqliteTable("qna_posts", {
+  id: sqliteText("id").primaryKey(),
+  authorName: sqliteText("author_name").notNull(),
+  passwordHash: sqliteText("password_hash").notNull(),
+  category: sqliteText("category").notNull(),
+  title: sqliteText("title").notNull(),
+  content: sqliteText("content").notNull(),
+  answer: sqliteText("answer").notNull().default(""),
+  status: sqliteText("status").notNull().default("waiting"),
+  createdAt: sqliteText("created_at").notNull(),
+  answeredAt: sqliteText("answered_at"),
+});
+
 // ==========================================
 // PostgreSQL Schema Definition (for Production)
 // ==========================================
@@ -265,4 +339,42 @@ export const pgAdmins = pgTable("admins", {
   mfaEnabled: pgBoolean("mfa_enabled").notNull().default(false),
   createdAt: pgText("created_at").notNull(),
   updatedAt: pgText("updated_at").notNull(),
+});
+
+export const pgVolunteerShifts = pgTable("volunteer_shifts", {
+  id: pgText("id").primaryKey(), title: pgText("title").notNull(), description: pgText("description").notNull().default(""),
+  location: pgText("location").notNull().default(""), startAt: pgText("start_at").notNull(), endAt: pgText("end_at").notNull(),
+  capacity: pgInteger("capacity").notNull(), status: pgText("status").notNull().default("open"), createdBy: pgText("created_by").notNull(),
+  createdAt: pgText("created_at").notNull(), updatedAt: pgText("updated_at").notNull(),
+});
+
+export const pgVolunteerShiftSignups = pgTable("volunteer_shift_signups", {
+  id: pgText("id").primaryKey(), shiftId: pgText("shift_id").notNull(), volunteerId: pgText("volunteer_id").notNull(),
+  status: pgText("status").notNull().default("registered"), createdAt: pgText("created_at").notNull(),
+});
+
+export const pgPilgrims = pgTable("pilgrims", {
+  id: pgText("id").primaryKey(), pilgrimNo: pgText("pilgrim_no").unique().notNull(), name: pgText("name").notNull(), gender: pgText("gender").notNull(),
+  diocese: pgText("diocese").notNull(), region: pgText("region").notNull(), grade: pgText("grade").notNull(), age: pgInteger("age").notNull(),
+  dietType: pgText("diet_type").notNull().default("일반식"), dietNotes: pgText("diet_notes").notNull().default(""),
+  allergies: pgText("allergies").notNull().default(""), healthNotes: pgText("health_notes").notNull().default(""),
+  feverStatus: pgText("fever_status").notNull().default("정상"), hostApplicationId: pgText("host_application_id"),
+  createdAt: pgText("created_at").notNull(), updatedAt: pgText("updated_at").notNull(),
+});
+
+export const pgPilgrimMealLogs = pgTable("pilgrim_meal_logs", {
+  id: pgText("id").primaryKey(), pilgrimId: pgText("pilgrim_id").notNull(), mealType: pgText("meal_type").notNull(),
+  note: pgText("note").notNull().default(""), recordedBy: pgText("recorded_by").notNull(), recordedAt: pgText("recorded_at").notNull(),
+});
+
+export const pgFaqs = pgTable("faqs", {
+  id: pgText("id").primaryKey(), category: pgText("category").notNull(), question: pgText("question").notNull(), answer: pgText("answer").notNull(),
+  sortOrder: pgInteger("sort_order").notNull().default(0), published: pgBoolean("published").notNull().default(true),
+  createdAt: pgText("created_at").notNull(), updatedAt: pgText("updated_at").notNull(),
+});
+
+export const pgQnaPosts = pgTable("qna_posts", {
+  id: pgText("id").primaryKey(), authorName: pgText("author_name").notNull(), passwordHash: pgText("password_hash").notNull(),
+  category: pgText("category").notNull(), title: pgText("title").notNull(), content: pgText("content").notNull(), answer: pgText("answer").notNull().default(""),
+  status: pgText("status").notNull().default("waiting"), createdAt: pgText("created_at").notNull(), answeredAt: pgText("answered_at"),
 });

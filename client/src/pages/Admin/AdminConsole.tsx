@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, BedDouble, Sparkles, MapPinned, UserPlus, KeyRound, Crown, ClipboardList, PawPrint } from "lucide-react";
+import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, BedDouble, Sparkles, MapPinned, UserPlus, KeyRound, Crown, ClipboardList, PawPrint, CalendarClock, ScanBarcode, MessageSquareText, UserRound, ChartNoAxesColumn, Trash2 } from "lucide-react";
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { AdminRole, ApplicationPayload } from "../../types.js";
 import { api } from "../../api.js";
@@ -12,6 +12,9 @@ import { AdminModeTabs } from "./AdminModeTabs.js";
 import { VolunteerAdminPanel } from "./VolunteerAdminPanel.js";
 import { ApplicationForm } from "../ApplicationForm.js";
 import { AdminMaskedDetail } from "./AdminMaskedDetail.js";
+import { VolunteerScheduleAdminPanel } from "./VolunteerScheduleAdminPanel.js";
+import { PilgrimHostAdminPanel } from "./PilgrimHostAdminPanel.js";
+import { CommunityAdminPanel } from "./CommunityAdminPanel.js";
 
 type LoginState = {
   mfaRequired: boolean;
@@ -37,8 +40,8 @@ type AdminUser = {
   updatedAt: string;
 };
 
-type AdminConsoleMenu = "applications" | "accounts" | "password";
-type HomestayDashboardTab = "summary" | "district" | "bed" | "pet";
+type AdminConsoleMenu = "applications" | "shifts" | "pilgrims" | "community" | "accounts" | "password";
+type HomestayDashboardTab = "summary" | "district" | "bed" | "pet" | "gender" | "age";
 type DistributionDatum = {
   name: string;
   count: number;
@@ -172,7 +175,7 @@ export function AdminConsoleZip() {
   useEffect(() => {
     const onAdminMenuChange = (event: Event) => {
       const menu = (event as CustomEvent<AdminConsoleMenu>).detail;
-      if (!["applications", "accounts", "password"].includes(menu)) return;
+      if (!["applications", "shifts", "pilgrims", "community", "accounts", "password"].includes(menu)) return;
       setActiveConsoleMenu(menu);
       if (menu === "accounts") loadAdminUsers().catch(() => setAdminUsers([]));
     };
@@ -535,6 +538,15 @@ export function AdminConsoleZip() {
         >
           <ClipboardList size={18} /> 신청 현황
         </button>
+        <button type="button" className={activeConsoleMenu === "shifts" ? "active" : ""} onClick={() => setActiveConsoleMenu("shifts")}>
+          <CalendarClock size={18} /> 봉사 일정
+        </button>
+        <button type="button" className={activeConsoleMenu === "pilgrims" ? "active" : ""} onClick={() => setActiveConsoleMenu("pilgrims")}>
+          <ScanBarcode size={18} /> 순례자·호스트
+        </button>
+        <button type="button" className={activeConsoleMenu === "community" ? "active" : ""} onClick={() => setActiveConsoleMenu("community")}>
+          <MessageSquareText size={18} /> FAQ·Q&A
+        </button>
         <button
           type="button"
           className={activeConsoleMenu === "accounts" ? "active alertable" : "alertable"}
@@ -706,6 +718,10 @@ export function AdminConsoleZip() {
     );
   }
 
+  if (activeConsoleMenu === "shifts") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<VolunteerScheduleAdminPanel token={token} /></div>;
+  if (activeConsoleMenu === "pilgrims") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<PilgrimHostAdminPanel token={token} canViewPersonalData={canViewPersonalData} /></div>;
+  if (activeConsoleMenu === "community") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<CommunityAdminPanel token={token} /></div>;
+
   if (activeAdminTab === "volunteer") {
     return (
       <div className="space-y-8" id="admin-dashboard">
@@ -771,6 +787,8 @@ export function AdminConsoleZip() {
       percent: percentOf(applications.filter((item) => !item.homestay.hasPet).length, applications.length)
     }
   ];
+  const genderData: DistributionDatum[] = Object.entries(data?.stats?.genderCounts ?? {}).map(([name, count]) => ({ name, count: Number(count), percent: percentOf(Number(count), applications.length) }));
+  const ageData: DistributionDatum[] = Object.entries(data?.stats?.ageGroupCounts ?? {}).map(([name, count]) => ({ name, count: Number(count), percent: percentOf(Number(count), applications.length) }));
   const districtOptions = Array.from(new Set(applications.map((item) => item.district?.no).filter(Boolean) as string[]))
     .sort(districtSort);
   const districtBanOptions = Array.from(new Set(applications
@@ -820,6 +838,13 @@ export function AdminConsoleZip() {
       body: JSON.stringify({ status: nextStatus })
     }, token);
     setSelected((current) => (current?.id === application.id ? response.application : current));
+    await load();
+  };
+
+  const deleteApplication = async (application: ApplicationPayload) => {
+    if (!application.id || !confirm("이 홈스테이 신청과 가족 정보를 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) return;
+    await api(`/api/admin/applications/${application.id}`, { method: "DELETE" }, token);
+    setSelected(null);
     await load();
   };
 
@@ -903,6 +928,12 @@ export function AdminConsoleZip() {
             </button>
             <button className={homestayDashboardTab === "pet" ? "active" : ""} onClick={() => setHomestayDashboardTab("pet")} type="button">
               <PawPrint size={16} /> 반려동물
+            </button>
+            <button className={homestayDashboardTab === "gender" ? "active" : ""} onClick={() => setHomestayDashboardTab("gender")} type="button">
+              <UserRound size={16} /> 성별
+            </button>
+            <button className={homestayDashboardTab === "age" ? "active" : ""} onClick={() => setHomestayDashboardTab("age")} type="button">
+              <ChartNoAxesColumn size={16} /> 연령대
             </button>
           </div>
         </div>
@@ -1012,6 +1043,8 @@ export function AdminConsoleZip() {
             </div>
           </div>
         )}
+        {homestayDashboardTab === "gender" && <div className="dashboard-analysis-grid"><div className="dashboard-chart-panel"><span className="font-serif font-bold text-gray-800 text-base block">호스트 대표 성별 분포</span><div className="h-72"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={genderData} dataKey="count" nameKey="name" innerRadius={68} outerRadius={92}>{genderData.map((item, index) => <Cell key={item.name} fill={chartColors[index % chartColors.length]} />)}</Pie><Tooltip /><Legend /></PieChart></ResponsiveContainer></div></div><div className="dashboard-chart-panel">{renderDistributionList(genderData, "명")}</div></div>}
+        {homestayDashboardTab === "age" && <div className="dashboard-analysis-grid"><div className="dashboard-chart-panel"><span className="font-serif font-bold text-gray-800 text-base block">호스트 대표 연령대</span><div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={ageData}><XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="#2f5f98" radius={[4,4,0,0]} /></BarChart></ResponsiveContainer></div></div><div className="dashboard-chart-panel">{renderDistributionList(ageData, "명")}</div></div>}
       </section>
 
       <div className="bg-catholic-navy p-6 rounded-3xl text-white flex flex-col sm:flex-row items-center justify-between gap-4 border border-gold-200/20 shadow-lg">
@@ -1411,6 +1444,7 @@ export function AdminConsoleZip() {
                   </button>
                 ))}
               </div>
+              {canViewPersonalData && <button className="secondary danger" type="button" onClick={() => deleteApplication(selected)}><Trash2 size={17} /> 신청 영구 삭제</button>}
               {canViewPersonalData ? (
                 <ApplicationForm
                   initial={selected}

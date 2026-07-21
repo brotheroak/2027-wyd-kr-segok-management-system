@@ -33,9 +33,9 @@ const availabilitySchema = z.string().min(1).max(120).refine((value) => {
   return /^요일: .+ \/ 시간: .+$/.test(trimmed);
 }, "봉사 가능 요일과 시간을 선택해 주세요.");
 const districtSchema = z.object({
-  no: z.string().regex(/^(?:[1-9]|1[0-2]|99)$/),
+  no: z.string().regex(/^(?:[1-9]|1[0-3]|99)$/),
   name: z.string().min(1),
-  ban: z.string().regex(/^(?:[1-9]|1[0-2]|99)-\d+$/),
+  ban: z.string().regex(/^(?:[1-9]|1[0-3]|99)-\d+$/),
   label: z.string().min(1),
   confidence: z.string().optional(),
   reason: z.string().optional()
@@ -70,7 +70,7 @@ export const applicationSchema = z.object({
     petDescription: z.string().optional(),
     languages: z.array(z.string()).min(1),
     preferredGender: z.string().min(1),
-    capacity: z.number().int().min(1).max(20),
+    capacity: z.number().int().min(2, "홈스테이는 순례자를 2명 이상 수용해야 합니다.").max(20),
     hasBed: z.boolean(),
     spaceDescription: z.string().min(10)
   }),
@@ -128,4 +128,46 @@ export const volunteerSchema = z.object({
 }).refine((data) => !data.supportFields.some((field) => field === "외국어 지원" || field === "통역 및 언어 지원") || Boolean(data.supportLanguage?.trim()), {
   message: "외국어 지원을 선택한 경우 지원 언어를 입력해 주세요.",
   path: ["supportLanguage"]
+});
+
+export const volunteerShiftSchema = z.object({
+  title: z.string().trim().min(2).max(100),
+  description: z.string().max(1000).optional().default(""),
+  location: z.string().max(120).optional().default(""),
+  startAt: z.string().datetime(),
+  endAt: z.string().datetime(),
+  capacity: z.number().int().min(1).max(500),
+  status: z.enum(["open", "closed"]).optional().default("open")
+}).refine((value) => value.endAt > value.startAt, { message: "종료 시각은 시작 시각보다 늦어야 합니다.", path: ["endAt"] });
+
+export const pilgrimSchema = z.object({
+  pilgrimNo: z.string().trim().max(40).optional(),
+  name: z.string().trim().min(2).max(80),
+  gender: z.enum(["남성", "여성"]),
+  diocese: z.string().trim().min(1).max(100),
+  region: z.string().trim().min(1).max(100),
+  grade: z.string().trim().min(1).max(60),
+  age: z.number().int().min(10).max(100),
+  dietType: z.enum(["일반식", "페스코", "락토오보", "락토", "오보", "비건", "육류 제외", "기타"]),
+  dietNotes: z.string().max(500).optional().default(""),
+  allergies: z.string().max(500).optional().default(""),
+  healthNotes: z.string().max(1000).optional().default(""),
+  feverStatus: z.enum(["정상", "관찰", "발열", "진료 필요"]).optional().default("정상"),
+  hostApplicationId: z.string().optional()
+});
+
+export const faqSchema = z.object({
+  category: z.string().trim().min(1).max(40),
+  question: z.string().trim().min(2).max(200),
+  answer: z.string().trim().min(2).max(3000),
+  sortOrder: z.number().int().min(0).max(999).optional().default(0),
+  published: z.boolean().optional().default(true)
+});
+
+export const qnaSchema = z.object({
+  authorName: z.string().trim().min(2).max(60),
+  password: z.string().min(4).max(30),
+  category: z.string().trim().min(1).max(40),
+  title: z.string().trim().min(2).max(160),
+  content: z.string().trim().min(5).max(3000)
 });

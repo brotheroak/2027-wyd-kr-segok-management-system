@@ -13,12 +13,16 @@ import { VolunteerReceipt } from "./pages/VolunteerReceipt.js";
 import { LookupPanel } from "./pages/LookupPanel.js";
 import { PrivacyPage } from "./pages/PrivacyPage.js";
 import { TermsPage } from "./pages/TermsPage.js";
-import { AdminConsoleZip } from "./pages/Admin/AdminConsole.js";
+import { CommunityPage } from "./pages/CommunityPage.js";
+import { VolunteerSchedulePanel } from "./pages/VolunteerSchedulePanel.js";
 import { EmptyState } from "./components/FormFields.js";
 import { AppFooter } from "./components/AppFooter.js";
 
 const USER_TOKEN_KEY = "wydUserToken";
 const USER_EMAIL_KEY = "wydUserEmail";
+const AdminConsoleZip = React.lazy(() =>
+  import("./pages/Admin/AdminConsole.js").then((module) => ({ default: module.AdminConsoleZip }))
+);
 
 function revokeUserSession(token: string | null) {
   if (!token) return;
@@ -34,9 +38,12 @@ export function App() {
   const isAdminPage = currentPath.startsWith("/admin");
   const isPrivacyPage = currentPath.startsWith("/privacy");
   const isTermsPage = currentPath.startsWith("/terms");
+  const isCommunityPage = currentPath.startsWith("/community");
   const keepsApplicantSession = currentPath.startsWith("/check") || currentPath.startsWith("/apply");
   
-  const applicantView: ApplyView = currentPath.startsWith("/check")
+  const applicantView: ApplyView = currentPath.startsWith("/community")
+    ? "community"
+    : currentPath.startsWith("/check")
     ? "check"
     : currentPath.startsWith("/apply/volunteer")
       ? "volunteer"
@@ -156,7 +163,7 @@ export function App() {
       const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!(target instanceof HTMLAnchorElement)) return;
       const url = new URL(target.href);
-      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/privacy", "/terms"]);
+      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/community", "/privacy", "/terms"]);
       if (url.origin !== window.location.origin || !internalPaths.has(url.pathname)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -213,7 +220,9 @@ export function App() {
           </div>
         </header>
         <main className="admin-page">
-          <AdminConsoleZip />
+          <React.Suspense fallback={<div className="admin-loading">운영자 콘솔을 불러오는 중입니다.</div>}>
+            <AdminConsoleZip />
+          </React.Suspense>
         </main>
         <AppFooter navigate={navigate} mode="admin" />
       </div>
@@ -232,6 +241,14 @@ export function App() {
     return (
       <ApplicantShell fontScale={fontScale} setFontScale={setFontScale} view="terms" navigate={navigate}>
         <TermsPage />
+      </ApplicantShell>
+    );
+  }
+
+  if (isCommunityPage) {
+    return (
+      <ApplicantShell fontScale={fontScale} setFontScale={setFontScale} view="community" navigate={navigate}>
+        <CommunityPage />
       </ApplicantShell>
     );
   }
@@ -365,15 +382,18 @@ export function App() {
                 onLogout={handleLogout}
               />
             ) : volunteer ? (
-              <VolunteerReceipt
-                volunteer={volunteer}
-                onEdit={() => navigate("/apply/volunteer")}
-                onCancel={async () => {
-                  const data = await api<{ volunteer: VolunteerPayload }>("/api/my/volunteer", { method: "DELETE" }, userToken);
-                  setVolunteer(data.volunteer);
-                }}
-                onLogout={handleLogout}
-              />
+              <>
+                <VolunteerReceipt
+                  volunteer={volunteer}
+                  onEdit={() => navigate("/apply/volunteer")}
+                  onCancel={async () => {
+                    const data = await api<{ volunteer: VolunteerPayload }>("/api/my/volunteer", { method: "DELETE" }, userToken);
+                    setVolunteer(data.volunteer);
+                  }}
+                  onLogout={handleLogout}
+                />
+                {volunteer.status !== "canceled" && <VolunteerSchedulePanel token={userToken} />}
+              </>
             ) : (
               <EmptyState title="접수 내역이 없습니다" action="신청 화면으로 이동" onClick={() => navigate("/apply")} />
             )}

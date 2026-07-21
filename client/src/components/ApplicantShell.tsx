@@ -23,6 +23,8 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
             ? "자원봉사자 신청"
             : view === "check"
               ? "접수 확인"
+              : view === "community"
+                ? "FAQ 및 Q&A"
               : view === "privacy"
                 ? "개인정보처리방침"
                 : "이용정책";
@@ -73,6 +75,13 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
               }}
             >
               접수 확인
+            </a>
+            <a
+              className={view === "community" ? "active" : ""}
+              href="/community"
+              onClick={(event) => { event.preventDefault(); navigate("/community"); }}
+            >
+              FAQ / Q&A
             </a>
           </nav>
           <div className="accessibility" aria-label="글자 크기 조절">

@@ -8,11 +8,12 @@ import { nanoid } from "nanoid";
 import { db, tables, initDb, isPg, checkDbReady } from "./db.js";
 import { decryptText, encryptText, encryptionEnabled, requireEncryptionKeyInProduction } from "./crypto.js";
 import { notificationStatus, sendVerificationMessage } from "./notifications.js";
-import { applicationSchema, volunteerSchema } from "./validators.js";
-import type { ApplicationPayload, FamilyMember, VolunteerPayload } from "./types.js";
+import { applicationSchema, volunteerSchema, volunteerShiftSchema, pilgrimSchema, faqSchema, qnaSchema } from "./validators.js";
+import type { ApplicationPayload, FamilyMember, VolunteerPayload, PilgrimPayload, VolunteerShiftPayload } from "./types.js";
 import { assignDistrict, normalizeDistrictOverride } from "./districts.js";
 import { verifyTotp } from "./totp.js";
 import { hashPassword, verifyPassword } from "./password.js";
+import { matchesIntegratedSearch } from "./search.js";
 import { sql, eq, and, or, like, desc } from "drizzle-orm";
 
 const app = express();
@@ -336,8 +337,12 @@ async function revokeAdminSessionsByEmail(email: string) {
 
 function requireSession(roles?: Role | Role[]) {
   return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const session = await sessionFrom(req, roles);
+    const session = await sessionFrom(req);
     if (!session) return res.status(401).json({ message: "인증이 필요합니다." });
+    const allowed = Array.isArray(roles) ? roles : roles ? [roles] : null;
+    if (allowed && !allowed.includes(session.role)) {
+      return res.status(403).json({ message: "해당 작업을 수행할 권한이 없습니다." });
+    }
     res.locals.session = session;
     next();
   };
@@ -419,7 +424,7 @@ function visibleApplicationFor(session: Session, application: any) {
   return canAccessPersonalData(session) ? application : anonymizeApplication(application);
 }
 
-async function lockDailySequence(tx: any, kind: "application" | "volunteer", ymd: string) {
+async function lockDailySequence(tx: any, kind: string, ymd: string) {
   if (!isPg) return;
   await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`wyd:${kind}:${ymd}`}))`);
 }
@@ -474,6 +479,24 @@ async function upsertApplication(payload: ApplicationPayload, existingId?: strin
   await db.transaction(async (tx: any) => {
     const ymd = seoulDateKey();
     if (!existingId) await lockDailySequence(tx, "application", ymd);
+    if (!existingId) {
+      const existingHosts = await tx.select({
+        id: tables.applications.id,
+        status: tables.applications.status,
+        repName: tables.applications.repName,
+        phone: tables.applications.phone,
+        address: tables.applications.address,
+        addressDetail: tables.applications.addressDetail
+      }).from(tables.applications);
+      const phoneKey = normalizePhone(parsed.representative.phone);
+      const addressKey = `${plain(parsed.representative.address)} ${plain(parsed.representative.addressDetail ?? "")}`.replace(/\s+/g, "").toLowerCase();
+      const duplicate = existingHosts.find((host: any) => host.status !== "canceled" && (
+        normalizePhone(plain(host.phone)) === phoneKey
+        || (plain(host.repName).trim() === parsed.representative.name.trim()
+          && `${plain(host.address)} ${plain(host.addressDetail ?? "")}`.replace(/\s+/g, "").toLowerCase() === addressKey)
+      ));
+      if (duplicate) throw new Error("이미 등록된 홈스테이 호스트입니다. 접수 확인에서 기존 신청을 조회해 주세요.");
+    }
     const existingRows = existingId
       ? await tx.select({ applicationNo: tables.applications.applicationNo }).from(tables.applications).where(eq(tables.applications.id, existingId))
       : [];
@@ -977,8 +1000,20 @@ function splitDelimited(value = "") {
   return value.split(/[,/;\n]+/).map((item) => item.trim()).filter(Boolean);
 }
 
+function ageGroupFromBirthDate(value: string) {
+  const year = Number(value?.slice(0, 4));
+  if (!year) return "미입력";
+  const age = Number(seoulDateKey().slice(0, 4)) - year;
+  if (age < 30) return "20대 이하";
+  if (age < 40) return "30대";
+  if (age < 50) return "40대";
+  if (age < 60) return "50대";
+  if (age < 70) return "60대";
+  return "70대 이상";
+}
+
 function matchesApplicationFilters(appData: any, query: express.Request["query"]) {
-  const q = String(query.q ?? "").trim().toLowerCase();
+  const q = String(query.q ?? "").trim();
   const status = String(query.status ?? "all");
   const gender = String(query.gender ?? "all");
   const language = String(query.language ?? "all");
@@ -996,15 +1031,22 @@ function matchesApplicationFilters(appData: any, query: express.Request["query"]
   if (ban !== "all" && appData.district?.ban !== ban) return false;
   if (!q) return true;
 
-  return [
+  return matchesIntegratedSearch([
     appData.applicationNo,
     appData.representative.name,
+    appData.representative.gender,
     appData.representative.phone,
     appData.representative.email,
     appData.representative.address,
     appData.district?.label,
-    appData.district?.ban
-  ].some((value) => String(value ?? "").toLowerCase().includes(q));
+    appData.district?.name,
+    appData.district?.ban,
+    appData.homestay.preferredGender,
+    appData.homestay.hasPet ? "반려동물 있음" : "반려동물 없음",
+    appData.homestay.hasBed ? "침대 있음" : "침대 없음",
+    ...appData.members.flatMap((member: any) => [member.name, member.gender, member.relationship]),
+    ...appData.homestay.languages
+  ], q);
 }
 
 function sortApplications(list: any[], query: express.Request["query"]) {
@@ -1023,7 +1065,7 @@ function sortApplications(list: any[], query: express.Request["query"]) {
 }
 
 function matchesVolunteerFilters(volData: any, query: express.Request["query"]) {
-  const q = String(query.q ?? "").trim().toLowerCase();
+  const q = String(query.q ?? "").trim();
   const status = String(query.status ?? "all");
   const field = String(query.field ?? "all");
   const availability = String(query.availability ?? "all");
@@ -1035,15 +1077,21 @@ function matchesVolunteerFilters(volData: any, query: express.Request["query"]) 
   if (language !== "all" && !splitDelimited(volData.supportLanguage).includes(language)) return false;
   if (!q) return true;
 
-  return [
+  return matchesIntegratedSearch([
     volData.volunteerNo,
     volData.name,
+    volData.gender,
     volData.phone,
     volData.email,
     volData.address,
     volData.parishGroup,
-    volData.affiliation
-  ].some((value) => String(value ?? "").toLowerCase().includes(q));
+    volData.affiliation,
+    volData.district?.name,
+    volData.district?.ban,
+    volData.supportLanguage,
+    volData.availability,
+    ...volData.supportFields
+  ], q);
 }
 
 async function filteredApplicationsForAdmin(session: Session, query: express.Request["query"]) {
@@ -1620,7 +1668,9 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   // Calculate statistics database-agnostically
   const allApps = await db.select({
     status: tables.applications.status,
-    capacity: tables.applications.capacity
+    capacity: tables.applications.capacity,
+    gender: tables.applications.gender,
+    birthDate: tables.applications.birthDate
   }).from(tables.applications);
 
   let total = 0;
@@ -1628,6 +1678,8 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   let confirmed = 0;
   let canceled = 0;
   let capacity = 0;
+  const genderCounts: Record<string, number> = { 남성: 0, 여성: 0 };
+  const ageGroupCounts: Record<string, number> = {};
 
   for (const item of allApps) {
     total++;
@@ -1635,12 +1687,17 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
     if (item.status === "confirmed") confirmed++;
     if (item.status === "canceled") canceled++;
     if (item.status !== "canceled") capacity += Number(item.capacity || 0);
+    if (item.status !== "canceled") {
+      genderCounts[item.gender] = (genderCounts[item.gender] ?? 0) + 1;
+      const ageGroup = ageGroupFromBirthDate(item.birthDate);
+      ageGroupCounts[ageGroup] = (ageGroupCounts[ageGroup] ?? 0) + 1;
+    }
   }
 
   res.json({
     role: session.role,
     canViewPersonalData: canAccessPersonalData(session),
-    stats: { total, submitted, confirmed, canceled, capacity },
+    stats: { total, submitted, confirmed, canceled, capacity, genderCounts, ageGroupCounts },
     applications
   });
 });
@@ -1683,18 +1740,19 @@ app.put("/api/admin/applications/:id", requirePrivacyAdmin, async (req, res) => 
   }
 });
 
-app.delete("/api/admin/applications/:id", requireAdmin, async (req, res) => {
+app.delete("/api/admin/applications/:id", requirePrivacyAdmin, async (req, res) => {
   const session = res.locals.session as Session;
   const id = String(req.params.id);
-  
-  await db.update(tables.applications).set({
-    status: "canceled",
-    canceledAt: nowIso(),
-    updatedAt: nowIso()
-  }).where(eq(tables.applications.id, id));
-
-  await logAudit(actorFrom(session), "admin_canceled_application", id);
-  res.json({ application: visibleApplicationFor(session, await getApplication(id)) });
+  const existing = await getApplication(id);
+  if (!existing) return res.status(404).json({ message: "삭제할 홈스테이 신청을 찾을 수 없습니다." });
+  await db.transaction(async (tx: any) => {
+    await tx.update(tables.pilgrims).set({ hostApplicationId: null, updatedAt: nowIso() }).where(eq(tables.pilgrims.hostApplicationId, id));
+    await tx.delete(tables.hostCapabilities).where(eq(tables.hostCapabilities.applicationId, id));
+    await tx.delete(tables.familyMembers).where(eq(tables.familyMembers.applicationId, id));
+    await tx.delete(tables.applications).where(eq(tables.applications.id, id));
+  });
+  await logAudit(actorFrom(session), "privacy_admin_deleted_application", id, { applicationNo: existing.applicationNo });
+  res.json({ deleted: true });
 });
 
 app.get("/api/admin/audit-logs.csv", requirePrivacyAdmin, async (_req, res) => {
@@ -1727,7 +1785,8 @@ app.get("/api/admin/volunteers", requireAdmin, async (req, res) => {
   // Stats calculation
   const allVols = await db.select({
     status: tables.volunteers.status,
-    supportFields: tables.volunteers.supportFields
+    supportFields: tables.volunteers.supportFields,
+    gender: tables.volunteers.gender
   }).from(tables.volunteers);
 
   let total = 0;
@@ -1737,6 +1796,7 @@ app.get("/api/admin/volunteers", requireAdmin, async (req, res) => {
   let languageSupport = 0;
   let medicalSupport = 0;
   let flexibleSupport = 0;
+  const genderCounts: Record<string, number> = { 남성: 0, 여성: 0 };
 
   for (const item of allVols) {
     total++;
@@ -1747,12 +1807,13 @@ app.get("/api/admin/volunteers", requireAdmin, async (req, res) => {
     if (fields.includes("외국어 지원") || fields.includes("통역 및 언어 지원")) languageSupport++;
     if (fields.includes("의료 지원") || fields.includes("의료 봉사")) medicalSupport++;
     if (fields.includes("어느 분야든 필요에 따라 봉사 가능합니다.")) flexibleSupport++;
+    if (item.status !== "canceled") genderCounts[item.gender] = (genderCounts[item.gender] ?? 0) + 1;
   }
 
   res.json({
     role: session.role,
     canViewPersonalData: canAccessPersonalData(session),
-    stats: { total, submitted, confirmed, canceled, languageSupport, medicalSupport, flexibleSupport },
+    stats: { total, submitted, confirmed, canceled, languageSupport, medicalSupport, flexibleSupport, genderCounts },
     volunteers
   });
 });
@@ -2010,6 +2071,240 @@ app.get("/api/admin/match-candidates", requireAdmin, async (req, res) => {
 });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+function rowToPilgrim(row: any) {
+  return {
+    id: row.id,
+    pilgrimNo: row.pilgrimNo,
+    name: plain(row.name),
+    gender: plain(row.gender),
+    diocese: plain(row.diocese),
+    region: plain(row.region),
+    grade: plain(row.grade),
+    age: row.age,
+    dietType: plain(row.dietType),
+    dietNotes: plain(row.dietNotes ?? ""),
+    allergies: plain(row.allergies ?? ""),
+    healthNotes: plain(row.healthNotes ?? ""),
+    feverStatus: plain(row.feverStatus),
+    hostApplicationId: row.hostApplicationId ?? undefined,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  };
+}
+
+async function makePilgrimNo(tx: any) {
+  const ymd = seoulDateKey();
+  await lockDailySequence(tx, "pilgrim", ymd);
+  const rows = await tx.select({ id: tables.pilgrims.id }).from(tables.pilgrims).where(like(tables.pilgrims.pilgrimNo, `PLG-${ymd}-%`));
+  return `PLG-${ymd}-${String(rows.length + 1).padStart(4, "0")}`;
+}
+
+async function shiftView(shift: any, volunteerId?: string, includeSignups = false) {
+  const rows = await db.select().from(tables.volunteerShiftSignups).where(eq(tables.volunteerShiftSignups.shiftId, shift.id));
+  const active = rows.filter((row: any) => row.status === "registered");
+  const view: any = { ...shift, signupCount: active.length, registered: volunteerId ? active.some((row: any) => row.volunteerId === volunteerId) : false };
+  if (includeSignups) {
+    const volunteers = await db.select().from(tables.volunteers);
+    view.signups = active.map((signup: any) => {
+      const volunteer = volunteers.find((item: any) => item.id === signup.volunteerId);
+      return { id: signup.id, volunteerId: signup.volunteerId, volunteerNo: volunteer?.volunteerNo ?? "", name: volunteer ? plain(volunteer.name) : "삭제된 봉사자", phone: volunteer ? plain(volunteer.phone) : "", status: signup.status };
+    });
+  }
+  return view;
+}
+
+app.post("/api/applications/duplicate-check", async (req, res) => {
+  const name = String(req.body.name ?? "").trim();
+  const phone = normalizePhone(String(req.body.phone ?? ""));
+  const address = `${String(req.body.address ?? "")} ${String(req.body.addressDetail ?? "")}`.replace(/\s+/g, "").toLowerCase();
+  const rows = await db.select().from(tables.applications);
+  const duplicate = rows.find((row: any) => row.status !== "canceled" && (
+    (phone && normalizePhone(plain(row.phone)) === phone)
+    || (name && address && plain(row.repName).trim() === name && `${plain(row.address)} ${plain(row.addressDetail ?? "")}`.replace(/\s+/g, "").toLowerCase() === address)
+  ));
+  res.json({ duplicate: Boolean(duplicate) });
+});
+
+app.get("/api/volunteer/shifts", requireSession("user"), async (_req, res) => {
+  const session = res.locals.session as Session;
+  const volunteer = await volunteerForUserSession(session);
+  if (!volunteer?.id) return res.status(403).json({ message: "자원봉사자 접수 확인 후 이용할 수 있습니다." });
+  const rows = await db.select().from(tables.volunteerShifts).orderBy(desc(tables.volunteerShifts.startAt));
+  res.json({ shifts: await Promise.all(rows.map((row: any) => shiftView(row, volunteer.id))) });
+});
+
+app.post("/api/volunteer/shifts/:id/signup", requireSession("user"), async (req, res) => {
+  const session = res.locals.session as Session;
+  const volunteer = await volunteerForUserSession(session);
+  if (!volunteer?.id) return res.status(403).json({ message: "자원봉사자 접수 확인 후 이용할 수 있습니다." });
+  const shiftId = String(req.params.id);
+  try {
+    await db.transaction(async (tx: any) => {
+      await lockDailySequence(tx, `shift:${shiftId}`, "signup");
+      const shifts = await tx.select().from(tables.volunteerShifts).where(eq(tables.volunteerShifts.id, shiftId));
+      const shift = shifts[0];
+      if (!shift || shift.status !== "open") throw new Error("신청 가능한 봉사 일정이 아닙니다.");
+      const signups = await tx.select().from(tables.volunteerShiftSignups);
+      if (signups.some((item: any) => item.shiftId === shiftId && item.volunteerId === volunteer.id && item.status === "registered")) return;
+      const count = signups.filter((item: any) => item.shiftId === shiftId && item.status === "registered").length;
+      if (count >= shift.capacity) throw new Error("해당 봉사 일정의 정원이 마감되었습니다.");
+      const ownShiftIds = signups.filter((item: any) => item.volunteerId === volunteer.id && item.status === "registered").map((item: any) => item.shiftId);
+      if (ownShiftIds.length) {
+        const allShifts = await tx.select().from(tables.volunteerShifts);
+        const overlaps = allShifts.some((item: any) => ownShiftIds.includes(item.id) && shift.startAt < item.endAt && shift.endAt > item.startAt);
+        if (overlaps) throw new Error("이미 신청한 일정과 시간이 겹칩니다.");
+      }
+      await tx.insert(tables.volunteerShiftSignups).values({ id: nanoid(), shiftId, volunteerId: volunteer.id, status: "registered", createdAt: nowIso() });
+    });
+    await logAudit(session.email, "volunteer_registered_shift", volunteer.id, { shiftId });
+    res.json({ registered: true });
+  } catch (error) {
+    res.status(409).json({ message: (error as Error).message });
+  }
+});
+
+app.delete("/api/volunteer/shifts/:id/signup", requireSession("user"), async (req, res) => {
+  const session = res.locals.session as Session;
+  const volunteer = await volunteerForUserSession(session);
+  if (!volunteer?.id) return res.status(403).json({ message: "자원봉사자 접수 확인 후 이용할 수 있습니다." });
+  await db.delete(tables.volunteerShiftSignups).where(and(eq(tables.volunteerShiftSignups.shiftId, String(req.params.id)), eq(tables.volunteerShiftSignups.volunteerId, volunteer.id)));
+  res.json({ registered: false });
+});
+
+app.get("/api/admin/shifts", requireAdmin, async (_req, res) => {
+  const rows = await db.select().from(tables.volunteerShifts).orderBy(desc(tables.volunteerShifts.startAt));
+  res.json({ shifts: await Promise.all(rows.map((row: any) => shiftView(row, undefined, true))) });
+});
+
+app.post("/api/admin/shifts", requireAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  try {
+    const parsed = volunteerShiftSchema.parse(req.body as VolunteerShiftPayload);
+    const now = nowIso();
+    const shift = { id: nanoid(), ...parsed, createdBy: actorFrom(session), createdAt: now, updatedAt: now };
+    await db.insert(tables.volunteerShifts).values(shift);
+    await logAudit(actorFrom(session), "admin_created_shift", shift.id);
+    res.status(201).json({ shift: await shiftView(shift) });
+  } catch (error) { res.status(400).json({ message: (error as Error).message }); }
+});
+
+app.put("/api/admin/shifts/:id", requireAdmin, async (req, res) => {
+  try {
+    const parsed = volunteerShiftSchema.parse(req.body as VolunteerShiftPayload);
+    await db.update(tables.volunteerShifts).set({ ...parsed, updatedAt: nowIso() }).where(eq(tables.volunteerShifts.id, String(req.params.id)));
+    const rows = await db.select().from(tables.volunteerShifts).where(eq(tables.volunteerShifts.id, String(req.params.id)));
+    res.json({ shift: rows[0] ? await shiftView(rows[0], undefined, true) : null });
+  } catch (error) { res.status(400).json({ message: (error as Error).message }); }
+});
+
+app.delete("/api/admin/shifts/:id", requireAdmin, async (req, res) => {
+  const id = String(req.params.id);
+  await db.transaction(async (tx: any) => {
+    await tx.delete(tables.volunteerShiftSignups).where(eq(tables.volunteerShiftSignups.shiftId, id));
+    await tx.delete(tables.volunteerShifts).where(eq(tables.volunteerShifts.id, id));
+  });
+  res.json({ deleted: true });
+});
+
+app.get("/api/admin/pilgrims", requirePrivacyAdmin, async (req, res) => {
+  const query = String(req.query.q ?? "");
+  const rows = await db.select().from(tables.pilgrims).orderBy(desc(tables.pilgrims.updatedAt));
+  const hosts = await db.select().from(tables.applications);
+  const logs = await db.select().from(tables.pilgrimMealLogs).orderBy(desc(tables.pilgrimMealLogs.recordedAt));
+  const pilgrims = rows.map(rowToPilgrim).filter((item: any) => matchesIntegratedSearch([item.pilgrimNo, item.name, item.gender, item.diocese, item.region, item.grade, item.dietType, item.allergies, item.feverStatus], query)).map((item: any) => {
+    const host = hosts.find((hostRow: any) => hostRow.id === item.hostApplicationId);
+    return { ...item, host: host ? { applicationNo: host.applicationNo, name: plain(host.repName), address: plain(host.address) } : null, mealLogs: logs.filter((log: any) => log.pilgrimId === item.id).map((log: any) => ({ id: log.id, mealType: log.mealType, note: plain(log.note), recordedAt: log.recordedAt })) };
+  });
+  res.json({ pilgrims, hosts: hosts.filter((host: any) => host.status === "confirmed").map((host: any) => ({ id: host.id, applicationNo: host.applicationNo, name: plain(host.repName), address: plain(host.address), capacity: host.capacity })) });
+});
+
+app.post("/api/admin/pilgrims", requirePrivacyAdmin, async (req, res) => {
+  try {
+    const parsed = pilgrimSchema.parse(req.body as PilgrimPayload);
+    const now = nowIso();
+    let created: any;
+    await db.transaction(async (tx: any) => {
+      const pilgrimNo = parsed.pilgrimNo || await makePilgrimNo(tx);
+      created = { id: nanoid(), pilgrimNo, name: pii(parsed.name), gender: pii(parsed.gender), diocese: pii(parsed.diocese), region: pii(parsed.region), grade: pii(parsed.grade), age: parsed.age, dietType: pii(parsed.dietType), dietNotes: pii(parsed.dietNotes), allergies: pii(parsed.allergies), healthNotes: pii(parsed.healthNotes), feverStatus: pii(parsed.feverStatus), hostApplicationId: parsed.hostApplicationId || null, createdAt: now, updatedAt: now };
+      await tx.insert(tables.pilgrims).values(created);
+    });
+    res.status(201).json({ pilgrim: rowToPilgrim(created) });
+  } catch (error) { res.status(400).json({ message: (error as Error).message }); }
+});
+
+app.put("/api/admin/pilgrims/:id", requirePrivacyAdmin, async (req, res) => {
+  try {
+    const parsed = pilgrimSchema.parse(req.body as PilgrimPayload);
+    const id = String(req.params.id);
+    const current = (await db.select().from(tables.pilgrims).where(eq(tables.pilgrims.id, id)))[0];
+    if (!current) return res.status(404).json({ message: "순례자 정보를 찾을 수 없습니다." });
+    await db.update(tables.pilgrims).set({ pilgrimNo: parsed.pilgrimNo || current.pilgrimNo, name: pii(parsed.name), gender: pii(parsed.gender), diocese: pii(parsed.diocese), region: pii(parsed.region), grade: pii(parsed.grade), age: parsed.age, dietType: pii(parsed.dietType), dietNotes: pii(parsed.dietNotes), allergies: pii(parsed.allergies), healthNotes: pii(parsed.healthNotes), feverStatus: pii(parsed.feverStatus), hostApplicationId: parsed.hostApplicationId || null, updatedAt: nowIso() }).where(eq(tables.pilgrims.id, id));
+    const rows = await db.select().from(tables.pilgrims).where(eq(tables.pilgrims.id, id));
+    res.json({ pilgrim: rows[0] ? rowToPilgrim(rows[0]) : null });
+  } catch (error) { res.status(400).json({ message: (error as Error).message }); }
+});
+
+app.delete("/api/admin/pilgrims/:id", requirePrivacyAdmin, async (req, res) => {
+  const id = String(req.params.id);
+  await db.transaction(async (tx: any) => {
+    await tx.delete(tables.pilgrimMealLogs).where(eq(tables.pilgrimMealLogs.pilgrimId, id));
+    await tx.delete(tables.pilgrims).where(eq(tables.pilgrims.id, id));
+  });
+  res.json({ deleted: true });
+});
+
+app.post("/api/admin/pilgrims/:id/meals", requirePrivacyAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  const mealType = String(req.body.mealType ?? "").trim();
+  if (!mealType) return res.status(400).json({ message: "식사 구분을 선택해 주세요." });
+  await db.insert(tables.pilgrimMealLogs).values({ id: nanoid(), pilgrimId: String(req.params.id), mealType, note: pii(String(req.body.note ?? "")), recordedBy: pii(actorFrom(session)), recordedAt: nowIso() });
+  res.status(201).json({ recorded: true });
+});
+
+app.get("/api/community", async (_req, res) => {
+  const faqRows = await db.select().from(tables.faqs).orderBy(tables.faqs.sortOrder);
+  const qnaRows = await db.select().from(tables.qnaPosts).orderBy(desc(tables.qnaPosts.createdAt));
+  const faqs = faqRows.filter((row: any) => row.published === true || row.published === 1).map((row: any) => ({ ...row, published: true }));
+  const qnas = qnaRows.map((row: any) => ({ id: row.id, authorName: maskName(plain(row.authorName)), category: row.category, title: row.title, content: plain(row.content), answer: plain(row.answer), status: row.status, createdAt: row.createdAt, answeredAt: row.answeredAt }));
+  res.json({ faqs, qnas });
+});
+
+app.post("/api/community/qna", async (req, res) => {
+  try {
+    const parsed = qnaSchema.parse(req.body);
+    const row = { id: nanoid(), authorName: pii(parsed.authorName), passwordHash: hashPassword(parsed.password), category: parsed.category, title: parsed.title, content: pii(parsed.content), answer: pii(""), status: "waiting", createdAt: nowIso(), answeredAt: null };
+    await db.insert(tables.qnaPosts).values(row);
+    res.status(201).json({ id: row.id, message: "질문이 등록되었습니다." });
+  } catch (error) { res.status(400).json({ message: (error as Error).message }); }
+});
+
+app.get("/api/admin/community", requireAdmin, async (_req, res) => {
+  const faqs = await db.select().from(tables.faqs).orderBy(tables.faqs.sortOrder);
+  const qnas = (await db.select().from(tables.qnaPosts).orderBy(desc(tables.qnaPosts.createdAt))).map((row: any) => ({ ...row, authorName: plain(row.authorName), content: plain(row.content), answer: plain(row.answer), passwordHash: undefined }));
+  res.json({ faqs: faqs.map((row: any) => ({ ...row, published: row.published === true || row.published === 1 })), qnas });
+});
+
+app.post("/api/admin/faqs", requireAdmin, async (req, res) => {
+  try { const parsed = faqSchema.parse(req.body); const now = nowIso(); const row = { id: nanoid(), ...parsed, published: isPg ? parsed.published : parsed.published ? 1 : 0, createdAt: now, updatedAt: now }; await db.insert(tables.faqs).values(row); res.status(201).json({ faq: { ...row, published: parsed.published } }); }
+  catch (error) { res.status(400).json({ message: (error as Error).message }); }
+});
+
+app.put("/api/admin/faqs/:id", requireAdmin, async (req, res) => {
+  try { const parsed = faqSchema.parse(req.body); await db.update(tables.faqs).set({ ...parsed, published: isPg ? parsed.published : parsed.published ? 1 : 0, updatedAt: nowIso() }).where(eq(tables.faqs.id, String(req.params.id))); res.json({ updated: true }); }
+  catch (error) { res.status(400).json({ message: (error as Error).message }); }
+});
+
+app.delete("/api/admin/faqs/:id", requireAdmin, async (req, res) => { await db.delete(tables.faqs).where(eq(tables.faqs.id, String(req.params.id))); res.json({ deleted: true }); });
+
+app.patch("/api/admin/qna/:id/answer", requireAdmin, async (req, res) => {
+  const answer = String(req.body.answer ?? "").trim();
+  if (answer.length < 2) return res.status(400).json({ message: "답변을 입력해 주세요." });
+  await db.update(tables.qnaPosts).set({ answer: pii(answer), status: "answered", answeredAt: nowIso() }).where(eq(tables.qnaPosts.id, String(req.params.id)));
+  res.json({ answered: true });
+});
+
+app.delete("/api/admin/qna/:id", requireAdmin, async (req, res) => { await db.delete(tables.qnaPosts).where(eq(tables.qnaPosts.id, String(req.params.id))); res.json({ deleted: true }); });
+
 const clientDist = path.resolve(__dirname, "../client");
 const indexHtmlPath = path.join(clientDist, "index.html");
 

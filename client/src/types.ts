@@ -57,7 +57,7 @@ export type ApplicationPayload = {
 };
 
 export type AdminRole = "admin" | "privacy_admin" | "super_admin";
-export type ApplyView = "intro" | "apply" | "homestay" | "volunteer" | "check" | "privacy" | "terms";
+export type ApplyView = "intro" | "apply" | "homestay" | "volunteer" | "check" | "community" | "privacy" | "terms";
 
 export type VolunteerPayload = {
   id?: string;
@@ -84,3 +84,41 @@ export type VolunteerPayload = {
   district?: DistrictInfo;
   updatedAt?: string;
 };
+
+export type VolunteerShift = {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  startAt: string;
+  endAt: string;
+  capacity: number;
+  status: "open" | "closed";
+  signupCount: number;
+  registered?: boolean;
+  signups?: Array<{ id: string; volunteerId: string; volunteerNo: string; name: string; phone: string; status: string }>;
+};
+
+export type Pilgrim = {
+  id: string;
+  pilgrimNo: string;
+  name: string;
+  gender: string;
+  diocese: string;
+  region: string;
+  grade: string;
+  age: number;
+  dietType: string;
+  dietNotes: string;
+  allergies: string;
+  healthNotes: string;
+  feverStatus: string;
+  hostApplicationId?: string;
+  host?: { applicationNo: string; name: string; address: string } | null;
+  mealLogs?: Array<{ id: string; mealType: string; note: string; recordedAt: string }>;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type FaqItem = { id: string; category: string; question: string; answer: string; sortOrder: number; published: boolean };
+export type QnaPost = { id: string; authorName: string; category: string; title: string; content: string; answer: string; status: string; createdAt: string; answeredAt?: string };

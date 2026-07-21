@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applicationSchema, volunteerSchema } from "./validators.js";
+import { applicationSchema, volunteerSchema, volunteerShiftSchema, pilgrimSchema } from "./validators.js";
 import type { ApplicationPayload, VolunteerPayload } from "./types.js";
 
 function validApplication(overrides: Partial<ApplicationPayload> = {}): ApplicationPayload {
@@ -116,6 +116,16 @@ test("홈스테이 신청서는 수용 가능 인원을 20명 이하로 제한�
     }
   });
   assert.equal(applicationSchema.safeParse(payload).success, false);
+});
+
+test("홈스테이 신청서는 순례자 1명만 수용하는 신청을 거부한다", () => {
+  const payload = validApplication({ homestay: { ...validApplication().homestay, capacity: 1 } });
+  assert.equal(applicationSchema.safeParse(payload).success, false);
+});
+
+test("13구역 수동 설정을 허용한다", () => {
+  const payload = validApplication({ district: { no: "13", name: "13구역", ban: "13-2", label: "13구역 13-2반" } });
+  assert.equal(applicationSchema.safeParse(payload).success, true);
 });
 
 test("자원봉사자 신청서는 정상 입력값을 통과시킨다", () => {
@@ -243,4 +253,14 @@ test("자원봉사자 신청서는 기존 지원 분야 명칭도 수정 호환�
     availability: "주간"
   });
   assert.equal(volunteerSchema.safeParse(payload).success, true);
+});
+
+test("봉사 일정은 종료 시각이 시작 시각보다 늦어야 한다", () => {
+  const result = volunteerShiftSchema.safeParse({ title: "행사 안내", startAt: "2027-08-03T10:00:00.000Z", endAt: "2027-08-03T09:00:00.000Z", capacity: 20 });
+  assert.equal(result.success, false);
+});
+
+test("순례자 운영 정보는 식단과 건강 상태를 검증한다", () => {
+  const result = pilgrimSchema.safeParse({ name: "김순례", gender: "여성", diocese: "서울대교구", region: "강남", grade: "대학생", age: 20, dietType: "비건", feverStatus: "관찰" });
+  assert.equal(result.success, true);
 });

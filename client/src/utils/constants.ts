@@ -54,7 +54,7 @@ export const emptyApplication = (email = ""): ApplicationPayload => ({
     petDescription: "",
     languages: ["한국어"],
     preferredGender: "상관없음",
-    capacity: 1,
+    capacity: 2,
     hasBed: false,
     spaceDescription: ""
   },
