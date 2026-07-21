@@ -143,19 +143,6 @@ export function AdminConsoleZip() {
   useEffect(() => {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
     localStorage.removeItem(ADMIN_ROLE_KEY);
-
-    const expireAdminSession = () => {
-      const currentToken = sessionStorage.getItem(ADMIN_TOKEN_KEY);
-      revokeAdminSession(currentToken);
-      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-      sessionStorage.removeItem(ADMIN_ROLE_KEY);
-    };
-
-    window.addEventListener("pagehide", expireAdminSession);
-    return () => {
-      window.removeEventListener("pagehide", expireAdminSession);
-      expireAdminSession();
-    };
   }, []);
 
   useEffect(() => {
@@ -163,6 +150,30 @@ export function AdminConsoleZip() {
       logout();
     });
   }, [token, status]);
+
+  useEffect(() => {
+    if (!token) return;
+    let stopped = false;
+
+    const refreshSession = async () => {
+      if (stopped || document.visibilityState !== "visible") return;
+      try {
+        await api("/api/admin/session", {}, token);
+      } catch {
+        if (!stopped) logout();
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshSession();
+    };
+    const timer = window.setInterval(() => void refreshSession(), 5 * 60 * 1000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [token]);
 
   useEffect(() => {
     setFilterDistrictBan("all");

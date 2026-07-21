@@ -193,6 +193,7 @@
 | POST | `/api/admin/pilgrims/:id/share` | 순례자 카드 링크 발급 및 이메일/SMS 발송 |
 | POST | `/api/pilgrims/card` | 비밀 토큰 기반 순례자 본인 카드 조회 |
 | POST | `/api/host/pilgrims/resolve` | 인증·배정 확인 후 호스트용 순례자 카드 조회 |
+| GET | `/api/admin/session` | 운영자 활성 세션 확인 및 유휴 만료 시각 갱신 |
 | POST | `/api/admin/pilgrims/:id/meals` | 순례자 식사 이력 기록 |
 | GET/POST | `/api/community`, `/api/community/qna` | 공개 FAQ·Q&A 조회/등록 |
 | GET/POST/PUT/DELETE | `/api/admin/community` | 운영자 FAQ·Q&A 관리 |

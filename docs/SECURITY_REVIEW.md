@@ -68,6 +68,8 @@ ADMIN_SESSION_MINUTES=30
 TRUST_PROXY=1
 ```
 
+운영자 콘솔은 브라우저 탭이 보이는 동안 5분 주기로 세션을 갱신합니다. 새로고침이나 짧은 앱 전환만으로 세션을 폐기하지 않으며, 탭이 비활성화된 뒤 서버의 `ADMIN_SESSION_MINUTES` 동안 요청이 없으면 만료됩니다. 토큰은 `sessionStorage`에만 저장되어 탭을 완전히 닫으면 브라우저에서 제거됩니다.
+
 집중 접수 이벤트에서 429가 많으면 `RATE_LIMIT_MAX`를 조금 올리고, 503이 많으면 서버 CPU/메모리/DB I/O를 먼저 확인한 뒤 `MAX_CONCURRENT_REQUESTS`를 조정합니다.
 
 현재 Cloud Run 자동 배포 기준:

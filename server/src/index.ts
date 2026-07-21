@@ -1482,6 +1482,12 @@ app.post("/api/admin/logout", async (req, res) => {
   res.status(204).end();
 });
 
+app.get("/api/admin/session", requireAdmin, (_req, res) => {
+  const session = res.locals.session as Session;
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.json({ active: true, role: session.role, idleTimeoutMinutes: adminSessionMinutes });
+});
+
 app.post("/api/admin/change-password", requireAdmin, async (req, res) => {
   const session = res.locals.session as Session;
   const currentPassword = String(req.body.currentPassword ?? "");
