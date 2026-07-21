@@ -11,7 +11,7 @@ function cameraErrorMessage(error: unknown) {
   return "카메라를 시작하지 못했습니다. HTTPS 접속과 브라우저 권한을 확인해 주세요.";
 }
 
-export function HostPilgrimScanner({ token, onAuthenticate }: { token?: string; onAuthenticate: () => void }) {
+export function HostPilgrimScanner({ token, onAuthenticate, embedded = false }: { token?: string; onAuthenticate: () => void; embedded?: boolean }) {
   const [cardValue, setCardValue] = useState("");
   const [language, setLanguage] = useState<PilgrimCardLanguage>("ko");
   const [pilgrim, setPilgrim] = useState<PublicPilgrimCard | null>(null);
@@ -68,7 +68,7 @@ export function HostPilgrimScanner({ token, onAuthenticate }: { token?: string; 
   const labels = pilgrimCardLabels[language];
   return (
     <section className="single host-pilgrim-page">
-      <div className="page-heading"><span>Host Pilgrim Check</span><h2>배정 순례자 카드 확인</h2><p>순례자의 카드 바코드를 촬영하면 우리 가정에 배정된 순례자의 등록 정보와 식단 주의사항을 확인할 수 있습니다.</p></div>
+      {!embedded && <div className="page-heading"><span>Host Pilgrim Check</span><h2>배정 순례자 카드 확인</h2><p>순례자의 카드 바코드를 촬영하면 우리 가정에 배정된 순례자의 등록 정보와 식단 주의사항을 확인할 수 있습니다.</p></div>}
       {!token ? <div className="panel host-auth-required"><ShieldCheck /><h3>호스트 인증이 필요합니다.</h3><p>홈스테이 접수 내역을 조회한 뒤 배정 순례자 카드를 확인할 수 있습니다.</p><button className="primary" onClick={onAuthenticate}>호스트 접수 인증</button></div> : (
         <>
           <div className="panel host-scanner-panel">

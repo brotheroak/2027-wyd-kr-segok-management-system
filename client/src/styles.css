@@ -359,6 +359,47 @@ button.brand:focus-visible .brand-mark {
   padding: 0 var(--page-gutter);
 }
 
+.pilgrim-portal-shell { width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f5f3ee; }
+.pilgrim-portal-topbar { width: 100%; }
+.pilgrim-portal-topbar-inner { width: 100%; padding: 0 var(--page-gutter); }
+.pilgrim-portal-home { display: inline-flex; align-items: center; justify-content: center; gap: 7px; margin-left: auto; min-height: 42px; }
+.pilgrim-portal-page { flex: 1 0 auto; width: min(1180px, calc(100% - (var(--page-gutter) * 2))); margin: 0 auto; padding: 52px 0 64px; }
+.pilgrim-portal-heading { max-width: 780px; margin: 0 auto 30px; text-align: center; }
+.pilgrim-portal-heading > span,
+.pilgrim-portal-copy > span { color: #9b7620; font-size: .76rem; font-weight: 900; text-transform: uppercase; }
+.pilgrim-portal-heading h2 { margin: 8px 0 0; font-family: var(--display-font); font-size: clamp(2.1rem, 4vw, 3.15rem); }
+.pilgrim-portal-heading p { margin: 14px 0 0; color: #596477; line-height: 1.7; }
+.pilgrim-portal-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 720px; margin: 0 auto 24px; border: 1px solid #d8d0c2; background: #fff; }
+.pilgrim-portal-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 58px; border: 0; border-bottom: 3px solid transparent; color: #667085; background: #fff; font-weight: 900; }
+.pilgrim-portal-tabs button + button { border-left: 1px solid #e5dfd4; }
+.pilgrim-portal-tabs button.active { border-bottom-color: #af872d; color: #111c32; background: #fbf7ec; }
+.pilgrim-portal-tabs svg { width: 21px; }
+.pilgrim-portal-access { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(340px, .9fr); border: 1px solid #d8d0c2; background: #fff; box-shadow: 0 20px 48px rgba(17, 28, 50, .1); }
+.pilgrim-portal-copy { padding: 38px; color: #fff; background: #17243a; }
+.pilgrim-portal-copy h3 { margin: 9px 0 14px; font-family: var(--display-font); font-size: 1.8rem; }
+.pilgrim-portal-copy > p { margin: 0; color: #d3dae5; line-height: 1.75; }
+.pilgrim-portal-copy dl { display: grid; gap: 16px; margin: 30px 0 0; }
+.pilgrim-portal-copy dl div { padding-top: 16px; border-top: 1px solid rgba(255,255,255,.16); }
+.pilgrim-portal-copy dt { display: flex; align-items: center; gap: 8px; color: #e3c66f; font-weight: 900; }
+.pilgrim-portal-copy dt svg { width: 19px; }
+.pilgrim-portal-copy dd { margin: 7px 0 0; color: #d3dae5; line-height: 1.6; }
+.pilgrim-portal-form { display: grid; align-content: center; gap: 18px; padding: 38px; }
+.pilgrim-portal-form label { display: grid; gap: 7px; color: #303846; font-weight: 900; }
+.pilgrim-portal-form input { width: 100%; }
+.pilgrim-portal-form .primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; }
+.pilgrim-host-workspace { display: grid; gap: 20px; }
+.host-session-banner { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; padding: 17px 20px; border: 1px solid #d8d0c2; background: #fff; }
+.host-session-banner.confirmed { border-color: #a9d4c2; background: #f1faf6; }
+.host-session-banner.pending { border-color: #e0ca91; background: #fff9e9; }
+.host-session-banner > svg { color: #16856b; }
+.host-session-banner.pending > svg { color: #9b7620; }
+.host-session-banner p { margin: 4px 0 0; color: #667085; }
+.host-session-banner button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.host-approval-wait { display: grid; justify-items: center; gap: 10px; padding: 54px 20px; text-align: center; }
+.host-approval-wait > svg { width: 40px; height: 40px; color: #9b7620; }
+.host-approval-wait h3,
+.host-approval-wait p { margin: 0; }
+
 .admin-header-menu-slot {
   flex: 1 1 auto;
   display: flex;
@@ -3455,6 +3496,22 @@ td small {
     align-items: stretch;
     gap: 12px;
   }
+  .pilgrim-portal-topbar { padding: 13px 0; }
+  .pilgrim-portal-topbar-inner { display: grid; grid-template-columns: 1fr auto; }
+  .pilgrim-portal-topbar-inner .brand { grid-column: 1 / -1; }
+  .pilgrim-portal-home { margin-left: 0; }
+  .pilgrim-portal-topbar-inner .accessibility { margin-left: 0; justify-self: end; }
+  .pilgrim-portal-page { padding: 34px 0 44px; }
+  .pilgrim-portal-heading { margin-bottom: 22px; }
+  .pilgrim-portal-heading p { text-align: left; }
+  .pilgrim-portal-tabs { margin-bottom: 16px; }
+  .pilgrim-portal-tabs button { min-height: 54px; padding: 8px; }
+  .pilgrim-portal-access { grid-template-columns: 1fr; }
+  .pilgrim-portal-copy,
+  .pilgrim-portal-form { padding: 24px 18px; }
+  .pilgrim-portal-copy h3 { font-size: 1.55rem; }
+  .host-session-banner { grid-template-columns: auto 1fr; }
+  .host-session-banner button { grid-column: 1 / -1; width: 100%; }
   .brand {
     min-width: 0;
   }

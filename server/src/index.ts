@@ -1354,6 +1354,22 @@ app.post("/api/applications/lookup", async (req, res) => {
   res.json({ token, application });
 });
 
+app.post("/api/hosts/login", async (req, res) => {
+  const name = String(req.body.name ?? "").trim();
+  const phone = String(req.body.phone ?? "").trim();
+  const applicantPin = String(req.body.applicantPin ?? "").trim();
+  if (!name || !phone || !/^\d{4}$/.test(applicantPin)) {
+    return res.status(400).json({ message: "호스트 성명, 연락처, 숫자 비밀번호 4자리를 입력해 주세요." });
+  }
+  const application = await findApplicationByLookup(name, phone, applicantPin);
+  if (!application || application.status === "canceled") {
+    return res.status(404).json({ message: "일치하는 활성 홈스테이 호스트 접수를 찾을 수 없습니다." });
+  }
+  const token = await createApplicantSession(application.id);
+  await logAudit(phone, "host_login", application.id, { status: application.status });
+  res.json({ token, application });
+});
+
 app.post("/api/volunteers", async (req, res) => {
   try {
     const volunteer = await upsertVolunteer(req.body as VolunteerPayload);
@@ -2503,11 +2519,19 @@ function absolutePublicUrl(req: express.Request, pathname: string) {
 function buildOgMeta(req: express.Request) {
   const isAdminRoute = req.path.startsWith("/admin");
   const isPrivateCardRoute = req.path.startsWith("/pilgrim/card");
-  const pathname = isAdminRoute ? "/admin" : req.path || "/";
+  const isPilgrimPortalRoute = req.path === "/pilgrim" || req.path.startsWith("/host/pilgrims");
+  const pathname = isAdminRoute ? "/admin" : isPilgrimPortalRoute ? "/pilgrim" : req.path || "/";
   const profile = isPrivateCardRoute
     ? {
         title: "2027 WYD 순례자 카드",
         description: "세곡동성당 WYD 순례자 전용 등록 카드",
+        image: "/images/og-preview.png",
+        robots: "noindex,nofollow,noarchive"
+      }
+    : isPilgrimPortalRoute
+    ? {
+        title: "2027 WYD 순례자 확인 포털",
+        description: "세곡동성당 WYD 순례자 카드 및 홈스테이 호스트 전용 확인 화면",
         image: "/images/og-preview.png",
         robots: "noindex,nofollow,noarchive"
       }

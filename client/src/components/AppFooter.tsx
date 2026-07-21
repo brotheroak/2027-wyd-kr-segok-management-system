@@ -52,8 +52,8 @@ export function AppFooter({ navigate, mode = "public" }: AppFooterProps) {
             <a href="/community" onClick={(event) => { event.preventDefault(); navigate("/community"); }}>
               FAQ / Q&A
             </a>
-            <a href="/host/pilgrims" onClick={(event) => { event.preventDefault(); navigate("/host/pilgrims"); }}>
-              배정 순례자 확인
+            <a href="/pilgrim" onClick={(event) => { event.preventDefault(); navigate("/pilgrim"); }}>
+              순례자·호스트 확인
             </a>
           </div>
           {mode === "admin" && (

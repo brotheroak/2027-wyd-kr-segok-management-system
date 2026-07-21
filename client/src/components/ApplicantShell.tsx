@@ -94,13 +94,6 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
             >
               FAQ / Q&A
             </a>
-            <a
-              className={view === "host" ? "active" : ""}
-              href="/host/pilgrims"
-              onClick={(event) => { event.preventDefault(); navigate("/host/pilgrims"); }}
-            >
-              순례자 확인
-            </a>
           </nav>
           <div className="accessibility" aria-label="글자 크기 조절">
             <Accessibility size={20} />

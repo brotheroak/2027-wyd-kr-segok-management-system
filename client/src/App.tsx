@@ -18,6 +18,7 @@ import { VolunteerSchedulePanel } from "./pages/VolunteerSchedulePanel.js";
 import { VolunteerLoginModal } from "./pages/VolunteerLoginModal.js";
 import { HostPilgrimScanner } from "./pages/HostPilgrimScanner.js";
 import { PilgrimCardPage } from "./pages/PilgrimCardPage.js";
+import { PilgrimAccessPortal } from "./pages/PilgrimAccessPortal.js";
 import { EmptyState } from "./components/FormFields.js";
 import { AppFooter } from "./components/AppFooter.js";
 
@@ -43,8 +44,9 @@ export function App() {
   const isTermsPage = currentPath.startsWith("/terms");
   const isCommunityPage = currentPath.startsWith("/community");
   const isPilgrimCardPage = currentPath === "/pilgrim/card";
+  const isPilgrimPortalPage = currentPath === "/pilgrim" || currentPath.startsWith("/host/pilgrims");
   const pilgrimCardToken = isPilgrimCardPage && window.location.hash.length > 1 ? decodeURIComponent(window.location.hash.slice(1)) : "";
-  const keepsApplicantSession = currentPath.startsWith("/check") || currentPath.startsWith("/apply") || currentPath.startsWith("/schedule") || currentPath.startsWith("/host/pilgrims");
+  const keepsApplicantSession = currentPath.startsWith("/check") || currentPath.startsWith("/apply") || currentPath.startsWith("/schedule") || currentPath.startsWith("/pilgrim") || currentPath.startsWith("/host/pilgrims");
   
   const applicantView: ApplyView = currentPath.startsWith("/community")
     ? "community"
@@ -168,12 +170,18 @@ export function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const openPilgrimCard = (token: string) => {
+    window.history.pushState({}, "", `/pilgrim/card#${encodeURIComponent(token)}`);
+    setCurrentPath("/pilgrim/card");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   useEffect(() => {
     const onInternalLinkClick = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!(target instanceof HTMLAnchorElement)) return;
       const url = new URL(target.href);
-      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/schedule", "/community", "/host/pilgrims", "/privacy", "/terms"]);
+      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/schedule", "/community", "/pilgrim", "/host/pilgrims", "/privacy", "/terms"]);
       if (url.origin !== window.location.origin || !internalPaths.has(url.pathname)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -238,6 +246,22 @@ export function App() {
         </main>
         <AppFooter navigate={navigate} mode="admin" />
       </div>
+    );
+  }
+
+  if (isPilgrimPortalPage) {
+    return (
+      <PilgrimAccessPortal
+        fontScale={fontScale}
+        setFontScale={setFontScale}
+        navigate={navigate}
+        initialMode={currentPath.startsWith("/host/pilgrims") ? "host" : "pilgrim"}
+        hostToken={application && application.status !== "canceled" ? userToken ?? undefined : undefined}
+        hostApplication={application}
+        onHostAuthorized={onApplicationAuthorized}
+        onHostLogout={handleLogout}
+        onOpenPilgrimCard={openPilgrimCard}
+      />
     );
   }
 
