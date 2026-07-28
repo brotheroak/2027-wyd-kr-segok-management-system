@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -89,6 +89,7 @@ export function PilgrimAttendanceAdminPanel({
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<"success" | "error" | "info">("info");
   const [busy, setBusy] = useState(false);
+  const mapSyncRequestRef = useRef(0);
 
   const load = async (nextQuery = query, nextCheckpoint = checkpointFilter) => {
     const response = await api<AttendanceData>(
@@ -173,22 +174,52 @@ export function PilgrimAttendanceAdminPanel({
       }
       const latitude = position.coords.latitude;
       const longitude = position.coords.longitude;
-      let address = form.address;
-      if (!address) {
-        try {
-          address = await reverseGeocodeGoogleLocation(latitude, longitude);
-        } catch {
-          // 좌표 지정은 주소 역검색 실패와 관계없이 완료한다.
-        }
+      let locationAddress: Awaited<ReturnType<typeof reverseGeocodeGoogleLocation>> | null = null;
+      try {
+        locationAddress = await reverseGeocodeGoogleLocation(latitude, longitude);
+      } catch {
+        // GPS 좌표는 주소 역검색 실패와 관계없이 반영한다.
       }
-      setForm((current) => ({ ...current, address: address || current.address, latitude, longitude }));
+      setForm((current) => ({
+        ...current,
+        address: locationAddress?.address || current.address,
+        postcode: locationAddress?.postcode || current.postcode,
+        latitude,
+        longitude
+      }));
       setMessageTone("success");
-      setMessage(`현재 위치로 좌표를 지정했습니다. GPS 오차는 약 ${Math.round(position.coords.accuracy)}m입니다.`);
+      setMessage(locationAddress
+        ? `현재 위치의 주소와 좌표를 함께 지정했습니다. GPS 오차는 약 ${Math.round(position.coords.accuracy)}m입니다.`
+        : `현재 위치 좌표를 지정했습니다. 주소는 찾지 못했으므로 직접 확인해 주세요. GPS 오차는 약 ${Math.round(position.coords.accuracy)}m입니다.`);
     } catch (error) {
       setMessageTone("error");
       setMessage(isGeolocationError(error) ? geolocationErrorMessage(error) : (error as Error).message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const syncLocationFromMap = async (latitude: number, longitude: number) => {
+    const requestId = ++mapSyncRequestRef.current;
+    setForm((current) => ({ ...current, latitude, longitude }));
+    setMessageTone("info");
+    setMessage("지도 핀 위치의 주소를 확인하고 있습니다.");
+    try {
+      const locationAddress = await reverseGeocodeGoogleLocation(latitude, longitude);
+      if (requestId !== mapSyncRequestRef.current) return;
+      setForm((current) => ({
+        ...current,
+        address: locationAddress.address || current.address,
+        postcode: locationAddress.postcode || current.postcode,
+        latitude,
+        longitude
+      }));
+      setMessageTone("success");
+      setMessage("지도 핀 위치의 주소와 좌표를 함께 반영했습니다.");
+    } catch (error) {
+      if (requestId !== mapSyncRequestRef.current) return;
+      setMessageTone("error");
+      setMessage(`${(error as Error).message} 좌표는 반영되었으므로 주소를 확인해 주세요.`);
     }
   };
 
@@ -282,23 +313,23 @@ export function PilgrimAttendanceAdminPanel({
           <form className="attendance-panel attendance-checkpoint-form" onSubmit={saveCheckpoint}>
             <div className="attendance-panel-title"><MapPin /><div><h2>{editingId ? "체크 지점 수정" : "체크 지점 등록"}</h2><p>주소 검색 후 좌표가 자동 지정되며 지도에서 보정할 수 있습니다.</p></div></div>
             <label className="attendance-field"><span>위치 이름 <b>*</b></span><input required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="예: 세곡동성당 정문" /></label>
-            <div className="attendance-address-row">
-              <label className="attendance-field"><span>우편번호</span><input value={form.postcode} readOnly placeholder="주소 검색" /></label>
-              <button type="button" className="secondary" onClick={searchAddress}><Search /> 주소 검색</button>
+            <div className="attendance-location-actions" aria-label="체크 지점 위치 지정 방법">
+              <button type="button" className="secondary" disabled={busy} onClick={searchAddress}><Search /> 주소 검색</button>
+              <button type="button" className="secondary" disabled={busy || !form.address.trim()} onClick={() => void locateAddress()}><MapPinned /> 입력 주소 좌표 찾기</button>
+              <button type="button" className="secondary" disabled={busy} onClick={() => void captureCheckpointLocation()}><LocateFixed /> 현재 위치 사용</button>
             </div>
-            <label className="attendance-field"><span>기본 주소 <b>*</b></span><input required value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value, latitude: Number.NaN, longitude: Number.NaN })} /></label>
+            <div className="attendance-address-fields">
+              <label className="attendance-field"><span>우편번호</span><input value={form.postcode} readOnly placeholder="자동 입력" /></label>
+              <label className="attendance-field"><span>기본 주소 <b>*</b></span><input required value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value, latitude: Number.NaN, longitude: Number.NaN })} /></label>
+            </div>
             <label className="attendance-field"><span>상세 주소</span><input id="attendance-address-detail" value={form.addressDetail} onChange={(event) => setForm({ ...form, addressDetail: event.target.value })} /></label>
-            <div className="attendance-coordinate-tools">
-              <button type="button" className="secondary" disabled={busy || !form.address.trim()} onClick={() => void locateAddress()}><MapPinned /> 주소 좌표 다시 찾기</button>
-              <button type="button" className="secondary" disabled={busy} onClick={() => void captureCheckpointLocation()}><LocateFixed /> 현재 위치로 지정</button>
-            </div>
             <div className={`attendance-coordinate ${Number.isFinite(form.latitude) ? "ready" : ""}`}>
               <div><LocateFixed /><span>{Number.isFinite(form.latitude) ? `${form.latitude.toFixed(6)}, ${form.longitude.toFixed(6)}` : "주소 검색, 현재 위치 또는 지도에서 좌표를 지정해 주세요."}</span></div>
             </div>
             <GoogleCheckpointMap
               latitude={form.latitude}
               longitude={form.longitude}
-              onChange={(latitude, longitude) => setForm((current) => ({ ...current, latitude, longitude }))}
+              onChange={(latitude, longitude) => { void syncLocationFromMap(latitude, longitude); }}
             />
             <label className="attendance-field">
               <span>허용 반경 <b>{form.radiusM}m</b></span>

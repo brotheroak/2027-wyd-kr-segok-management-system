@@ -67,5 +67,12 @@ export async function reverseGeocodeGoogleLocation(latitude: number, longitude: 
   const geocoder = new maps.Geocoder();
   const response = await geocoder.geocode({ location: { lat: latitude, lng: longitude }, region: "KR" });
   const result = response.results?.[0];
-  return result?.formatted_address ? String(result.formatted_address) : "";
+  if (!result) throw new Error("Google 지도에서 현재 위치의 주소를 찾지 못했습니다.");
+  const postcodeComponent = result.address_components?.find((component: any) =>
+    Array.isArray(component.types) && component.types.includes("postal_code")
+  );
+  return {
+    address: String(result.formatted_address ?? "").replace(/^대한민국\s*/, "").trim(),
+    postcode: postcodeComponent?.long_name ? String(postcodeComponent.long_name) : ""
+  };
 }
