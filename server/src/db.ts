@@ -59,6 +59,8 @@ export const tables = {
   volunteerShiftSignups: isPg ? schema.pgVolunteerShiftSignups : schema.sqliteVolunteerShiftSignups,
   pilgrims: isPg ? schema.pgPilgrims : schema.sqlitePilgrims,
   pilgrimMealLogs: isPg ? schema.pgPilgrimMealLogs : schema.sqlitePilgrimMealLogs,
+  attendanceCheckpoints: isPg ? schema.pgAttendanceCheckpoints : schema.sqliteAttendanceCheckpoints,
+  pilgrimAttendanceLogs: isPg ? schema.pgPilgrimAttendanceLogs : schema.sqlitePilgrimAttendanceLogs,
   faqs: isPg ? schema.pgFaqs : schema.sqliteFaqs,
   qnaPosts: isPg ? schema.pgQnaPosts : schema.sqliteQnaPosts,
 };
@@ -145,6 +147,19 @@ export async function initDb() {
           id TEXT PRIMARY KEY, pilgrim_id TEXT NOT NULL REFERENCES pilgrims(id) ON DELETE CASCADE,
           meal_type TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', recorded_by TEXT NOT NULL, recorded_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS attendance_checkpoints (
+          id TEXT PRIMARY KEY, name TEXT NOT NULL, postcode TEXT NOT NULL DEFAULT '', address TEXT NOT NULL,
+          address_detail TEXT NOT NULL DEFAULT '', latitude DOUBLE PRECISION NOT NULL, longitude DOUBLE PRECISION NOT NULL,
+          radius_m INTEGER NOT NULL DEFAULT 100, active BOOLEAN NOT NULL DEFAULT TRUE,
+          created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS pilgrim_attendance_logs (
+          id TEXT PRIMARY KEY, pilgrim_id TEXT NOT NULL REFERENCES pilgrims(id) ON DELETE CASCADE,
+          checkpoint_id TEXT NOT NULL REFERENCES attendance_checkpoints(id) ON DELETE RESTRICT,
+          device_latitude TEXT NOT NULL, device_longitude TEXT NOT NULL,
+          accuracy_m DOUBLE PRECISION NOT NULL, distance_m DOUBLE PRECISION NOT NULL,
+          checked_by TEXT NOT NULL, checked_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS faqs (
           id TEXT PRIMARY KEY, category TEXT NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL,
           sort_order INTEGER NOT NULL DEFAULT 0, published BOOLEAN NOT NULL DEFAULT TRUE, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
@@ -158,6 +173,9 @@ export async function initDb() {
         CREATE INDEX IF NOT EXISTS idx_shift_signup_volunteer ON volunteer_shift_signups(volunteer_id);
         CREATE INDEX IF NOT EXISTS idx_pilgrims_host ON pilgrims(host_application_id);
         CREATE INDEX IF NOT EXISTS idx_meal_logs_pilgrim ON pilgrim_meal_logs(pilgrim_id, recorded_at);
+        CREATE INDEX IF NOT EXISTS idx_attendance_checkpoint_active ON attendance_checkpoints(active);
+        CREATE INDEX IF NOT EXISTS idx_attendance_pilgrim_time ON pilgrim_attendance_logs(pilgrim_id, checked_at);
+        CREATE INDEX IF NOT EXISTS idx_attendance_checkpoint_time ON pilgrim_attendance_logs(checkpoint_id, checked_at);
         CREATE INDEX IF NOT EXISTS idx_qna_status ON qna_posts(status, created_at);
       `);
       await client.query(`
@@ -257,6 +275,19 @@ export async function initDb() {
           id TEXT PRIMARY KEY, pilgrim_id TEXT NOT NULL REFERENCES pilgrims(id) ON DELETE CASCADE,
           meal_type TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', recorded_by TEXT NOT NULL, recorded_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS attendance_checkpoints (
+          id TEXT PRIMARY KEY, name TEXT NOT NULL, postcode TEXT NOT NULL DEFAULT '', address TEXT NOT NULL,
+          address_detail TEXT NOT NULL DEFAULT '', latitude REAL NOT NULL, longitude REAL NOT NULL,
+          radius_m INTEGER NOT NULL DEFAULT 100, active INTEGER NOT NULL DEFAULT 1,
+          created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS pilgrim_attendance_logs (
+          id TEXT PRIMARY KEY, pilgrim_id TEXT NOT NULL REFERENCES pilgrims(id) ON DELETE CASCADE,
+          checkpoint_id TEXT NOT NULL REFERENCES attendance_checkpoints(id) ON DELETE RESTRICT,
+          device_latitude TEXT NOT NULL, device_longitude TEXT NOT NULL,
+          accuracy_m REAL NOT NULL, distance_m REAL NOT NULL,
+          checked_by TEXT NOT NULL, checked_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS faqs (
           id TEXT PRIMARY KEY, category TEXT NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL,
           sort_order INTEGER NOT NULL DEFAULT 0, published INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
@@ -270,6 +301,9 @@ export async function initDb() {
         CREATE INDEX IF NOT EXISTS idx_shift_signup_volunteer ON volunteer_shift_signups(volunteer_id);
         CREATE INDEX IF NOT EXISTS idx_pilgrims_host ON pilgrims(host_application_id);
         CREATE INDEX IF NOT EXISTS idx_meal_logs_pilgrim ON pilgrim_meal_logs(pilgrim_id, recorded_at);
+        CREATE INDEX IF NOT EXISTS idx_attendance_checkpoint_active ON attendance_checkpoints(active);
+        CREATE INDEX IF NOT EXISTS idx_attendance_pilgrim_time ON pilgrim_attendance_logs(pilgrim_id, checked_at);
+        CREATE INDEX IF NOT EXISTS idx_attendance_checkpoint_time ON pilgrim_attendance_logs(checkpoint_id, checked_at);
         CREATE INDEX IF NOT EXISTS idx_qna_status ON qna_posts(status, created_at);
       `);
       const pilgrimColumns = sqliteDbInstance.prepare("PRAGMA table_info(pilgrims)").all() as Array<{ name: string }>;

@@ -15,6 +15,7 @@ import { AdminMaskedDetail } from "./AdminMaskedDetail.js";
 import { VolunteerScheduleAdminPanel } from "./VolunteerScheduleAdminPanel.js";
 import { PilgrimHostAdminPanel } from "./PilgrimHostAdminPanel.js";
 import { CommunityAdminPanel } from "./CommunityAdminPanel.js";
+import { PilgrimAttendanceAdminPanel } from "./PilgrimAttendanceAdminPanel.js";
 
 type LoginState = {
   mfaRequired: boolean;
@@ -40,7 +41,8 @@ type AdminUser = {
   updatedAt: string;
 };
 
-type AdminConsoleMenu = "applications" | "shifts" | "pilgrims" | "community" | "accounts" | "password";
+type AdminConsoleMenu = "applications" | "shifts" | "pilgrims" | "attendance" | "community" | "accounts" | "password";
+const ADMIN_CONSOLE_MENUS: AdminConsoleMenu[] = ["applications", "shifts", "pilgrims", "attendance", "community", "accounts", "password"];
 type HomestayDashboardTab = "summary" | "district" | "bed" | "pet" | "gender" | "age";
 type DistributionDatum = {
   name: string;
@@ -96,7 +98,10 @@ export function AdminConsoleZip() {
   const [sortField, setSortField] = useState("applicationNo");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [activeAdminTab, setActiveAdminTab] = useState<"homestay" | "volunteer">("homestay");
-  const [activeConsoleMenu, setActiveConsoleMenu] = useState<AdminConsoleMenu>("applications");
+  const [activeConsoleMenu, setActiveConsoleMenu] = useState<AdminConsoleMenu>(() => {
+    const menu = window.location.hash.replace(/^#/, "") as AdminConsoleMenu;
+    return ADMIN_CONSOLE_MENUS.includes(menu) ? menu : "applications";
+  });
   const [homestayDashboardTab, setHomestayDashboardTab] = useState<HomestayDashboardTab>("summary");
   
   const [data, setData] = useState<{ role: AdminRole; canViewPersonalData: boolean; stats: any; applications: ApplicationPayload[] } | null>(null);
@@ -186,13 +191,21 @@ export function AdminConsoleZip() {
   useEffect(() => {
     const onAdminMenuChange = (event: Event) => {
       const menu = (event as CustomEvent<AdminConsoleMenu>).detail;
-      if (!["applications", "shifts", "pilgrims", "community", "accounts", "password"].includes(menu)) return;
+      if (!ADMIN_CONSOLE_MENUS.includes(menu)) return;
       setActiveConsoleMenu(menu);
       if (menu === "accounts") loadAdminUsers().catch(() => setAdminUsers([]));
     };
     window.addEventListener("admin-console-menu-change", onAdminMenuChange);
     return () => window.removeEventListener("admin-console-menu-change", onAdminMenuChange);
   }, [token, role]);
+
+  useEffect(() => {
+    window.history.replaceState({}, "", `/admin#${activeConsoleMenu}`);
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLButtonElement>(`.admin-header-menu button[data-menu="${activeConsoleMenu}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    });
+  }, [activeConsoleMenu]);
 
   const handleLoginStep1 = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -544,22 +557,27 @@ export function AdminConsoleZip() {
       <nav className="admin-header-menu" aria-label="운영자 콘솔 메뉴">
         <button
           type="button"
+          data-menu="applications"
           className={activeConsoleMenu === "applications" ? "active" : ""}
           onClick={() => setActiveConsoleMenu("applications")}
         >
           <ClipboardList size={18} /> 신청 현황
         </button>
-        <button type="button" className={activeConsoleMenu === "shifts" ? "active" : ""} onClick={() => setActiveConsoleMenu("shifts")}>
+        <button type="button" data-menu="shifts" className={activeConsoleMenu === "shifts" ? "active" : ""} onClick={() => setActiveConsoleMenu("shifts")}>
           <CalendarClock size={18} /> 봉사 일정
         </button>
-        <button type="button" className={activeConsoleMenu === "pilgrims" ? "active" : ""} onClick={() => setActiveConsoleMenu("pilgrims")}>
+        <button type="button" data-menu="pilgrims" className={activeConsoleMenu === "pilgrims" ? "active" : ""} onClick={() => setActiveConsoleMenu("pilgrims")}>
           <ScanBarcode size={18} /> 순례자·호스트
         </button>
-        <button type="button" className={activeConsoleMenu === "community" ? "active" : ""} onClick={() => setActiveConsoleMenu("community")}>
+        <button type="button" data-menu="attendance" className={activeConsoleMenu === "attendance" ? "active" : ""} onClick={() => setActiveConsoleMenu("attendance")}>
+          <MapPinned size={18} /> 출석·위치
+        </button>
+        <button type="button" data-menu="community" className={activeConsoleMenu === "community" ? "active" : ""} onClick={() => setActiveConsoleMenu("community")}>
           <MessageSquareText size={18} /> FAQ·Q&A
         </button>
         <button
           type="button"
+          data-menu="accounts"
           className={activeConsoleMenu === "accounts" ? "active alertable" : "alertable"}
           onClick={() => {
             setActiveConsoleMenu("accounts");
@@ -575,6 +593,7 @@ export function AdminConsoleZip() {
         </button>
         <button
           type="button"
+          data-menu="password"
           className={activeConsoleMenu === "password" ? "active" : ""}
           onClick={() => setActiveConsoleMenu("password")}
         >
@@ -731,6 +750,7 @@ export function AdminConsoleZip() {
 
   if (activeConsoleMenu === "shifts") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<VolunteerScheduleAdminPanel token={token} /></div>;
   if (activeConsoleMenu === "pilgrims") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<PilgrimHostAdminPanel token={token} canViewPersonalData={canViewPersonalData} /></div>;
+  if (activeConsoleMenu === "attendance") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<PilgrimAttendanceAdminPanel token={token} canViewPersonalData={canViewPersonalData} /></div>;
   if (activeConsoleMenu === "community") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<CommunityAdminPanel token={token} /></div>;
 
   if (activeAdminTab === "volunteer") {

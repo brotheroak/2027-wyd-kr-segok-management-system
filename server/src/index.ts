@@ -15,6 +15,7 @@ import { assignDistrict, normalizeDistrictOverride } from "./districts.js";
 import { verifyTotp } from "./totp.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import { matchesIntegratedSearch } from "./search.js";
+import { validCoordinates, validateAttendanceLocation } from "./location.js";
 import { sql, eq, and, or, like, desc } from "drizzle-orm";
 
 const app = express();
@@ -55,7 +56,7 @@ function securityHeaders(_req: express.Request, res: express.Response, next: exp
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
+  res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=(self)");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   res.setHeader("Content-Security-Policy", [
     "default-src 'self'",
@@ -2192,6 +2193,66 @@ async function pilgrimByCardToken(value: unknown) {
   return row && validPilgrimAccessToken(row) ? row : null;
 }
 
+async function pilgrimByCardValue(value: unknown) {
+  const byToken = await pilgrimByCardToken(value);
+  if (byToken) return byToken;
+  const pilgrimNo = String(value ?? "").trim();
+  if (!/^PLG-[A-Za-z0-9-]{4,40}$/i.test(pilgrimNo)) return null;
+  const rows = await db.select().from(tables.pilgrims).where(eq(tables.pilgrims.pilgrimNo, pilgrimNo));
+  return rows[0] ?? null;
+}
+
+function checkpointView(row: any) {
+  return {
+    id: row.id,
+    name: row.name,
+    postcode: row.postcode,
+    address: row.address,
+    addressDetail: row.addressDetail,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    radiusM: row.radiusM,
+    active: row.active === true || row.active === 1,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  };
+}
+
+function attendanceCheckpointInput(value: any) {
+  const name = String(value?.name ?? "").trim();
+  const postcode = String(value?.postcode ?? "").trim();
+  const address = String(value?.address ?? "").trim();
+  const addressDetail = String(value?.addressDetail ?? "").trim();
+  const latitude = Number(value?.latitude);
+  const longitude = Number(value?.longitude);
+  const radiusM = Number(value?.radiusM);
+  const active = value?.active !== false;
+  if (name.length < 2 || name.length > 80) throw new Error("체크 지점 이름은 2~80자로 입력해 주세요.");
+  if (!address || address.length > 200 || addressDetail.length > 100) throw new Error("체크 지점 주소를 확인해 주세요.");
+  if (!validCoordinates({ latitude, longitude })) throw new Error("체크 지점 좌표를 현재 기기 위치로 지정해 주세요.");
+  if (!Number.isInteger(radiusM) || radiusM < 20 || radiusM > 1000) throw new Error("허용 반경은 20~1,000m로 설정해 주세요.");
+  return { name, postcode, address, addressDetail, latitude, longitude, radiusM, active };
+}
+
+function attendanceRecordView(log: any, pilgrim: any, checkpoint: any) {
+  return {
+    id: log.id,
+    pilgrim: {
+      id: pilgrim.id,
+      pilgrimNo: pilgrim.pilgrimNo,
+      name: plain(pilgrim.name),
+      baptismalName: plain(pilgrim.baptismalName ?? ""),
+      gender: plain(pilgrim.gender),
+      diocese: plain(pilgrim.diocese),
+      region: plain(pilgrim.region)
+    },
+    checkpoint: checkpointView(checkpoint),
+    accuracyM: Math.round(Number(log.accuracyM) * 10) / 10,
+    distanceM: Math.round(Number(log.distanceM) * 10) / 10,
+    checkedAt: log.checkedAt
+  };
+}
+
 async function makePilgrimNo(tx: any) {
   const ymd = seoulDateKey();
   await lockDailySequence(tx, "pilgrim", ymd);
@@ -2322,6 +2383,184 @@ app.delete("/api/admin/shifts/:id", requireAdmin, async (req, res) => {
   res.json({ deleted: true });
 });
 
+app.get("/api/admin/attendance/checkpoints", requirePrivacyAdmin, async (_req, res) => {
+  const rows = await db.select().from(tables.attendanceCheckpoints).orderBy(desc(tables.attendanceCheckpoints.updatedAt));
+  res.json({ checkpoints: rows.map(checkpointView) });
+});
+
+app.post("/api/admin/attendance/checkpoints", requirePrivacyAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  try {
+    const input = attendanceCheckpointInput(req.body);
+    const now = nowIso();
+    const checkpoint = {
+      id: nanoid(),
+      ...input,
+      active: isPg ? input.active : input.active ? 1 : 0,
+      createdBy: pii(session.email),
+      createdAt: now,
+      updatedAt: now
+    };
+    await db.insert(tables.attendanceCheckpoints).values(checkpoint);
+    await logAudit(actorFrom(session), "admin_created_attendance_checkpoint", checkpoint.id, {
+      name: checkpoint.name,
+      radiusM: checkpoint.radiusM
+    });
+    res.status(201).json({ checkpoint: checkpointView(checkpoint) });
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
+});
+
+app.put("/api/admin/attendance/checkpoints/:id", requirePrivacyAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  try {
+    const id = String(req.params.id);
+    const current = (await db.select().from(tables.attendanceCheckpoints).where(eq(tables.attendanceCheckpoints.id, id)))[0];
+    if (!current) return res.status(404).json({ message: "체크 지점을 찾을 수 없습니다." });
+    const input = attendanceCheckpointInput(req.body);
+    await db.update(tables.attendanceCheckpoints).set({
+      ...input,
+      active: isPg ? input.active : input.active ? 1 : 0,
+      updatedAt: nowIso()
+    }).where(eq(tables.attendanceCheckpoints.id, id));
+    const updated = (await db.select().from(tables.attendanceCheckpoints).where(eq(tables.attendanceCheckpoints.id, id)))[0];
+    await logAudit(actorFrom(session), "admin_updated_attendance_checkpoint", id, {
+      name: input.name,
+      radiusM: input.radiusM,
+      active: input.active
+    });
+    res.json({ checkpoint: checkpointView(updated) });
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
+});
+
+app.delete("/api/admin/attendance/checkpoints/:id", requirePrivacyAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  const id = String(req.params.id);
+  const current = (await db.select().from(tables.attendanceCheckpoints).where(eq(tables.attendanceCheckpoints.id, id)))[0];
+  if (!current) return res.status(404).json({ message: "체크 지점을 찾을 수 없습니다." });
+  await db.update(tables.attendanceCheckpoints).set({ active: isPg ? false : 0, updatedAt: nowIso() }).where(eq(tables.attendanceCheckpoints.id, id));
+  await logAudit(actorFrom(session), "admin_deactivated_attendance_checkpoint", id);
+  res.json({ deactivated: true });
+});
+
+app.get("/api/admin/attendance", requirePrivacyAdmin, async (req, res) => {
+  const query = String(req.query.q ?? "").trim();
+  const checkpointId = String(req.query.checkpointId ?? "").trim();
+  const [checkpointRows, pilgrimRows, logRows] = await Promise.all([
+    db.select().from(tables.attendanceCheckpoints).orderBy(desc(tables.attendanceCheckpoints.updatedAt)),
+    db.select().from(tables.pilgrims),
+    db.select().from(tables.pilgrimAttendanceLogs).orderBy(desc(tables.pilgrimAttendanceLogs.checkedAt))
+  ]);
+  const checkpoints = new Map(checkpointRows.map((row: any) => [row.id, row]));
+  const pilgrims = new Map(pilgrimRows.map((row: any) => [row.id, row]));
+  const records = logRows
+    .filter((log: any) => !checkpointId || log.checkpointId === checkpointId)
+    .map((log: any) => {
+      const pilgrim = pilgrims.get(log.pilgrimId);
+      const checkpoint = checkpoints.get(log.checkpointId);
+      return pilgrim && checkpoint ? attendanceRecordView(log, pilgrim, checkpoint) : null;
+    })
+    .filter(Boolean)
+    .filter((record: any) => matchesIntegratedSearch([
+      record.pilgrim.pilgrimNo,
+      record.pilgrim.name,
+      record.pilgrim.baptismalName,
+      record.pilgrim.gender,
+      record.pilgrim.diocese,
+      record.pilgrim.region,
+      record.checkpoint.name,
+      record.checkpoint.address
+    ], query));
+  const latestByPilgrim = new Map<string, any>();
+  for (const record of records) {
+    if (!latestByPilgrim.has(record.pilgrim.id)) latestByPilgrim.set(record.pilgrim.id, record);
+  }
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.json({
+    checkpoints: checkpointRows.map(checkpointView),
+    records: records.slice(0, 1000),
+    currentLocations: [...latestByPilgrim.values()]
+  });
+});
+
+app.post("/api/admin/attendance/check", requirePrivacyAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  const checkpointId = String(req.body.checkpointId ?? "").trim();
+  const cardValue = String(req.body.cardValue ?? "").trim();
+  const latitude = Number(req.body.latitude);
+  const longitude = Number(req.body.longitude);
+  const accuracyM = Number(req.body.accuracy);
+  if (!checkpointId || !cardValue) return res.status(400).json({ message: "체크 지점과 순례자 바코드를 확인해 주세요." });
+
+  const [checkpoint, pilgrim] = await Promise.all([
+    db.select().from(tables.attendanceCheckpoints).where(eq(tables.attendanceCheckpoints.id, checkpointId)).then((rows: any[]) => rows[0]),
+    pilgrimByCardValue(cardValue)
+  ]);
+  if (!checkpoint || !(checkpoint.active === true || checkpoint.active === 1)) {
+    return res.status(404).json({ message: "사용 가능한 체크 지점을 찾을 수 없습니다." });
+  }
+  if (!pilgrim) return res.status(404).json({ message: "유효한 순례자 카드를 찾을 수 없습니다." });
+
+  const locationResult = validateAttendanceLocation(
+    { latitude: Number(checkpoint.latitude), longitude: Number(checkpoint.longitude), radiusM: Number(checkpoint.radiusM) },
+    { latitude, longitude, accuracyM }
+  );
+  if (!locationResult.accepted) {
+    await logAudit(actorFrom(session), "admin_rejected_attendance_location", pilgrim.id, {
+      checkpointId,
+      distanceM: Number.isFinite(locationResult.distanceM) ? Math.round(locationResult.distanceM) : null,
+      accuracyM
+    });
+    return res.status(422).json({
+      message: locationResult.reason,
+      distanceM: Number.isFinite(locationResult.distanceM) ? locationResult.distanceM : null
+    });
+  }
+
+  let savedLog: any;
+  let duplicate = false;
+  await db.transaction(async (tx: any) => {
+    await lockDailySequence(tx, `attendance:${pilgrim.id}:${checkpointId}`, seoulDateKey());
+    const recentRows = await tx.select().from(tables.pilgrimAttendanceLogs)
+      .where(and(
+        eq(tables.pilgrimAttendanceLogs.pilgrimId, pilgrim.id),
+        eq(tables.pilgrimAttendanceLogs.checkpointId, checkpointId)
+      ))
+      .orderBy(desc(tables.pilgrimAttendanceLogs.checkedAt));
+    const recent = recentRows[0];
+    if (recent && Date.now() - new Date(recent.checkedAt).getTime() < 120_000) {
+      savedLog = recent;
+      duplicate = true;
+      return;
+    }
+    savedLog = {
+      id: nanoid(),
+      pilgrimId: pilgrim.id,
+      checkpointId,
+      deviceLatitude: pii(String(latitude)),
+      deviceLongitude: pii(String(longitude)),
+      accuracyM,
+      distanceM: locationResult.distanceM,
+      checkedBy: pii(session.email),
+      checkedAt: nowIso()
+    };
+    await tx.insert(tables.pilgrimAttendanceLogs).values(savedLog);
+  });
+  if (!duplicate) {
+    await logAudit(actorFrom(session), "admin_checked_pilgrim_attendance", pilgrim.id, {
+      checkpointId,
+      distanceM: Math.round(locationResult.distanceM)
+    });
+  }
+  res.status(duplicate ? 200 : 201).json({
+    record: attendanceRecordView(savedLog, pilgrim, checkpoint),
+    duplicate
+  });
+});
+
 app.get("/api/admin/pilgrims", requirePrivacyAdmin, async (req, res) => {
   const query = String(req.query.q ?? "");
   const rows = await db.select().from(tables.pilgrims).orderBy(desc(tables.pilgrims.updatedAt));
@@ -2420,6 +2659,7 @@ app.post("/api/host/pilgrims/resolve", requireSession("user"), async (req, res) 
 app.delete("/api/admin/pilgrims/:id", requirePrivacyAdmin, async (req, res) => {
   const id = String(req.params.id);
   await db.transaction(async (tx: any) => {
+    await tx.delete(tables.pilgrimAttendanceLogs).where(eq(tables.pilgrimAttendanceLogs.pilgrimId, id));
     await tx.delete(tables.pilgrimMealLogs).where(eq(tables.pilgrimMealLogs.pilgrimId, id));
     await tx.delete(tables.pilgrims).where(eq(tables.pilgrims.id, id));
   });

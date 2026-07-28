@@ -1,5 +1,5 @@
-import { pgTable, text as pgText, integer as pgInteger, boolean as pgBoolean } from "drizzle-orm/pg-core";
-import { sqliteTable, text as sqliteText, integer as sqliteInteger } from "drizzle-orm/sqlite-core";
+import { pgTable, text as pgText, integer as pgInteger, boolean as pgBoolean, doublePrecision as pgDoublePrecision } from "drizzle-orm/pg-core";
+import { sqliteTable, text as sqliteText, integer as sqliteInteger, real as sqliteReal } from "drizzle-orm/sqlite-core";
 
 // ==========================================
 // SQLite Schema Definition (for Local Dev)
@@ -190,6 +190,33 @@ export const sqlitePilgrimMealLogs = sqliteTable("pilgrim_meal_logs", {
   recordedAt: sqliteText("recorded_at").notNull(),
 });
 
+export const sqliteAttendanceCheckpoints = sqliteTable("attendance_checkpoints", {
+  id: sqliteText("id").primaryKey(),
+  name: sqliteText("name").notNull(),
+  postcode: sqliteText("postcode").notNull().default(""),
+  address: sqliteText("address").notNull(),
+  addressDetail: sqliteText("address_detail").notNull().default(""),
+  latitude: sqliteReal("latitude").notNull(),
+  longitude: sqliteReal("longitude").notNull(),
+  radiusM: sqliteInteger("radius_m").notNull().default(100),
+  active: sqliteInteger("active").notNull().default(1),
+  createdBy: sqliteText("created_by").notNull(),
+  createdAt: sqliteText("created_at").notNull(),
+  updatedAt: sqliteText("updated_at").notNull(),
+});
+
+export const sqlitePilgrimAttendanceLogs = sqliteTable("pilgrim_attendance_logs", {
+  id: sqliteText("id").primaryKey(),
+  pilgrimId: sqliteText("pilgrim_id").notNull(),
+  checkpointId: sqliteText("checkpoint_id").notNull(),
+  deviceLatitude: sqliteText("device_latitude").notNull(),
+  deviceLongitude: sqliteText("device_longitude").notNull(),
+  accuracyM: sqliteReal("accuracy_m").notNull(),
+  distanceM: sqliteReal("distance_m").notNull(),
+  checkedBy: sqliteText("checked_by").notNull(),
+  checkedAt: sqliteText("checked_at").notNull(),
+});
+
 export const sqliteFaqs = sqliteTable("faqs", {
   id: sqliteText("id").primaryKey(),
   category: sqliteText("category").notNull(),
@@ -374,6 +401,21 @@ export const pgPilgrims = pgTable("pilgrims", {
 export const pgPilgrimMealLogs = pgTable("pilgrim_meal_logs", {
   id: pgText("id").primaryKey(), pilgrimId: pgText("pilgrim_id").notNull(), mealType: pgText("meal_type").notNull(),
   note: pgText("note").notNull().default(""), recordedBy: pgText("recorded_by").notNull(), recordedAt: pgText("recorded_at").notNull(),
+});
+
+export const pgAttendanceCheckpoints = pgTable("attendance_checkpoints", {
+  id: pgText("id").primaryKey(), name: pgText("name").notNull(), postcode: pgText("postcode").notNull().default(""),
+  address: pgText("address").notNull(), addressDetail: pgText("address_detail").notNull().default(""),
+  latitude: pgDoublePrecision("latitude").notNull(), longitude: pgDoublePrecision("longitude").notNull(),
+  radiusM: pgInteger("radius_m").notNull().default(100), active: pgBoolean("active").notNull().default(true),
+  createdBy: pgText("created_by").notNull(), createdAt: pgText("created_at").notNull(), updatedAt: pgText("updated_at").notNull(),
+});
+
+export const pgPilgrimAttendanceLogs = pgTable("pilgrim_attendance_logs", {
+  id: pgText("id").primaryKey(), pilgrimId: pgText("pilgrim_id").notNull(), checkpointId: pgText("checkpoint_id").notNull(),
+  deviceLatitude: pgText("device_latitude").notNull(), deviceLongitude: pgText("device_longitude").notNull(),
+  accuracyM: pgDoublePrecision("accuracy_m").notNull(), distanceM: pgDoublePrecision("distance_m").notNull(),
+  checkedBy: pgText("checked_by").notNull(), checkedAt: pgText("checked_at").notNull(),
 });
 
 export const pgFaqs = pgTable("faqs", {

@@ -83,7 +83,7 @@ node scripts/create-admin.mjs privacy@example.org StrongPassword123! privacy_adm
 | 1 | DB 연결성 확인 `SELECT 1` | 서버 시작 중단 |
 | 2 | `admins` 테이블 존재 확인 | `npm run db:setup` 실행 안내 후 중단 |
 | 3 | `verification_codes.email_hash`, 홈스테이/자원봉사자 `district_*` 보수 마이그레이션 | 컬럼 또는 인덱스 생성 |
-| 4 | 일정, 순례자, FAQ/Q&A 확장 테이블과 인덱스 확인 | 누락 객체 생성 또는 서버 시작 중단 |
+| 4 | 일정, 순례자, 출석·체크 지점, FAQ/Q&A 확장 테이블과 인덱스 확인 | 누락 객체 생성 또는 서버 시작 중단 |
 
 `/api/ready`는 실행 중인 서버의 DB 연결 상태를 점검합니다. Kubernetes readiness probe, Docker healthcheck, 로드밸런서 상태 확인에 사용합니다.
 
@@ -103,6 +103,8 @@ node scripts/create-admin.mjs privacy@example.org StrongPassword123! privacy_adm
 | `volunteer_shift_signups` | 봉사자별 일정 신청 상태 | 봉사자 FK |
 | `pilgrims` | 순례자 프로필, 식단·건강, 배정 호스트 | 성명, 식단, 알레르기, 건강 메모 |
 | `pilgrim_meal_logs` | 순례자 식사 제공 이력 | 순례자 FK, 식사 메모 |
+| `attendance_checkpoints` | 운영자가 지정한 출석 체크 지점, 주소, 좌표, 허용 반경 | 없음 |
+| `pilgrim_attendance_logs` | 순례자별 체크 지점 출석 및 위치 확인 이력 | 순례자 FK, 암호화된 기기 좌표, 확인 시각 |
 | `faqs` | 공개 FAQ 콘텐츠 | 없음 |
 | `qna_posts` | 공개 질문과 운영자 답변 | 작성자명, 질문 내용 |
 
@@ -116,6 +118,8 @@ erDiagram
     volunteers ||--o{ volunteer_shift_signups : "registers"
     volunteer_shifts ||--o{ volunteer_shift_signups : "receives"
     pilgrims ||--o{ pilgrim_meal_logs : "records"
+    pilgrims ||--o{ pilgrim_attendance_logs : "checks in"
+    attendance_checkpoints ||--o{ pilgrim_attendance_logs : "receives"
 
     homestay_applications {
         string id PK
@@ -279,6 +283,12 @@ erDiagram
 
 `pilgrims`는 바코드에 사용하는 비민감 식별번호와 성명·세례명·선택 이메일·기본 언어를 저장하고 `host_application_id`로 호스트를 연결합니다. 카드 비밀값 원문은 `access_token`에 암호화 저장하고 조회용 SHA-256 값은 `access_token_hash`, 만료 시각은 `access_token_expires_at`에 저장합니다. 공개 URL에는 토큰을 fragment로 넣어 서버 접근 로그에 노출하지 않습니다. `pilgrim_meal_logs`는 식사 종류, 기록자, 기록 시각을 누적합니다. 순례자 생성 번호 발급과 호스트 삭제 시 배정 해제는 트랜잭션으로 처리합니다. 기존 DB는 서버 readiness 과정에서 관련 컬럼과 고유 인덱스를 자동 추가합니다.
 
+### 출석 체크 지점·위치 이력 테이블
+
+`attendance_checkpoints`는 운영자가 지정한 위치 이름, 우편번호, 주소, 위도·경도, 허용 반경(20~1,000m), 활성 상태를 저장합니다. 주소는 카카오 우편번호 검색으로 입력하고 좌표는 현장의 관리자 기기 위치로 지정합니다. 주소를 바꾸면 좌표를 다시 지정해야 합니다.
+
+`pilgrim_attendance_logs`는 순례자 카드 확인 시 체크 지점, 기기 GPS 정확도, 지점과의 거리, 운영자, 확인 시각을 누적합니다. 서버가 Haversine 거리 계산을 수행하고 GPS 오차가 200m를 넘거나 허용 반경 밖이면 저장을 거부합니다. 동일 순례자와 체크 지점이 2분 안에 반복 인식되면 새 행을 만들지 않습니다. 현재 위치 화면은 실시간 위치가 아니라 가장 최근 출석 이력의 체크 지점을 표시합니다.
+
 ### FAQ·Q&A 테이블
 
 `faqs`는 공개 순서와 게시 상태를 가진 안내 콘텐츠입니다. `qna_posts`는 작성자명, 비밀번호 해시, 질문과 답변 상태를 저장합니다. 공개 응답은 작성자명을 마스킹하고 비밀번호 해시는 절대 반환하지 않습니다.
@@ -329,6 +339,7 @@ enc:v1:
 | `audit_logs` | `actor` |
 | `pilgrims` | `name`, `baptismal_name`, `email`, `access_token`, `gender`, `diocese`, `region`, `grade`, `diet_type`, `diet_notes`, `allergies`, `health_notes`, `fever_status` |
 | `pilgrim_meal_logs` | `note`, `recorded_by` |
+| `pilgrim_attendance_logs` | `device_latitude`, `device_longitude`, `checked_by` |
 | `qna_posts` | `author_name`, `content`, `answer` |
 
 주의:

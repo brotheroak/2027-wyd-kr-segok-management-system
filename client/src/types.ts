@@ -125,5 +125,28 @@ export type Pilgrim = {
   updatedAt?: string;
 };
 
+export type AttendanceCheckpoint = {
+  id: string;
+  name: string;
+  postcode: string;
+  address: string;
+  addressDetail: string;
+  latitude: number;
+  longitude: number;
+  radiusM: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PilgrimAttendanceRecord = {
+  id: string;
+  pilgrim: Pick<Pilgrim, "id" | "pilgrimNo" | "name" | "baptismalName" | "gender" | "diocese" | "region">;
+  checkpoint: AttendanceCheckpoint;
+  accuracyM: number;
+  distanceM: number;
+  checkedAt: string;
+};
+
 export type FaqItem = { id: string; category: string; question: string; answer: string; sortOrder: number; published: boolean };
 export type QnaPost = { id: string; authorName: string; category: string; title: string; content: string; answer: string; status: string; createdAt: string; answeredAt?: string };

@@ -10,6 +10,7 @@ const adminMenuItems = [
   { label: "신청 현황", menu: "applications" },
   { label: "봉사 일정", menu: "shifts" },
   { label: "순례자·호스트", menu: "pilgrims" },
+  { label: "출석·위치", menu: "attendance" },
   { label: "FAQ·Q&A", menu: "community" },
   { label: "계정 관리", menu: "accounts" },
   { label: "비밀번호 변경", menu: "password" }
