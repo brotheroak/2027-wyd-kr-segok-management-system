@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Accessibility, ShieldCheck, Church } from "lucide-react";
-import { ApplyView, ApplicationPayload, VolunteerPayload, AdminRole } from "./types.js";
+import { Accessibility, Church } from "lucide-react";
+import { ApplyView, ApplicationPayload, VolunteerPayload } from "./types.js";
 import { emptyApplication } from "./utils/constants.js";
 import { api } from "./api.js";
 import { ApplicantShell } from "./components/ApplicantShell.js";
@@ -29,6 +29,9 @@ const PILGRIM_LANGUAGE_KEY = "wydPilgrimPortalLanguage";
 const AdminConsoleZip = React.lazy(() =>
   import("./pages/Admin/AdminConsole.js").then((module) => ({ default: module.AdminConsoleZip }))
 );
+const AttendanceScannerPage = React.lazy(() =>
+  import("./pages/AttendanceScannerPage.js").then((module) => ({ default: module.AttendanceScannerPage }))
+);
 
 function revokeUserSession(token: string | null) {
   if (!token) return;
@@ -51,6 +54,7 @@ function initialPilgrimLanguage(): PilgrimCardLanguage {
 export function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const isAdminPage = currentPath.startsWith("/admin");
+  const isAttendancePage = currentPath === "/attendance" || currentPath.startsWith("/attendance/");
   const isPrivacyPage = currentPath.startsWith("/privacy");
   const isTermsPage = currentPath.startsWith("/terms");
   const isCommunityPage = currentPath.startsWith("/community");
@@ -200,7 +204,7 @@ export function App() {
       const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!(target instanceof HTMLAnchorElement)) return;
       const url = new URL(target.href);
-      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/schedule", "/community", "/pilgrim", "/host/pilgrims", "/privacy", "/terms"]);
+      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/schedule", "/community", "/pilgrim", "/host/pilgrims", "/attendance", "/privacy", "/terms"]);
       if (url.origin !== window.location.origin || !internalPaths.has(url.pathname)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -236,6 +240,38 @@ export function App() {
   }, []);
 
   if (isPilgrimCardPage) return <PilgrimCardPage token={pilgrimCardToken} />;
+
+  if (isAttendancePage) {
+    return (
+      <div className="attendance-shell">
+        <header className="topbar attendance-topbar">
+          <div className="shell topbar-inner attendance-topbar-inner">
+            <button type="button" className="brand" onClick={() => navigate("/")} aria-label="홈페이지 첫 화면으로 이동">
+              <div className="brand-mark"><Church size={34} /></div>
+              <div>
+                <p>세곡동성당 WYD 분과</p>
+                <h1>현장 출석 확인</h1>
+              </div>
+            </button>
+            <nav className="site-nav attendance-site-nav" aria-label="현장 출석 메뉴">
+              <a href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>홈페이지</a>
+              <a href="/admin">운영자 콘솔</a>
+            </nav>
+            <div className="accessibility" aria-label="글자 크기 조절">
+              <Accessibility size={20} />
+              <button onClick={() => setFontScale(0.95)} className={fontScale === 0.95 ? "active" : ""}>가</button>
+              <button onClick={() => setFontScale(1)} className={fontScale === 1 ? "active" : ""}>가</button>
+              <button onClick={() => setFontScale(1.12)} className={fontScale === 1.12 ? "active" : ""}>가</button>
+            </div>
+          </div>
+        </header>
+        <React.Suspense fallback={<div className="admin-loading">현장 출석 화면을 불러오는 중입니다.</div>}>
+          <AttendanceScannerPage />
+        </React.Suspense>
+        <AppFooter navigate={navigate} />
+      </div>
+    );
+  }
 
   if (isAdminPage) {
     return (

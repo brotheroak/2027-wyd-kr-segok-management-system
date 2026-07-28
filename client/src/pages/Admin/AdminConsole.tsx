@@ -570,7 +570,7 @@ export function AdminConsoleZip() {
           <ScanBarcode size={18} /> 순례자·호스트
         </button>
         <button type="button" data-menu="attendance" className={activeConsoleMenu === "attendance" ? "active" : ""} onClick={() => setActiveConsoleMenu("attendance")}>
-          <MapPinned size={18} /> 출석·위치
+          <MapPinned size={18} /> 지점·위치 이력
         </button>
         <button type="button" data-menu="community" className={activeConsoleMenu === "community" ? "active" : ""} onClick={() => setActiveConsoleMenu("community")}>
           <MessageSquareText size={18} /> FAQ·Q&A

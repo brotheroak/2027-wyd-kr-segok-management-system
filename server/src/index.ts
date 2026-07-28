@@ -65,10 +65,10 @@ function securityHeaders(_req: express.Request, res: express.Response, next: exp
     "frame-ancestors 'none'",
     "form-action 'self'",
     "img-src 'self' data: blob: https:",
-    "script-src 'self' https://t1.kakaocdn.net https://t1.daumcdn.net",
+    "script-src 'self' https://t1.kakaocdn.net https://t1.daumcdn.net https://maps.googleapis.com https://maps.gstatic.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self'",
+    "connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com",
     "frame-src 'self' https://postcode.map.kakao.com https://postcode.map.daum.net"
   ].join("; "));
   if (isProd) {
@@ -1713,6 +1713,11 @@ app.get("/api/public/summary", async (_req, res) => {
   });
 });
 
+app.get("/api/public/map-config", (_req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=300");
+  res.json({ googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY ?? "" });
+});
+
 app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   const session = res.locals.session as Session;
   const applications = await filteredApplicationsForAdmin(session, req.query);
@@ -2388,6 +2393,16 @@ app.get("/api/admin/attendance/checkpoints", requirePrivacyAdmin, async (_req, r
   res.json({ checkpoints: rows.map(checkpointView) });
 });
 
+app.get("/api/attendance/checkpoints", requireAdmin, async (_req, res) => {
+  const rows = await db.select().from(tables.attendanceCheckpoints).orderBy(tables.attendanceCheckpoints.name);
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.json({
+    checkpoints: rows
+      .filter((row: any) => row.active === true || row.active === 1)
+      .map(checkpointView)
+  });
+});
+
 app.post("/api/admin/attendance/checkpoints", requirePrivacyAdmin, async (req, res) => {
   const session = res.locals.session as Session;
   try {
@@ -2486,7 +2501,7 @@ app.get("/api/admin/attendance", requirePrivacyAdmin, async (req, res) => {
   });
 });
 
-app.post("/api/admin/attendance/check", requirePrivacyAdmin, async (req, res) => {
+async function handleAttendanceCheck(req: express.Request, res: express.Response) {
   const session = res.locals.session as Session;
   const checkpointId = String(req.body.checkpointId ?? "").trim();
   const cardValue = String(req.body.cardValue ?? "").trim();
@@ -2559,7 +2574,10 @@ app.post("/api/admin/attendance/check", requirePrivacyAdmin, async (req, res) =>
     record: attendanceRecordView(savedLog, pilgrim, checkpoint),
     duplicate
   });
-});
+}
+
+app.post("/api/attendance/check", requireAdmin, handleAttendanceCheck);
+app.post("/api/admin/attendance/check", requirePrivacyAdmin, handleAttendanceCheck);
 
 app.get("/api/admin/pilgrims", requirePrivacyAdmin, async (req, res) => {
   const query = String(req.query.q ?? "");

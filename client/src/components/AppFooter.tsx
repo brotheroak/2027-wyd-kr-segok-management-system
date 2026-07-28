@@ -10,7 +10,7 @@ const adminMenuItems = [
   { label: "신청 현황", menu: "applications" },
   { label: "봉사 일정", menu: "shifts" },
   { label: "순례자·호스트", menu: "pilgrims" },
-  { label: "출석·위치", menu: "attendance" },
+  { label: "지점·위치 이력", menu: "attendance" },
   { label: "FAQ·Q&A", menu: "community" },
   { label: "계정 관리", menu: "accounts" },
   { label: "비밀번호 변경", menu: "password" }
@@ -56,6 +56,9 @@ export function AppFooter({ navigate, mode = "public" }: AppFooterProps) {
             <a href="/pilgrim" onClick={(event) => { event.preventDefault(); navigate("/pilgrim"); }}>
               순례자·호스트 확인
             </a>
+            <a href="/attendance" onClick={(event) => { event.preventDefault(); navigate("/attendance"); }}>
+              현장 출석 스캔
+            </a>
           </div>
           {mode === "admin" && (
             <div>
@@ -65,6 +68,7 @@ export function AppFooter({ navigate, mode = "public" }: AppFooterProps) {
                   {item.label}
                 </a>
               ))}
+              <a href="/attendance">현장 출석 스캔</a>
             </div>
           )}
           <div>

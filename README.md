@@ -4,6 +4,7 @@
 
 - 신청 홈: `http://127.0.0.1:4177/apply`
 - 접수 확인: `http://127.0.0.1:4177/check`
+- 현장 출석 스캔: `http://127.0.0.1:4177/attendance`
 - 운영자 콘솔: `http://127.0.0.1:4177/admin`
 - 본당 표기 주소: 서울특별시 강남구 헌릉로618길 34 세곡동성당
 - 대표 번호: 02-459-8211
@@ -13,6 +14,7 @@
 - 홈스테이 호스트 신청서 작성, 수정, 취소, 접수 확인
 - 자원봉사자 신청서 작성 및 운영자 관리
 - 카카오 우편번호 서비스 기반 주소 검색
+- Google 지도·현재 위치 기반 출석 체크 지점 등록과 독립 현장 스캔
 - 일반 운영자와 개인정보 관리자 권한 분리
 - 관리자 개별 계정 로그인 및 개인정보 접근 역할 TOTP MFA
 - 개인정보 컬럼 AES-256-GCM 암호화
@@ -52,6 +54,7 @@ npm run dev
 - `SMTP_*` 또는 `SMS_WEBHOOK_*`: 인증번호 발송 서비스
 - `PUBLIC_SITE_URL`: 순례자 카드 발송 링크에 사용할 대표 HTTPS 주소
 - `PILGRIM_CARD_EXPIRY_DATE`: 순례자 카드 링크 만료 시각(ISO 8601, 기본 2027-08-31)
+- `GOOGLE_MAPS_API_KEY`: 체크 지점 지도와 주소 좌표 변환에 사용. 운영 도메인 HTTP referrer와 Maps JavaScript API·Geocoding API로 반드시 제한
 - `DATABASE_URL`: Cloud Run 운영에서는 필수. 미설정 시 로컬/단일 VM용 SQLite 파일 DB 사용
 
 운영자 계정 생성:

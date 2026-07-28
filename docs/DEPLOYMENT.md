@@ -17,6 +17,7 @@
 | `DATA_ENCRYPTION_KEY` | 운영 필수 | 개인정보 AES-256-GCM 암호화 키 |
 | `ALLOWED_ORIGINS` | 운영 필수 | 쉼표 구분 허용 origin |
 | `PUBLIC_CUSTOM_ORIGINS` | 선택 | 쉼표 구분 공개 도메인. 해당 Host로 접근하면 OG URL과 OG 이미지를 해당 도메인 기준 절대 URL로 생성 |
+| `GOOGLE_MAPS_API_KEY` | 출석 지점 지도 사용 시 | Maps JavaScript API와 Geocoding API용 브라우저 키. 허용 HTTP referrer와 API를 제한 |
 | `DATABASE_URL` | 선택 | PostgreSQL 연결 문자열. 없으면 SQLite |
 | `DATABASE_SSL` | 선택 | PostgreSQL SSL 강제 |
 | `DATA_DIR` | SQLite 시 선택 | SQLite 파일 저장 경로 |
@@ -188,6 +189,28 @@ gcloud run deploy wyd-homestay \
 ```
 
 GitHub Actions 자동 배포는 기존 운영 Secret과 Cloud SQL 연결을 유지하기 위해 `--update-env-vars`를 사용합니다. 수동 배포에서 `--set-env-vars`를 사용할 경우 기존 환경변수를 모두 재정의하므로 누락된 Secret이 없는지 먼저 확인합니다.
+
+### 출석 체크 지점 Google 지도 설정
+
+1. GCP 프로젝트에서 `Maps JavaScript API`와 `Geocoding API`를 활성화합니다.
+2. 브라우저용 API 키를 생성합니다.
+3. 애플리케이션 제한은 `웹사이트`로 설정하고 아래 HTTPS referrer만 허용합니다.
+   - `https://segokwyd.kr/*`
+   - `https://www.segokwyd.kr/*`
+   - `https://sgwyd2027.kr/*`
+   - `https://www.sgwyd2027.kr/*`
+   - 운영 Cloud Run URL이 직접 사용될 때 해당 `https://...run.app/*`
+4. API 제한에는 `Maps JavaScript API`, `Geocoding API`만 선택합니다.
+5. Cloud Run 서비스에 환경변수를 추가합니다.
+
+```bash
+gcloud run services update wyd-2027-kr-segok-mgmt \
+  --project mystic-planet-347807 \
+  --region asia-northeast3 \
+  --update-env-vars GOOGLE_MAPS_API_KEY="<restricted-browser-key>"
+```
+
+지도 키가 없거나 로드에 실패하면 지도와 주소 좌표 자동 변환은 안내 화면으로 대체됩니다. 기기 GPS를 이용한 `현재 위치로 지정`은 HTTPS 또는 localhost에서 계속 사용할 수 있습니다.
 
 현재 서비스 확인:
 

@@ -1,6 +1,6 @@
 # 현재 프로젝트 상태
 
-최종 갱신: 2026-07-21 KST
+최종 갱신: 2026-07-28 KST
 
 ## 1. 운영 현황
 
@@ -15,7 +15,7 @@
 | 운영 DB | Cloud SQL PostgreSQL |
 | Cloud SQL 인스턴스 | `mystic-planet-347807:asia-northeast3:wyh-postgres` |
 | 배포 방식 | `main` push 후 GitHub Actions 자동 배포 |
-| 이번 배포 범위 | 일정 관리, 순례자 관리, FAQ/Q&A, 검색·대시보드 개선 |
+| 이번 배포 범위 | 독립 현장 출석 스캔, Google 지도 체크 지점 관리, 순례자 위치 이력 |
 
 Cloud Run은 stateless 환경이므로 운영 DB는 PostgreSQL을 기준으로 관리합니다. SQLite는 로컬 개발 또는 단일 VM 대안으로만 취급합니다.
 
@@ -40,6 +40,8 @@ Cloud Run은 stateless 환경이므로 운영 DB는 PostgreSQL을 기준으로 �
 | 접수 조회 | 홈스테이는 이름/연락처/PIN, 자원봉사자는 이름/연락처 기준 |
 | 운영자 콘솔 | 신청 현황, 봉사 일정, 순례자·호스트, FAQ·Q&A, 계정, 비밀번호 메뉴 |
 | 순례자 관리 | 교구·지역·학년·나이·식단·알레르기·발열, 호스트 배정, 바코드 출력·카메라 조회, 식사 이력 |
+| 현장 출석 | `/attendance` 독립 화면, 운영자 로그인, 바코드·기기 GPS 기반 지점 일치 검증 |
+| 출석 지점·이력 | 개인정보 관리자 전용 지점 CRUD, 카카오 주소·Google 좌표·현재 위치·지도 보정, 최근 위치와 전체 이력 |
 | 커뮤니티 | 공개 FAQ 검색, 개인정보 동의 기반 Q&A 등록, 운영자 답변·관리 |
 | 통합 검색 | 접수번호·성명·연락처·이메일·성별 동의어 등 지원, 구역 번호 정확 일치 |
 | 대시보드 | 구역, 침대방, 반려동물, 성별, 호스트 연령대 분포 |
@@ -67,6 +69,7 @@ Cloud Run은 stateless 환경이므로 운영 DB는 PostgreSQL을 기준으로 �
 - Cloud SQL 자동 백업과 PITR 활성화 여부
 - SMTP/SMS 실제 발송 채널의 일일 발송 제한
 - 감사 로그 장기 보존 및 다운로드 권한 정기 점검
+- Google Maps API 키의 운영 도메인 referrer 및 Maps JavaScript/Geocoding API 제한
 
 ## 5. CI/CD 상태
 

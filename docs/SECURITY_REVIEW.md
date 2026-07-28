@@ -1,6 +1,6 @@
 # 보안성 검토
 
-최종 갱신: 2026-07-21 KST
+최종 갱신: 2026-07-28 KST
 
 이 검토는 OWASP ASVS, Authentication Cheat Sheet, Session Management Cheat Sheet, REST Security Cheat Sheet, Denial of Service Cheat Sheet를 기준선으로 삼아 현재 구현과 운영 설정을 점검한 것입니다.
 
@@ -28,6 +28,8 @@
 | 카드 토큰 | 256비트 난수 토큰, SHA-256 조회 인덱스, 만료 시각, URL fragment 사용으로 접근 로그 노출 방지 |
 | 호스트 권한 | 확정된 호스트 세션과 `host_application_id` 배정이 모두 일치할 때만 최소 순례자·식단 정보 반환 |
 | 바코드·카메라 | 바코드는 촬영 안정성을 위해 비밀 카드 토큰만 포함하고 영상은 브라우저 안에서만 판독. `Permissions-Policy`는 동일 출처 카메라만 허용하며 HTTPS/권한 오류를 구분해 안내 |
+| 출석 위치 | 승인된 운영자만 스캔 가능. 지점 관리·위치 이력은 개인정보 관리자 전용이며 기기 좌표는 암호화 저장 |
+| Google 지도 | 브라우저 키는 공개 가능한 키로 취급하고 운영 도메인 HTTP referrer와 Maps JavaScript·Geocoding API로 사용 범위를 제한 |
 
 ## 2. 운영 전 필수 체크리스트
 
@@ -41,6 +43,7 @@
 - SQLite 운영 시 `/app/data` 볼륨 백업이 설정되어 있습니다.
 - PostgreSQL 운영 시 자동 백업과 PITR 정책이 설정되어 있습니다.
 - `ENABLE_STRESS_ENDPOINT=true`는 운영 환경에 넣지 않았습니다.
+- `GOOGLE_MAPS_API_KEY`에 운영 도메인 referrer와 API 제한을 적용했습니다.
 
 ## 3. 주요 리스크와 대응
 
@@ -54,6 +57,7 @@
 | Secret 관리 | 샘플에서는 외부 주입 전제 | Secret Manager 또는 External Secrets Operator 권장 |
 | WAF/DDoS | 앱 내부 rate limit과 웹퍼널 적용 | Cloud Armor/CDN WAF rate-based rule 추가 |
 | 백업 검증 | 문서상 Cloud SQL 백업 권장 | PITR 활성화와 복구 리허설 결과 기록 |
+| Google 지도 비용·키 오용 | 코드에 키 미포함, 런타임 환경변수 사용 | 키 referrer/API 제한, Maps Platform quota·budget alert 설정 |
 
 ## 4. 권장 운영 설정
 
