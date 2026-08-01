@@ -43,12 +43,14 @@ export type ApplicationPayload = {
     preferredGender: string;
     capacity: number;
     hasBed: boolean;
+    bedCapacity: number | null;
     spaceDescription: string;
   };
   confirmations: {
     period: boolean;
     breakfast: boolean;
     faithCommunity: boolean;
+    privacyConsent: boolean;
     appliedDate: string;
     signatureName: string;
   };

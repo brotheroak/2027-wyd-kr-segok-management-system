@@ -1843,6 +1843,45 @@ input:focus, select:focus, textarea:focus {
   background: #fff;
 }
 
+.host-duty-card a {
+  color: var(--gold-700);
+  font-weight: 800;
+  text-underline-offset: 3px;
+}
+
+.host-application-guide {
+  padding: clamp(18px, 2.4vw, 26px);
+  border: 1px solid rgba(169, 132, 46, 0.3);
+  border-radius: 18px;
+  background: #fbf8f1;
+}
+
+.host-application-guide > strong {
+  display: block;
+  margin-bottom: 12px;
+  color: var(--blue);
+  font-family: var(--display-font);
+  font-size: 1.08rem;
+}
+
+.host-application-guide dl {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.host-application-guide dl > div {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 14px;
+  padding: 11px 0;
+  border-top: 1px solid rgba(169, 132, 46, 0.16);
+}
+
+.host-application-guide dt { color: var(--gold-700); font-weight: 900; }
+.host-application-guide dd { margin: 0; color: #4f5968; line-height: 1.65; }
+.bed-capacity-field { max-width: 360px; }
+
 .member-head {
   display: flex;
   justify-content: space-between;
@@ -4328,6 +4367,64 @@ td small {
 .attendance-field-result dt { color: #aeb7c7; }
 .attendance-field-result dd { margin: 0; color: #fff; font-weight: 800; }
 
+.receipt-change-notice,
+.admin-change-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid #dfc981;
+  border-radius: 8px;
+  background: #fffaf0;
+  color: #5d4a1a;
+}
+
+.receipt-change-notice { display: grid; margin-top: 18px; }
+.receipt-change-notice strong { color: #121e31; }
+.receipt-change-notice p { margin: 0; line-height: 1.65; }
+.receipt-change-notice a { color: #8a671d; font-weight: 900; }
+.admin-change-alert svg { width: 19px; height: 19px; flex: 0 0 auto; color: #a9842e; }
+
+.paper-application-modal {
+  width: min(1120px, 100%);
+  max-height: 92vh;
+  overflow: hidden;
+  border: 1px solid #d9c995;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(18, 30, 49, .26);
+}
+
+.paper-application-modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 24px;
+  background: #121e31;
+  color: #fff;
+}
+
+.paper-application-modal > header span { color: #d9c17d; font-size: 12px; font-weight: 900; letter-spacing: .1em; }
+.paper-application-modal > header h2 { margin: 4px 0; font-family: var(--font-serif); font-size: 25px; }
+.paper-application-modal > header p { margin: 0; color: #cbd3df; font-size: 13px; }
+.paper-application-modal-body { max-height: calc(92vh - 112px); overflow-y: auto; padding: 22px; }
+.paper-application-modal-body .form-stack { max-width: none; }
+.paper-pin-result { display: grid; justify-items: center; gap: 12px; padding: clamp(30px, 6vw, 72px) 20px; text-align: center; }
+.paper-pin-result > svg { width: 52px; height: 52px; color: #0b8a61; }
+.paper-pin-result > span { color: #8a671d; font-weight: 900; }
+.paper-pin-result h3 { margin: 0; color: #121e31; font-family: var(--font-serif); font-size: 30px; }
+.paper-pin-result p { margin: 0; color: #596273; }
+.paper-pin-result > strong { padding: 14px 28px; border: 1px solid #d9c995; border-radius: 8px; background: #fbf8f1; color: #121e31; font-size: 36px; letter-spacing: .12em; }
+.paper-pin-result small { color: #667085; }
+.paper-pin-result button { min-width: 180px; }
+.pilgrim-diet-field small { display: block; color: #667085; line-height: 1.55; }
+.admin-sensitive-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.admin-reset-pin-result { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 14px 16px; border: 1px solid #d9c995; border-radius: 8px; background: #fffaf0; }
+.admin-reset-pin-result > span { color: #596273; font-weight: 800; }
+.admin-reset-pin-result > strong { color: #121e31; font-size: 26px; letter-spacing: .1em; }
+.admin-reset-pin-result > small { width: 100%; color: #667085; }
+
 @media (max-width: 900px) {
   .attendance-scan-layout, .attendance-checkpoint-layout { grid-template-columns: 1fr; }
   .current-location-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -4360,4 +4457,8 @@ td small {
   .attendance-field-result dl div { grid-template-columns: 1fr; gap: 4px; }
   .google-checkpoint-map { min-height: 270px; }
   .attendance-topbar .site-nav { overflow-x: auto; justify-content: flex-start; scrollbar-width: thin; }
+  .host-application-guide dl > div { grid-template-columns: 1fr; gap: 4px; }
+  .paper-application-modal > header { align-items: flex-start; padding: 16px; }
+  .paper-application-modal > header p { display: none; }
+  .paper-application-modal-body { padding: 12px; }
 }

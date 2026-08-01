@@ -36,12 +36,14 @@ function validApplication(overrides: Partial<ApplicationPayload> = {}): Applicat
       preferredGender: "상관없음",
       capacity: 2,
       hasBed: true,
+      bedCapacity: 2,
       spaceDescription: "순례자 두 명이 머물 수 있는 독립 방이 있습니다."
     },
     confirmations: {
       period: true,
       breakfast: true,
       faithCommunity: true,
+      privacyConsent: true,
       appliedDate: "2026-07-04",
       signatureName: "홍길동 (요셉)"
     }
@@ -120,6 +122,24 @@ test("홈스테이 신청서는 수용 가능 인원을 20명 이하로 제한�
 
 test("홈스테이 신청서는 순례자 1명만 수용하는 신청을 거부한다", () => {
   const payload = validApplication({ homestay: { ...validApplication().homestay, capacity: 1 } });
+  assert.equal(applicationSchema.safeParse(payload).success, false);
+});
+
+test("홈스테이 신청서는 침대 제공 가능 인원이 전체 수용 인원을 넘으면 거부한다", () => {
+  const current = validApplication();
+  const payload = validApplication({ homestay: { ...current.homestay, capacity: 2, hasBed: true, bedCapacity: 3 } });
+  assert.equal(applicationSchema.safeParse(payload).success, false);
+});
+
+test("홈스테이 신청서는 침대 제공 시 침대 인원을 필수로 요구한다", () => {
+  const current = validApplication();
+  const payload = validApplication({ homestay: { ...current.homestay, hasBed: true, bedCapacity: null } });
+  assert.equal(applicationSchema.safeParse(payload).success, false);
+});
+
+test("홈스테이 신청서는 개인정보 수집 및 이용 동의가 필수다", () => {
+  const current = validApplication();
+  const payload = validApplication({ confirmations: { ...current.confirmations, privacyConsent: false } });
   assert.equal(applicationSchema.safeParse(payload).success, false);
 });
 

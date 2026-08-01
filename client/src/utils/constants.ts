@@ -56,12 +56,14 @@ export const emptyApplication = (email = ""): ApplicationPayload => ({
     preferredGender: "상관없음",
     capacity: 2,
     hasBed: false,
+    bedCapacity: 0,
     spaceDescription: ""
   },
   confirmations: {
     period: false,
     breakfast: false,
     faithCommunity: false,
+    privacyConsent: false,
     appliedDate: today,
     signatureName: ""
   }

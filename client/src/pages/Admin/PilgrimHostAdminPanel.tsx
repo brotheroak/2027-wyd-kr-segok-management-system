@@ -26,6 +26,17 @@ const emptyPilgrim = (): PilgrimForm => ({
   hostApplicationId: ""
 });
 
+const dietDescriptions: Record<string, string> = {
+  일반식: "별도의 동물성 식품 제한 없이 일반적인 식사를 합니다.",
+  페스코: "육류는 먹지 않지만 생선과 해산물은 섭취합니다.",
+  락토오보: "육류와 생선은 먹지 않지만 유제품과 달걀은 섭취합니다.",
+  락토: "육류, 생선, 달걀은 먹지 않지만 유제품은 섭취합니다.",
+  오보: "육류, 생선, 유제품은 먹지 않지만 달걀은 섭취합니다.",
+  비건: "육류, 생선, 유제품, 달걀 등 모든 동물성 식품을 섭취하지 않습니다.",
+  "육류 제외": "소고기, 돼지고기, 닭고기 등 육류를 제외하며 세부 허용 식품을 확인해야 합니다.",
+  기타: "식단 상세와 알레르기 항목에 정확한 제한 내용을 입력해 주세요."
+};
+
 function cameraErrorMessage(error: unknown) {
   const name = error instanceof DOMException ? error.name : "";
   if (name === "NotAllowedError") return "카메라 권한이 차단되었습니다. 주소창의 사이트 설정에서 카메라를 허용한 뒤 다시 시도해 주세요.";
@@ -281,7 +292,7 @@ export function PilgrimHostAdminPanel({ token, canViewPersonalData }: { token: s
             <label><span>교구</span><input required value={form.diocese} onChange={(e) => setForm({ ...form, diocese: e.target.value })} /></label>
             <label><span>지역</span><input required value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} /></label>
             <label><span>학년</span><input required value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} /></label>
-            <label><span>식단</span><select value={form.dietType} onChange={(e) => setForm({ ...form, dietType: e.target.value })}>{["일반식", "페스코", "락토오보", "락토", "오보", "비건", "육류 제외", "기타"].map((value) => <option key={value}>{value}</option>)}</select></label>
+            <label className="pilgrim-diet-field"><span>식단</span><select value={form.dietType} onChange={(e) => setForm({ ...form, dietType: e.target.value })}>{["일반식", "페스코", "락토오보", "락토", "오보", "비건", "육류 제외", "기타"].map((value) => <option key={value}>{value}</option>)}</select><small>{dietDescriptions[form.dietType]}</small></label>
           </div>
           <label><span>배정 호스트</span><select value={form.hostApplicationId} onChange={(e) => setForm({ ...form, hostApplicationId: e.target.value })}><option value="">미배정</option>{hosts.map((host) => <option key={host.id} value={host.id}>{host.applicationNo} · {host.name} ({host.capacity}명)</option>)}</select></label>
           <label><span>식단 상세</span><input value={form.dietNotes} onChange={(e) => setForm({ ...form, dietNotes: e.target.value })} /></label>

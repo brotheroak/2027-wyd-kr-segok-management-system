@@ -72,12 +72,14 @@ export const applicationSchema = z.object({
     preferredGender: z.string().min(1),
     capacity: z.number().int().min(2, "홈스테이는 순례자를 2명 이상 수용해야 합니다.").max(20),
     hasBed: z.boolean(),
+    bedCapacity: z.number().int().min(0).max(20).nullable(),
     spaceDescription: z.string().min(10)
   }),
   confirmations: z.object({
     period: z.literal(true),
     breakfast: z.literal(true),
     faithCommunity: z.literal(true),
+    privacyConsent: z.literal(true),
     appliedDate: dateSchema,
     signatureName: z.string().min(2)
   }),
@@ -102,6 +104,12 @@ export const applicationSchema = z.object({
 }).refine((data) => !data.homestay.hasPet || Boolean(data.homestay.petDescription?.trim()), {
   message: "반려동물이 있는 경우 설명을 입력해 주세요.",
   path: ["homestay", "petDescription"]
+}).refine((data) => !data.homestay.hasBed || Number(data.homestay.bedCapacity) >= 1, {
+  message: "침대 제공이 가능한 경우 침대 제공 가능 인원을 입력해 주세요.",
+  path: ["homestay", "bedCapacity"]
+}).refine((data) => data.homestay.bedCapacity === null || data.homestay.bedCapacity <= data.homestay.capacity, {
+  message: "침대 제공 가능 인원은 전체 수용 가능 인원을 넘을 수 없습니다.",
+  path: ["homestay", "bedCapacity"]
 });
 
 export const volunteerSchema = z.object({

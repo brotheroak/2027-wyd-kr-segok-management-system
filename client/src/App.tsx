@@ -391,7 +391,15 @@ export function App() {
               <small>주제 성구: “용기를 내어라. 내가 세상을 이겼다.” (요한 16,33)</small>
             </div>
             <div className="content">
-              <ApplicationForm
+              {application && application.status !== "submitted" ? (
+                <ApplicationReceipt
+                  application={application}
+                  onEdit={() => undefined}
+                  onCancel={() => undefined}
+                  onOpenPilgrimScanner={() => navigate("/host/pilgrims")}
+                  onLogout={handleLogout}
+                />
+              ) : <ApplicationForm
                 initial={application ?? emptyApplication()}
                 submitLabel={application ? "수정 내용 저장" : "신청 접수"}
                 pinRequired={!application}
@@ -412,7 +420,7 @@ export function App() {
                   }
                   navigate("/check");
                 }}
-              />
+              />}
             </div>
           </section>
         )}
@@ -428,7 +436,14 @@ export function App() {
               <p>세곡동성당과 함께 2027 WYD 순례자를 맞이할 봉사자를 모집합니다.</p>
             </div>
             <div className="content">
-              {volunteerReceipt ? (
+              {volunteer && volunteer.status !== "submitted" ? (
+                <VolunteerReceipt
+                  volunteer={volunteer}
+                  onEdit={() => undefined}
+                  onCancel={() => undefined}
+                  onLogout={handleLogout}
+                />
+              ) : volunteerReceipt ? (
                 <VolunteerReceipt
                   volunteer={volunteerReceipt}
                   onEdit={() => {

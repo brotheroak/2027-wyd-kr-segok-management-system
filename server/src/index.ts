@@ -459,6 +459,7 @@ async function insertCapabilities(tx: any, applicationId: string, payload: Appli
   const values: Array<{ id: string; applicationId: string; capabilityKey: string; capabilityValue: string }> = [
     { id: nanoid(), applicationId, capabilityKey: "capacity", capabilityValue: String(payload.homestay.capacity) },
     { id: nanoid(), applicationId, capabilityKey: "has_bed", capabilityValue: payload.homestay.hasBed ? "yes" : "no" },
+    { id: nanoid(), applicationId, capabilityKey: "bed_capacity", capabilityValue: String(payload.homestay.bedCapacity ?? 0) },
     { id: nanoid(), applicationId, capabilityKey: "has_pet", capabilityValue: payload.homestay.hasPet ? "yes" : "no" },
     { id: nanoid(), applicationId, capabilityKey: "preferred_gender", capabilityValue: payload.homestay.preferredGender },
     { id: nanoid(), applicationId, capabilityKey: "housing_type", capabilityValue: payload.homestay.housingType },
@@ -536,11 +537,13 @@ async function upsertApplication(payload: ApplicationPayload, existingId?: strin
       preferredGender: parsed.homestay.preferredGender,
       capacity: parsed.homestay.capacity,
       hasBed: isPg ? (parsed.homestay.hasBed) : (parsed.homestay.hasBed ? 1 : 0),
+      bedCapacity: parsed.homestay.hasBed ? parsed.homestay.bedCapacity : 0,
       spaceDescription: parsed.homestay.spaceDescription,
       consentChecks: JSON.stringify({
         period: parsed.confirmations.period,
         breakfast: parsed.confirmations.breakfast,
-        faithCommunity: parsed.confirmations.faithCommunity
+        faithCommunity: parsed.confirmations.faithCommunity,
+        privacyConsent: parsed.confirmations.privacyConsent
       }),
       signatureName: pii(parsed.confirmations.signatureName),
       appliedDate: parsed.confirmations.appliedDate,
@@ -621,6 +624,7 @@ async function rowToApplication(row: any) {
       }
     : computedDistrict;
 
+  const consentChecks = JSON.parse(row.consentChecks);
   return {
     id: row.id,
     applicationNo: row.applicationNo,
@@ -648,10 +652,12 @@ async function rowToApplication(row: any) {
       preferredGender: row.preferredGender,
       capacity: row.capacity,
       hasBed: castBool(row.hasBed),
+      bedCapacity: row.bedCapacity === null || row.bedCapacity === undefined ? null : Number(row.bedCapacity),
       spaceDescription: row.spaceDescription
     },
     confirmations: {
-      ...JSON.parse(row.consentChecks),
+      ...consentChecks,
+      privacyConsent: consentChecks.privacyConsent === true,
       appliedDate: row.appliedDate,
       signatureName: plain(row.signatureName)
     },
@@ -1150,7 +1156,7 @@ async function filteredVolunteersForAdmin(session: Session, query: express.Reque
 
 function applicationExcelRows(applications: any[]) {
   return [
-    ["접수번호", "상태", "대표 성명", "세례명", "성별", "생년월일", "연락처", "이메일", "우편번호", "주소", "상세주소", "구역", "반", "구역반 판별", "가구원 수", "가족 구성", "주거형태", "반려동물", "가능 언어", "희망 성별", "수용 인원", "침대 제공", "공간 설명", "신청일", "서명", "접수일", "수정일"],
+    ["접수번호", "상태", "대표 성명", "세례명", "성별", "생년월일", "연락처", "이메일", "우편번호", "주소", "상세주소", "구역", "반", "구역반 판별", "가구원 수", "가족 구성", "주거형태", "반려동물", "가능 언어", "희망 성별", "수용 인원", "침대 제공", "침대 제공 인원", "공간 설명", "개인정보 동의", "신청일", "서명", "접수일", "수정일"],
     ...applications.map((item) => [
       item.applicationNo,
       item.status,
@@ -1174,7 +1180,9 @@ function applicationExcelRows(applications: any[]) {
       item.homestay.preferredGender,
       item.homestay.capacity,
       item.homestay.hasBed ? "가능" : "불가",
+      item.homestay.bedCapacity ?? "확인 필요",
       item.homestay.spaceDescription,
+      item.confirmations.privacyConsent ? "동의" : "기존 접수 확인 필요",
       item.confirmations.appliedDate,
       item.confirmations.signatureName,
       item.createdAt,
@@ -1336,6 +1344,23 @@ app.post("/api/applications", async (req, res) => {
     const token = await createApplicantSession(application.id);
     await logAudit(application.representative.phone, "applicant_created_application", application.id);
     res.json({ token, application });
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
+});
+
+app.post("/api/admin/applications/paper", requirePrivacyAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  try {
+    const temporaryPin = String(randomInt(0, 10_000)).padStart(4, "0");
+    const payload = structuredClone(req.body as ApplicationPayload);
+    payload.representative = { ...payload.representative, applicantPin: temporaryPin };
+    const application = await upsertApplication(payload);
+    if (!application) return res.status(500).json({ message: "종이 신청서를 저장하지 못했습니다." });
+    await logAudit(actorFrom(session), "privacy_admin_created_paper_application", application.id, {
+      applicationNo: application.applicationNo
+    });
+    res.status(201).json({ application, temporaryPin });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
   }
@@ -1596,6 +1621,7 @@ app.post("/api/my/application", requireSession("user"), async (req, res) => {
   const payload = req.body as ApplicationPayload;
   const existing = await applicationForUserSession(session);
   if (!existing) return res.status(404).json({ message: "접수 내역이 없습니다." });
+  if (existing.status !== "submitted") return res.status(409).json({ message: "확정 또는 취소된 신청은 직접 수정할 수 없습니다. 세곡동 성당에 변경을 요청해 주세요." });
   if (!payload.representative.email) payload.representative.email = existing.representative.email;
   try {
     const application = await upsertApplication(payload, existing.id);
@@ -1610,6 +1636,7 @@ app.delete("/api/my/application", requireSession("user"), async (req, res) => {
   const session = res.locals.session as Session;
   const existing = await applicationForUserSession(session);
   if (!existing) return res.status(404).json({ message: "접수 내역이 없습니다." });
+  if (existing.status !== "submitted") return res.status(409).json({ message: "확정 또는 취소된 신청은 직접 취소할 수 없습니다. 세곡동 성당에 문의해 주세요." });
   
   await db.update(tables.applications).set({
     status: "canceled",
@@ -1632,6 +1659,7 @@ app.post("/api/my/volunteer", requireSession("user"), async (req, res) => {
   const payload = req.body as VolunteerPayload;
   const existing = await volunteerForUserSession(session);
   if (!existing) return res.status(404).json({ message: "접수 내역이 없습니다." });
+  if (existing.status !== "submitted") return res.status(409).json({ message: "확정 또는 취소된 신청은 직접 수정할 수 없습니다. 세곡동 성당에 변경을 요청해 주세요." });
   if (!payload.email) payload.email = existing.email;
   try {
     const volunteer = await upsertVolunteer(payload, existing.id);
@@ -1646,6 +1674,7 @@ app.delete("/api/my/volunteer", requireSession("user"), async (req, res) => {
   const session = res.locals.session as Session;
   const existing = await volunteerForUserSession(session);
   if (!existing) return res.status(404).json({ message: "접수 내역이 없습니다." });
+  if (existing.status !== "submitted") return res.status(409).json({ message: "확정 또는 취소된 신청은 직접 취소할 수 없습니다. 세곡동 성당에 문의해 주세요." });
   
   await db.update(tables.volunteers).set({
     status: "canceled",
@@ -1675,11 +1704,13 @@ app.get("/api/public/summary", async (_req, res) => {
     capacity: 0
   };
   for (const item of applications) {
-    homestay.total++;
     if (item.status === "submitted") homestay.submitted++;
     if (item.status === "confirmed") homestay.confirmed++;
     if (item.status === "canceled") homestay.canceled++;
-    if (item.status !== "canceled") homestay.capacity += Number(item.capacity || 0);
+    if (item.status !== "canceled") {
+      homestay.total++;
+      homestay.capacity += Number(item.capacity || 0);
+    }
   }
 
   const volunteer = {
@@ -1693,12 +1724,12 @@ app.get("/api/public/summary", async (_req, res) => {
   };
   const volunteerFieldSet = new Set<string>();
   for (const item of volunteers) {
-    volunteer.total++;
     if (item.status === "submitted") volunteer.submitted++;
     if (item.status === "confirmed") volunteer.confirmed++;
     if (item.status === "canceled") volunteer.canceled++;
     const fields = JSON.parse(item.supportFields);
     if (item.status !== "canceled") {
+      volunteer.total++;
       fields.forEach((field: string) => volunteerFieldSet.add(field));
       if (fields.includes("외국어 지원") || fields.includes("통역 및 언어 지원")) volunteer.languageSupport++;
       if (fields.includes("의료 지원") || fields.includes("의료 봉사")) volunteer.medicalSupport++;
@@ -1737,6 +1768,14 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   let capacity = 0;
   const genderCounts: Record<string, number> = { 남성: 0, 여성: 0 };
   const ageGroupCounts: Record<string, number> = {};
+  const auditRows = await db.select({ action: tables.auditLogs.action, createdAt: tables.auditLogs.createdAt })
+    .from(tables.auditLogs)
+    .orderBy(desc(tables.auditLogs.createdAt));
+  const recentThreshold = Date.now() - (7 * 24 * 60 * 60 * 1000);
+  const recentApplicantChanges = auditRows.filter((item: any) =>
+    ["applicant_updated_application", "volunteer_updated_application"].includes(item.action)
+    && Date.parse(item.createdAt) >= recentThreshold
+  ).length;
 
   for (const item of allApps) {
     total++;
@@ -1754,7 +1793,7 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   res.json({
     role: session.role,
     canViewPersonalData: canAccessPersonalData(session),
-    stats: { total, submitted, confirmed, canceled, capacity, genderCounts, ageGroupCounts },
+    stats: { total, submitted, confirmed, canceled, capacity, genderCounts, ageGroupCounts, recentApplicantChanges },
     applications
   });
 });
@@ -1795,6 +1834,20 @@ app.put("/api/admin/applications/:id", requirePrivacyAdmin, async (req, res) => 
   } catch (error) {
     res.status(error instanceof StaleWriteError ? 409 : 400).json({ message: (error as Error).message });
   }
+});
+
+app.post("/api/admin/applications/:id/reset-pin", requirePrivacyAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  const id = String(req.params.id);
+  const existing = await getApplication(id);
+  if (!existing) return res.status(404).json({ message: "홈스테이 신청을 찾을 수 없습니다." });
+  const temporaryPin = String(randomInt(0, 10_000)).padStart(4, "0");
+  await db.update(tables.applications).set({
+    applicantPin: hashApplicantPin(id, temporaryPin),
+    updatedAt: nowIso()
+  }).where(eq(tables.applications.id, id));
+  await logAudit(actorFrom(session), "privacy_admin_reset_applicant_pin", id, { applicationNo: existing.applicationNo });
+  res.json({ temporaryPin });
 });
 
 app.delete("/api/admin/applications/:id", requirePrivacyAdmin, async (req, res) => {
@@ -2100,9 +2153,10 @@ app.get("/api/admin/match-candidates", requireAdmin, async (req, res) => {
       score += 15;
       reasons.push(`${language} 가능`);
     }
+    if (bedNeeded && Number(appData.homestay.bedCapacity ?? 0) < capacity) continue;
     if (bedNeeded && appData.homestay.hasBed) {
       score += 15;
-      reasons.push("침대 제공 가능");
+      reasons.push(`침대 ${appData.homestay.bedCapacity}명 제공 가능`);
     }
     if (petAllergy && !appData.homestay.hasPet) {
       score += 10;

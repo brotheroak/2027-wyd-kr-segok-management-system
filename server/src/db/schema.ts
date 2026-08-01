@@ -34,6 +34,7 @@ export const sqliteApplications = sqliteTable("homestay_applications", {
   preferredGender: sqliteText("preferred_gender").notNull(),
   capacity: sqliteInteger("capacity").notNull(),
   hasBed: sqliteInteger("has_bed").notNull(), // 0 or 1
+  bedCapacity: sqliteInteger("bed_capacity"),
   spaceDescription: sqliteText("space_description").notNull(),
   consentChecks: sqliteText("consent_checks").notNull(),
   signatureName: sqliteText("signature_name").notNull(),
@@ -274,6 +275,7 @@ export const pgApplications = pgTable("homestay_applications", {
   preferredGender: pgText("preferred_gender").notNull(),
   capacity: pgInteger("capacity").notNull(),
   hasBed: pgBoolean("has_bed").notNull(), // PostgreSQL handles real boolean
+  bedCapacity: pgInteger("bed_capacity"),
   spaceDescription: pgText("space_description").notNull(),
   consentChecks: pgText("consent_checks").notNull(),
   signatureName: pgText("signature_name").notNull(),

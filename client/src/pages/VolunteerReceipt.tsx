@@ -12,6 +12,7 @@ type VolunteerReceiptProps = {
 
 export function VolunteerReceipt({ volunteer, onEdit, onCancel, onLogout }: VolunteerReceiptProps) {
   const statusLabel = volunteer.status === "confirmed" ? "확정" : volunteer.status === "canceled" ? "취소" : "접수";
+  const editable = !volunteer.status || volunteer.status === "submitted";
   const confirmCancel = () => {
     const confirmed = window.confirm("자원봉사자 신청을 취소하시겠습니까?\n취소 후에는 운영자가 취소 상태로 확인하게 됩니다.");
     if (confirmed) onCancel();
@@ -26,10 +27,10 @@ export function VolunteerReceipt({ volunteer, onEdit, onCancel, onLogout }: Volu
           <p>{volunteer.name} ({volunteer.baptismalName || "세례명 미입력"})</p>
         </div>
         <div className="receipt-actions">
-          <button className="secondary" onClick={onEdit}>
+          <button className="secondary" onClick={onEdit} disabled={!editable}>
             <Pencil size={18} /> 수정
           </button>
-          <button className="ghost danger" onClick={confirmCancel} disabled={volunteer.status === "canceled"}>
+          <button className="ghost danger" onClick={confirmCancel} disabled={!editable}>
             <XCircle size={18} /> 취소
           </button>
         </div>
@@ -53,6 +54,12 @@ export function VolunteerReceipt({ volunteer, onEdit, onCancel, onLogout }: Volu
         <dt>봉사 경력 및 보유 재능</dt>
         <dd>{volunteer.experience}</dd>
       </dl>
+      {!editable && volunteer.status === "confirmed" && (
+        <div className="receipt-change-notice">
+          <strong>확정된 신청입니다.</strong>
+          <p>변경 절차는 <a href="/community">FAQ/Q&amp;A</a>에서 확인하고, 개인정보가 포함된 실제 변경 요청은 세곡동 성당 대표번호 02-459-8211로 연락해 주세요.</p>
+        </div>
+      )}
       {onLogout && (
         <div className="receipt-secondary-actions">
           <p>현재 접수 내역 확인을 마치고 다른 신청을 조회할 수 있습니다.</p>

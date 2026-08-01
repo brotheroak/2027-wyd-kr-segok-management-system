@@ -148,6 +148,7 @@ erDiagram
         string preferred_gender
         integer capacity
         boolean has_bed
+        integer bed_capacity
         string signature_name
         string applied_date
         datetime created_at
@@ -247,7 +248,7 @@ erDiagram
 
 ### `homestay_applications`
 
-홈스테이 호스트 신청서의 대표 테이블입니다. 접수번호, 신청 상태, 대표자 인적사항, 주소, 홈스테이 조건, 동의 및 서명 정보를 저장합니다.
+홈스테이 호스트 신청서의 대표 테이블입니다. 접수번호, 신청 상태, 대표자 인적사항, 주소, 홈스테이 조건, 동의 및 서명 정보를 저장합니다. `bed_capacity`는 실제 침대 제공 가능 인원이며 기존 `has_bed=true` 데이터는 운영자가 확인하기 전까지 `NULL`일 수 있습니다. `consent_checks` JSON에는 기간, 조식, 신앙 활동과 개인정보 수집·이용 동의를 저장합니다.
 
 주소 입력 시 구역반 편성표 기준으로 `district_no`, `district_name`, `district_ban`, `district_label`, `district_confidence`, `district_reason`을 자동 계산합니다. 현재 신규 편성표 기준 한양수자인은 `12구역`, 강남아이파크는 `8구역`으로 처리하고, 편성표에 매칭되지 않는 주소는 `99구역 = 구역외`로 저장합니다.
 
@@ -265,7 +266,7 @@ erDiagram
 
 ### `host_capabilities`
 
-호스트 매칭 검색을 쉽게 하기 위한 key-value 테이블입니다. 가능 언어, 침대 제공 가능 여부, 반려동물 여부 같은 조건을 저장합니다.
+호스트 매칭 검색을 쉽게 하기 위한 key-value 테이블입니다. 가능 언어, 침대 제공 가능 여부와 인원, 반려동물 여부 같은 조건을 저장합니다.
 
 ### `volunteers`
 

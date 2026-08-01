@@ -16,7 +16,7 @@ export function AdminMaskedDetail({ application }: AdminMaskedDetailProps) {
       <div className="summary-grid">
         <Metric icon={<Users />} label="가족 구성" value={`${application.members.length}명`} />
         <Metric icon={<Home />} label="수용 인원" value={`${application.homestay.capacity}명`} />
-        <Metric icon={<BedDouble />} label="침대" value={application.homestay.hasBed ? "제공 가능" : "제공 어려움"} />
+        <Metric icon={<BedDouble />} label="침대" value={application.homestay.hasBed ? `${application.homestay.bedCapacity ?? "확인 필요"}명 제공` : "제공 어려움"} />
         <Metric icon={<Languages />} label="언어" value={application.homestay.languages.join(", ")} />
         <Metric icon={<MapPinned />} label="구역/반" value={application.district?.label ?? "구역외 (99구역)"} />
       </div>

@@ -86,6 +86,7 @@ async function setupPg() {
         preferred_gender TEXT NOT NULL,
         capacity INTEGER NOT NULL,
         has_bed BOOLEAN NOT NULL DEFAULT FALSE,
+        bed_capacity INTEGER,
         space_description TEXT NOT NULL,
         consent_checks TEXT NOT NULL,
         signature_name TEXT NOT NULL,
@@ -208,6 +209,7 @@ async function setupPg() {
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_label TEXT NOT NULL DEFAULT '구역외 (99구역)';
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_confidence TEXT NOT NULL DEFAULT 'low';
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_reason TEXT;
+      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS bed_capacity INTEGER;
       ALTER TABLE homestay_applications ALTER COLUMN district_no SET DEFAULT '99';
       ALTER TABLE homestay_applications ALTER COLUMN district_name SET DEFAULT '구역외';
       ALTER TABLE homestay_applications ALTER COLUMN district_ban SET DEFAULT '99-1';
@@ -338,6 +340,7 @@ function setupSqlite() {
         preferred_gender TEXT NOT NULL,
         capacity INTEGER NOT NULL,
         has_bed INTEGER NOT NULL,
+        bed_capacity INTEGER,
         space_description TEXT NOT NULL,
         consent_checks TEXT NOT NULL,
         signature_name TEXT NOT NULL,
@@ -477,6 +480,9 @@ function setupSqlite() {
     const applicationColumns = db.prepare("PRAGMA table_info(homestay_applications)").all();
     if (!applicationColumns.some((column) => column.name === "applicant_pin")) {
       db.exec("ALTER TABLE homestay_applications ADD COLUMN applicant_pin TEXT NOT NULL DEFAULT ''");
+    }
+    if (!applicationColumns.some((column) => column.name === "bed_capacity")) {
+      db.exec("ALTER TABLE homestay_applications ADD COLUMN bed_capacity INTEGER");
     }
     const districtColumns = [
       ["district_no", "TEXT NOT NULL DEFAULT '99'"],

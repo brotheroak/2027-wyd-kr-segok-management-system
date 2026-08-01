@@ -39,12 +39,12 @@ export function WydIntro({ onStartApply, onCheckStatus }: WydIntroProps) {
   }, []);
 
   const homestayRows: Array<[string, number | undefined, string]> = [
-    ["총 접수", summary?.homestay.total, "전체 호스트"],
-    ["수용 가능 인원", summary?.homestay.capacity, "순례자 기준"]
+    ["신청 가정 수", summary?.homestay.total, "취소 제외"],
+    ["수용 가능 총인원", summary?.homestay.capacity, "순례자 기준"]
   ];
   const volunteerRows: Array<[string, number | undefined, string]> = [
-    ["총 신청", summary?.volunteer.total, "전체 봉사자"],
-    ["희망 봉사 분야", summary?.volunteer.fieldTypes, "선택 분야"]
+    ["신청 봉사자 수", summary?.volunteer.total, "취소 제외"],
+    ["희망 봉사 분야 종류", summary?.volunteer.fieldTypes, "현재 선택 분야"]
   ];
 
   const renderSummaryCards = (rows: Array<[string, number | undefined, string]>) => rows.map(([label, value, caption]) => (

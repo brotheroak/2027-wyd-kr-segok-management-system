@@ -123,6 +123,7 @@ export async function initDb() {
           AND (district_name = '구역외' OR district_label = '구역외 (13구역)');
         CREATE INDEX IF NOT EXISTS idx_homestay_applications_district ON homestay_applications(district_no, district_ban);
       `);
+      await client.query("ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS bed_capacity INTEGER");
       await client.query("CREATE INDEX IF NOT EXISTS idx_verification_codes_email_hash ON verification_codes(email_hash)");
       await client.query(`
         CREATE TABLE IF NOT EXISTS volunteer_shifts (
@@ -234,6 +235,9 @@ export async function initDb() {
         if (!applicationColumns.some((column) => column.name === name)) {
           sqliteDbInstance.exec(`ALTER TABLE homestay_applications ADD COLUMN ${name} ${definition}`);
         }
+      }
+      if (!applicationColumns.some((column) => column.name === "bed_capacity")) {
+        sqliteDbInstance.exec("ALTER TABLE homestay_applications ADD COLUMN bed_capacity INTEGER");
       }
       sqliteDbInstance.exec(`
         UPDATE homestay_applications

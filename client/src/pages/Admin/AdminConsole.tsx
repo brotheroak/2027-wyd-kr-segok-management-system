@@ -4,7 +4,7 @@ import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Downlo
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { AdminRole, ApplicationPayload } from "../../types.js";
 import { api } from "../../api.js";
-import { languages, chartColors } from "../../utils/constants.js";
+import { languages, chartColors, emptyApplication } from "../../utils/constants.js";
 import { Metric } from "../../components/Metric.js";
 import { DashboardBar } from "../../components/DashboardBar.js";
 import { Toggle } from "../../components/Toggle.js";
@@ -43,7 +43,7 @@ type AdminUser = {
 
 type AdminConsoleMenu = "applications" | "shifts" | "pilgrims" | "attendance" | "community" | "accounts" | "password";
 const ADMIN_CONSOLE_MENUS: AdminConsoleMenu[] = ["applications", "shifts", "pilgrims", "attendance", "community", "accounts", "password"];
-type HomestayDashboardTab = "summary" | "district" | "bed" | "pet" | "gender" | "age";
+type HomestayDashboardTab = "summary" | "capacity" | "district" | "bed" | "pet" | "gender" | "age";
 type DistributionDatum = {
   name: string;
   count: number;
@@ -108,6 +108,10 @@ export function AdminConsoleZip() {
   const [selected, setSelected] = useState<ApplicationPayload | null>(null);
   const [match, setMatch] = useState({ capacity: 1, language: "", bedNeeded: false, petAllergy: false, gender: "" });
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [paperFormOpen, setPaperFormOpen] = useState(false);
+  const [paperApplicationDraft, setPaperApplicationDraft] = useState<ApplicationPayload>(() => emptyApplication());
+  const [paperPinResult, setPaperPinResult] = useState<{ applicationNo: string; name: string; pin: string } | null>(null);
+  const [resetPinResult, setResetPinResult] = useState("");
 
   const roleLabel = (value?: AdminRole | string) => {
     if (value === "super_admin") return "최고 관리자";
@@ -551,6 +555,7 @@ export function AdminConsoleZip() {
   const districtSort = (a: string, b: string) => Number(a) - Number(b);
   const districtOptionLabel = (no: string) => (no === "99" ? "구역외 (99구역)" : `${no}구역`);
   const pendingAdminCount = adminUsers.filter((admin) => admin.status === "pending" && !admin.locked).length;
+  const recentApplicantChanges = Number(data?.stats?.recentApplicantChanges ?? 0);
   const headerMenuSlot = document.getElementById("admin-header-menu-slot");
   const adminHeaderMenu = headerMenuSlot
     ? createPortal(
@@ -562,6 +567,7 @@ export function AdminConsoleZip() {
           onClick={() => setActiveConsoleMenu("applications")}
         >
           <ClipboardList size={18} /> 신청 현황
+          {recentApplicantChanges > 0 && <i className="admin-menu-alert" aria-label={`최근 신청자 수정 ${recentApplicantChanges}건`}>!</i>}
         </button>
         <button type="button" data-menu="shifts" className={activeConsoleMenu === "shifts" ? "active" : ""} onClick={() => setActiveConsoleMenu("shifts")}>
           <CalendarClock size={18} /> 봉사 일정
@@ -758,16 +764,18 @@ export function AdminConsoleZip() {
       <div className="space-y-8" id="admin-dashboard">
         {adminHeaderMenu}
         <AdminModeTabs active={activeAdminTab} onChange={setActiveAdminTab} />
+        {recentApplicantChanges > 0 && <div className="admin-change-alert"><RefreshCw /><span>최근 7일간 신청자가 수정한 홈스테이·자원봉사 신청이 <strong>{recentApplicantChanges}건</strong> 있습니다.</span></div>}
         <VolunteerAdminPanel token={token} canViewPersonalData={canViewPersonalData} statusLabel={statusLabel} statusTone={statusTone} />
       </div>
     );
   }
 
   const totalCapacity = applications.reduce((sum, item) => sum + (item.homestay.capacity || 0), 0);
+  const activeApplications = applications.filter((item) => item.status !== "canceled");
   const confirmedCount = applications.filter((item) => item.status === "confirmed").length;
   const pendingCount = applications.filter((item) => item.status === "submitted").length;
   
-  const languageCounts = applications.reduce<Record<string, number>>((acc, item) => {
+  const languageCounts = activeApplications.reduce<Record<string, number>>((acc, item) => {
     item.homestay.languages.forEach((language) => {
       acc[language] = (acc[language] ?? 0) + 1;
     });
@@ -780,9 +788,10 @@ export function AdminConsoleZip() {
   
   const housingData = ["아파트", "단독주택", "기타"].map((name) => ({
     name,
-    value: applications.filter((item) => item.homestay.housingType === name).length
+    value: activeApplications.filter((item) => item.homestay.housingType === name).length
   }));
   const districtCounts = applications.reduce<Record<string, number>>((acc, item) => {
+    if (item.status === "canceled") return acc;
     const no = item.district?.no ?? "99";
     acc[no] = (acc[no] ?? 0) + 1;
     return acc;
@@ -792,34 +801,39 @@ export function AdminConsoleZip() {
     .map(([no, count]) => ({
       name: districtOptionLabel(no),
       count,
-      percent: percentOf(count, applications.length)
+      percent: percentOf(count, activeApplications.length)
     }));
+  const capacityData: DistributionDatum[] = [
+    { name: "2명", count: activeApplications.filter((item) => item.homestay.capacity === 2).length, percent: 0 },
+    { name: "3명", count: activeApplications.filter((item) => item.homestay.capacity === 3).length, percent: 0 },
+    { name: "4명 이상", count: activeApplications.filter((item) => item.homestay.capacity >= 4).length, percent: 0 }
+  ].map((item) => ({ ...item, percent: percentOf(item.count, activeApplications.length) }));
   const bedData: DistributionDatum[] = [
     {
       name: "침대방 제공",
-      count: applications.filter((item) => item.homestay.hasBed).length,
-      percent: percentOf(applications.filter((item) => item.homestay.hasBed).length, applications.length)
+      count: activeApplications.filter((item) => item.homestay.hasBed).length,
+      percent: percentOf(activeApplications.filter((item) => item.homestay.hasBed).length, activeApplications.length)
     },
     {
       name: "침대방 미제공",
-      count: applications.filter((item) => !item.homestay.hasBed).length,
-      percent: percentOf(applications.filter((item) => !item.homestay.hasBed).length, applications.length)
+      count: activeApplications.filter((item) => !item.homestay.hasBed).length,
+      percent: percentOf(activeApplications.filter((item) => !item.homestay.hasBed).length, activeApplications.length)
     }
   ];
   const petData: DistributionDatum[] = [
     {
       name: "반려동물 있음",
-      count: applications.filter((item) => item.homestay.hasPet).length,
-      percent: percentOf(applications.filter((item) => item.homestay.hasPet).length, applications.length)
+      count: activeApplications.filter((item) => item.homestay.hasPet).length,
+      percent: percentOf(activeApplications.filter((item) => item.homestay.hasPet).length, activeApplications.length)
     },
     {
       name: "반려동물 없음",
-      count: applications.filter((item) => !item.homestay.hasPet).length,
-      percent: percentOf(applications.filter((item) => !item.homestay.hasPet).length, applications.length)
+      count: activeApplications.filter((item) => !item.homestay.hasPet).length,
+      percent: percentOf(activeApplications.filter((item) => !item.homestay.hasPet).length, activeApplications.length)
     }
   ];
-  const genderData: DistributionDatum[] = Object.entries(data?.stats?.genderCounts ?? {}).map(([name, count]) => ({ name, count: Number(count), percent: percentOf(Number(count), applications.length) }));
-  const ageData: DistributionDatum[] = Object.entries(data?.stats?.ageGroupCounts ?? {}).map(([name, count]) => ({ name, count: Number(count), percent: percentOf(Number(count), applications.length) }));
+  const genderData: DistributionDatum[] = Object.entries(data?.stats?.genderCounts ?? {}).map(([name, count]) => ({ name, count: Number(count), percent: percentOf(Number(count), activeApplications.length) }));
+  const ageData: DistributionDatum[] = Object.entries(data?.stats?.ageGroupCounts ?? {}).map(([name, count]) => ({ name, count: Number(count), percent: percentOf(Number(count), activeApplications.length) }));
   const districtOptions = Array.from(new Set(applications.map((item) => item.district?.no).filter(Boolean) as string[]))
     .sort(districtSort);
   const districtBanOptions = Array.from(new Set(applications
@@ -900,6 +914,7 @@ export function AdminConsoleZip() {
     <div className="space-y-8" id="admin-dashboard">
       {adminHeaderMenu}
       <AdminModeTabs active={activeAdminTab} onChange={setActiveAdminTab} />
+      {recentApplicantChanges > 0 && <div className="admin-change-alert"><RefreshCw /><span>최근 7일간 신청자가 수정한 홈스테이·자원봉사 신청이 <strong>{recentApplicantChanges}건</strong> 있습니다.</span></div>}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" id="stats-dashboard">
         <div className="bg-white p-6 rounded-2xl border border-gold-100 shadow-sm flex items-center gap-4">
           <div className="bg-gold-50 p-3 rounded-xl text-gold-600">
@@ -950,6 +965,9 @@ export function AdminConsoleZip() {
           <div className="dashboard-tabs" role="tablist" aria-label="홈스테이 대시보드 보기">
             <button className={homestayDashboardTab === "summary" ? "active" : ""} onClick={() => setHomestayDashboardTab("summary")} type="button">
               <Languages size={16} /> 요약
+            </button>
+            <button className={homestayDashboardTab === "capacity" ? "active" : ""} onClick={() => setHomestayDashboardTab("capacity")} type="button">
+              <Users size={16} /> 수용 인원
             </button>
             <button className={homestayDashboardTab === "district" ? "active" : ""} onClick={() => setHomestayDashboardTab("district")} type="button">
               <MapPinned size={16} /> 구역
@@ -1021,6 +1039,28 @@ export function AdminConsoleZip() {
             <div className="dashboard-chart-panel">
               <span className="font-serif font-bold text-gray-800 text-base block">구역별 상세 분포</span>
               {renderDistributionList(districtData, "건")}
+            </div>
+          </div>
+        )}
+
+        {homestayDashboardTab === "capacity" && (
+          <div className="dashboard-analysis-grid">
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">수용 가능 인원별 신청 가정 수</span>
+              <div className="h-72 text-xs">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={capacityData}>
+                    <XAxis dataKey="name" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#a9842e" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">수용 인원별 상세 분포</span>
+              {renderDistributionList(capacityData, "가정")}
             </div>
           </div>
         )}
@@ -1221,6 +1261,11 @@ export function AdminConsoleZip() {
             </button>
           </div>
           <div className="flex flex-col sm:flex-row justify-end gap-3">
+            {canViewPersonalData && (
+              <button className="secondary" type="button" onClick={() => { setPaperApplicationDraft(emptyApplication()); setPaperPinResult(null); setPaperFormOpen(true); }}>
+                <UserPlus size={18} /> 종이 신청 등록
+              </button>
+            )}
             <button className="secondary" onClick={downloadApplicationsExcel}>
               <Download size={18} /> 엑셀 다운로드
             </button>
@@ -1287,7 +1332,7 @@ export function AdminConsoleZip() {
                             item.homestay.hasBed ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
                           }`}
                         >
-                          {item.homestay.hasBed ? "🛏️ 침대방" : "온돌"}
+                          {item.homestay.hasBed ? `침대 ${item.homestay.bedCapacity ?? "확인 필요"}명` : "침대 없음"}
                         </span>
                         <span
                           className={`inline-block px-1.5 py-0.5 rounded text-[10px] block font-bold ${
@@ -1311,7 +1356,7 @@ export function AdminConsoleZip() {
                     </td>
                     <td className="p-4 text-right">
                       <button
-                        onClick={() => setSelected(item)}
+                        onClick={() => { setResetPinResult(""); setSelected(item); }}
                         className="bg-gold-100 hover:bg-gold-200 text-gold-800 font-bold text-xs py-1.5 px-3 rounded-lg transition-all"
                       >
                         상세조회
@@ -1461,7 +1506,7 @@ export function AdminConsoleZip() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Metric icon={<Users />} label="가족 구성" value={`${selected.members.length}명`} />
                 <Metric icon={<Home />} label="수용 인원" value={`${selected.homestay.capacity}명`} />
-                <Metric icon={<BedDouble />} label="침대" value={selected.homestay.hasBed ? "제공 가능" : "제공 어려움"} />
+                <Metric icon={<BedDouble />} label="침대" value={selected.homestay.hasBed ? `${selected.homestay.bedCapacity ?? "확인 필요"}명 제공` : "제공 어려움"} />
                 <Metric icon={<MapPinned />} label="구역/반" value={selected.district?.label ?? "구역외 (99구역)"} />
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1475,7 +1520,17 @@ export function AdminConsoleZip() {
                   </button>
                 ))}
               </div>
-              {canViewPersonalData && <button className="secondary danger" type="button" onClick={() => deleteApplication(selected)}><Trash2 size={17} /> 신청 영구 삭제</button>}
+              {canViewPersonalData && (
+                <div className="admin-sensitive-actions">
+                  <button className="secondary" type="button" onClick={async () => {
+                    if (!selected.id || !confirm("신청자의 기존 조회 비밀번호를 폐기하고 임시 비밀번호를 새로 발급하시겠습니까?")) return;
+                    const response = await api<{ temporaryPin: string }>(`/api/admin/applications/${selected.id}/reset-pin`, { method: "POST" }, token);
+                    setResetPinResult(response.temporaryPin);
+                  }}><KeyRound size={17} /> 조회번호 재발급</button>
+                  <button className="secondary danger" type="button" onClick={() => deleteApplication(selected)}><Trash2 size={17} /> 신청 영구 삭제</button>
+                </div>
+              )}
+              {resetPinResult && <div className="admin-reset-pin-result"><span>신청자에게 전달할 임시 비밀번호</span><strong>{resetPinResult}</strong><small>이 번호는 현재 화면에서만 확인할 수 있습니다.</small></div>}
               {canViewPersonalData ? (
                 <ApplicationForm
                   initial={selected}
@@ -1493,6 +1548,48 @@ export function AdminConsoleZip() {
                 />
               ) : (
                 <AdminMaskedDetail application={selected} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {paperFormOpen && (
+        <div className="fixed inset-0 z-50 bg-catholic-navy/70 backdrop-blur-sm p-4 flex items-center justify-center" onClick={() => setPaperFormOpen(false)}>
+          <div className="paper-application-modal" onClick={(event) => event.stopPropagation()}>
+            <header>
+              <div><span>Paper application</span><h2>종이 홈스테이 신청 등록</h2><p>신청서를 입력하면 신청자 조회용 임시 비밀번호가 발급됩니다.</p></div>
+              <button type="button" className="modal-close-button" onClick={() => setPaperFormOpen(false)}>닫기</button>
+            </header>
+            <div className="paper-application-modal-body">
+              {paperPinResult ? (
+                <div className="paper-pin-result">
+                  <CheckCircle2 />
+                  <span>종이 신청 등록 완료</span>
+                  <h3>{paperPinResult.applicationNo}</h3>
+                  <p>{paperPinResult.name} 신청자에게 아래 조회번호를 전달해 주세요.</p>
+                  <strong>{paperPinResult.pin}</strong>
+                  <small>성명, 연락처, 임시 비밀번호 4자리로 접수 확인에서 조회할 수 있습니다.</small>
+                  <button className="primary" type="button" onClick={() => { setPaperFormOpen(false); void load(); }}>확인</button>
+                </div>
+              ) : (
+                <ApplicationForm
+                  initial={paperApplicationDraft}
+                  submitLabel="종이 신청 등록 및 조회번호 발급"
+                  showPinFields={false}
+                  mode="full"
+                  onSubmit={async (payload) => {
+                    const response = await api<{ application: ApplicationPayload; temporaryPin: string }>("/api/admin/applications/paper", {
+                      method: "POST",
+                      body: JSON.stringify(payload)
+                    }, token);
+                    setPaperApplicationDraft(response.application);
+                    setPaperPinResult({
+                      applicationNo: response.application.applicationNo ?? "",
+                      name: response.application.representative.name,
+                      pin: response.temporaryPin
+                    });
+                  }}
+                />
               )}
             </div>
           </div>

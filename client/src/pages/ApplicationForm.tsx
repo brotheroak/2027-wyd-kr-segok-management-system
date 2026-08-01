@@ -12,11 +12,12 @@ type ApplicationFormProps = {
   initial: ApplicationPayload;
   submitLabel: string;
   pinRequired?: boolean;
+  showPinFields?: boolean;
   mode?: "wizard" | "full";
   onSubmit: (payload: ApplicationPayload) => Promise<void>;
 };
 
-export function ApplicationForm({ initial, submitLabel, pinRequired = false, mode = "wizard", onSubmit }: ApplicationFormProps) {
+export function ApplicationForm({ initial, submitLabel, pinRequired = false, showPinFields = true, mode = "wizard", onSubmit }: ApplicationFormProps) {
   const [form, setForm] = useState<ApplicationPayload>(initial);
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
@@ -237,8 +238,8 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
   const validateStep = (currentStep: number) => {
     setError("");
     if (currentStep === 1) {
-      if (!form.confirmations.period || !form.confirmations.breakfast || !form.confirmations.faithCommunity)
-        return setError("세 가지 필수 확인 사항에 모두 동의해 주셔야 신청이 가능합니다."), false;
+      if (!form.confirmations.period || !form.confirmations.breakfast || !form.confirmations.faithCommunity || !form.confirmations.privacyConsent)
+        return setError("필수 확인 사항과 개인정보 수집·이용에 모두 동의해 주셔야 신청이 가능합니다."), false;
     }
     if (currentStep === 2) {
       if (!form.representative.name.trim()) return setError("가족대표 성명을 입력해 주세요."), false;
@@ -260,6 +261,10 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
     if (currentStep === 4) {
       if (form.homestay.housingType === "기타" && !form.homestay.housingTypeOther?.trim()) return setError("기타 주거형태를 입력해 주세요."), false;
       if (!form.homestay.capacity || form.homestay.capacity < 2) return setError("홈스테이는 순례자를 2명 이상 수용해야 합니다."), false;
+      if (form.homestay.hasBed && (!form.homestay.bedCapacity || form.homestay.bedCapacity < 1))
+        return setError("침대 제공 가능 인원을 입력해 주세요."), false;
+      if (form.homestay.bedCapacity !== null && form.homestay.bedCapacity > form.homestay.capacity)
+        return setError("침대 제공 가능 인원은 전체 수용 가능 인원을 넘을 수 없습니다."), false;
       if (!form.homestay.spaceDescription.trim() || form.homestay.spaceDescription.trim().length < 10)
         return setError("제공 가능한 공간 설명을 10자 이상 입력해 주세요."), false;
       if (!form.homestay.languages.length) return setError("가능한 언어를 1개 이상 선택해 주세요."), false;
@@ -310,7 +315,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
         </div>
         <h3 className="font-serif font-black text-2xl text-catholic-navy">꼭 확인해주세요 (호스트 동의 의무사항)</h3>
         <p className="text-gray-500 text-sm leading-relaxed max-w-3xl mx-auto">
-          호스트 신청 이전에, 한국 가톨릭 신앙 공동체로서 아래 세 가지 조항을 꼼꼼히 확인하고 수용해 주시길 부탁드립니다.
+          호스트 신청 이전에, 한국 가톨릭 신앙 공동체로서 아래 필수 안내를 꼼꼼히 확인하고 수용해 주시길 부탁드립니다.
         </p>
       </div>
       <div className="space-y-5">
@@ -332,11 +337,29 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
         <div className="host-duty-card">
           <span>3. 공동체적 신앙 활동 선언</span>
           <p>
-            홈스테이는 단순히 숙박 공간을 빌려주는 에어비앤비 같은 서비스가 아닙니다. 전 세계의 젊은 카톨릭 청년들을 주님 안에서 환대하는
+            홈스테이는 단순히 숙박 공간을 빌려주는 에어비앤비 같은 서비스가 아닙니다. 전 세계의 젊은 가톨릭 청년들을 주님 안에서 환대하는
             <strong className="text-emphasis">본당 신앙 실천 활동이자 사랑의 나눔</strong>임을 고백하고 동참합니다.
           </p>
           <Toggle label="공동체적 신앙 활동의 의미를 확인하고 동의합니다." checked={form.confirmations.faithCommunity} onChange={(value) => update("confirmations.faithCommunity", value)} />
         </div>
+        <div className="host-duty-card">
+          <span>4. 개인정보 수집 및 이용 동의</span>
+          <p>
+            신청서의 개인정보는 홈스테이 접수 확인, 호스트 연락, 교육 안내, 순례자 배정과 운영 지원을 위해 사용됩니다. 자세한 내용은
+            <a href="/privacy" target="_blank" rel="noreferrer"> 개인정보처리방침</a>에서 확인할 수 있습니다.
+          </p>
+          <Toggle label="개인정보 수집 및 활용에 동의합니다." checked={form.confirmations.privacyConsent} onChange={(value) => update("confirmations.privacyConsent", value)} />
+        </div>
+      </div>
+      <div className="host-application-guide" aria-label="홈스테이 신청 후 안내">
+        <strong>신청 후 진행 안내</strong>
+        <dl>
+          <div><dt>성당 이동</dt><dd>성당 및 집결지 이동 방식은 운영 계획 확정 후 안내하며, 차량 지원 여부는 호스트와 사전에 개별 협의합니다.</dd></div>
+          <div><dt>접수와 확정</dt><dd>신청서 제출은 접수 완료이며 즉시 최종 확정되는 것은 아닙니다. 운영자 검토 후 승인 상태를 안내합니다.</dd></div>
+          <div><dt>내용 수정</dt><dd>확정 전에는 접수 확인에서 직접 수정할 수 있습니다. 확정 이후 변경은 성당에 문의해 주세요.</dd></div>
+          <div><dt>사전 교육</dt><dd>교육 일정과 호스트 지원 내용은 교구 및 본당 계획이 확정되는 대로 별도 안내합니다.</dd></div>
+          <div><dt>문의 방법</dt><dd>일반 문의는 FAQ/Q&amp;A를 이용하고, 개인정보가 포함된 변경 요청은 세곡동 성당 대표번호 02-459-8211로 연락해 주세요.</dd></div>
+        </dl>
       </div>
     </div>
   );
@@ -450,43 +473,47 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
           <MapPinned size={16} /> 구역반 편성 안내 보기
         </button>
       </div>
-      <div className="pin-help-box">
-        <ShieldCheck size={20} />
-        <div>
-          <strong>신청서 수정 및 조회용 비밀번호 설정</strong>
-          <p>
-            이메일 없이도 <b>성명 + 전화번호 + 설정하신 숫자 4자리</b>를 통해 추후 본인의 신청 정보를 자유롭게 확인, 수정 또는 취소할 수 있습니다. 잊어버리지 않을 번호로 지정해 주세요.
-          </p>
-        </div>
-      </div>
-      <div className="applicant-info-grid">
-        <label>
-          <FieldLabel required={pinRequired}>비밀번호 숫자 4자리</FieldLabel>
-          <input
-            required={pinRequired}
-            inputMode="numeric"
-            maxLength={4}
-            pattern={pinRequired ? "\\d{4}" : undefined}
-            type="password"
-            value={form.representative.applicantPin ?? ""}
-            onChange={(e) => update("representative.applicantPin", e.target.value.replace(/\D/g, "").slice(0, 4))}
-            placeholder="••••"
-          />
-        </label>
-        <label>
-          <FieldLabel required={pinRequired}>비밀번호 확인</FieldLabel>
-          <input
-            required={pinRequired}
-            inputMode="numeric"
-            maxLength={4}
-            pattern={pinRequired ? "\\d{4}" : undefined}
-            type="password"
-            value={pinConfirm}
-            onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            placeholder="••••"
-          />
-        </label>
-      </div>
+      {showPinFields && (
+        <>
+          <div className="pin-help-box">
+            <ShieldCheck size={20} />
+            <div>
+              <strong>신청서 수정 및 조회용 비밀번호 설정</strong>
+              <p>
+                이메일 없이도 <b>성명 + 전화번호 + 설정하신 숫자 4자리</b>를 통해 추후 본인의 신청 정보를 확인하고, 확정 전에는 수정 또는 취소할 수 있습니다. 잊어버리지 않을 번호로 지정해 주세요.
+              </p>
+            </div>
+          </div>
+          <div className="applicant-info-grid">
+            <label>
+              <FieldLabel required={pinRequired}>비밀번호 숫자 4자리</FieldLabel>
+              <input
+                required={pinRequired}
+                inputMode="numeric"
+                maxLength={4}
+                pattern={pinRequired ? "\\d{4}" : undefined}
+                type="password"
+                value={form.representative.applicantPin ?? ""}
+                onChange={(e) => update("representative.applicantPin", e.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="••••"
+              />
+            </label>
+            <label>
+              <FieldLabel required={pinRequired}>비밀번호 확인</FieldLabel>
+              <input
+                required={pinRequired}
+                inputMode="numeric"
+                maxLength={4}
+                pattern={pinRequired ? "\\d{4}" : undefined}
+                type="password"
+                value={pinConfirm}
+                onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="••••"
+              />
+            </label>
+          </div>
+        </>
+      )}
     </div>
   );
 
@@ -583,8 +610,33 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
       </div>
       <div className="toggle-grid">
         <Toggle label="반려동물 있음" checked={form.homestay.hasPet} onChange={(value) => update("homestay.hasPet", value)} />
-        <Toggle label="침대 제공 가능" checked={form.homestay.hasBed} onChange={(value) => update("homestay.hasBed", value)} />
+        <Toggle
+          label="침대 제공 가능"
+          checked={form.homestay.hasBed}
+          onChange={(value) => setForm((current) => ({
+            ...current,
+            homestay: {
+              ...current.homestay,
+              hasBed: value,
+              bedCapacity: value ? (current.homestay.bedCapacity || 1) : 0
+            }
+          }))}
+        />
       </div>
+      {form.homestay.hasBed && (
+        <label className="bed-capacity-field">
+          <FieldLabel required>침대 제공 가능 인원</FieldLabel>
+          <input
+            required
+            type="number"
+            min="1"
+            max={form.homestay.capacity}
+            value={form.homestay.bedCapacity ?? ""}
+            onChange={(e) => update("homestay.bedCapacity", e.target.value === "" ? null : Number(e.target.value))}
+          />
+          <small>전체 수용 가능 {form.homestay.capacity}명 중 실제 침대를 제공할 수 있는 인원을 입력해 주세요.</small>
+        </label>
+      )}
       {form.homestay.hasPet && (
         <label>
           <FieldLabel>반려동물 설명</FieldLabel>
@@ -651,7 +703,7 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
         <div className="review-card">
           <span>수용 조건</span>
           <strong>
-            {form.homestay.capacity}명 · {form.homestay.hasBed ? "침대 가능" : "침대 없음"}
+            {form.homestay.capacity}명 · {form.homestay.hasBed ? `침대 ${form.homestay.bedCapacity ?? "확인 필요"}명` : "침대 없음"}
           </strong>
           <p>{form.homestay.languages.join(", ")}</p>
         </div>
@@ -661,6 +713,8 @@ export function ApplicationForm({ initial, submitLabel, pinRequired = false, mod
         <dd>{form.homestay.housingType === "기타" ? form.homestay.housingTypeOther : form.homestay.housingType}</dd>
         <dt>반려동물</dt>
         <dd>{form.homestay.hasPet ? form.homestay.petDescription || "있음" : "없음"}</dd>
+        <dt>침대 제공</dt>
+        <dd>{form.homestay.hasBed ? `${form.homestay.bedCapacity ?? "확인 필요"}명` : "제공 어려움"}</dd>
         <dt>공간 설명</dt>
         <dd>{form.homestay.spaceDescription || "미입력"}</dd>
       </dl>
