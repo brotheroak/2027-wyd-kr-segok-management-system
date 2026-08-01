@@ -770,8 +770,8 @@ export function AdminConsoleZip() {
     );
   }
 
-  const totalCapacity = applications.reduce((sum, item) => sum + (item.homestay.capacity || 0), 0);
   const activeApplications = applications.filter((item) => item.status !== "canceled");
+  const totalCapacity = activeApplications.reduce((sum, item) => sum + (item.homestay.capacity || 0), 0);
   const confirmedCount = applications.filter((item) => item.status === "confirmed").length;
   const pendingCount = applications.filter((item) => item.status === "submitted").length;
   
@@ -808,6 +808,29 @@ export function AdminConsoleZip() {
     { name: "3명", count: activeApplications.filter((item) => item.homestay.capacity === 3).length, percent: 0 },
     { name: "4명 이상", count: activeApplications.filter((item) => item.homestay.capacity >= 4).length, percent: 0 }
   ].map((item) => ({ ...item, percent: percentOf(item.count, activeApplications.length) }));
+  const capacityByPreferredGenderData: DistributionDatum[] = [
+    {
+      name: "남성 지정",
+      count: activeApplications
+        .filter((item) => item.homestay.preferredGender === "남성")
+        .reduce((sum, item) => sum + Number(item.homestay.capacity || 0), 0),
+      percent: 0
+    },
+    {
+      name: "여성 지정",
+      count: activeApplications
+        .filter((item) => item.homestay.preferredGender === "여성")
+        .reduce((sum, item) => sum + Number(item.homestay.capacity || 0), 0),
+      percent: 0
+    },
+    {
+      name: "성별 무관",
+      count: activeApplications
+        .filter((item) => item.homestay.preferredGender === "상관없음")
+        .reduce((sum, item) => sum + Number(item.homestay.capacity || 0), 0),
+      percent: 0
+    }
+  ].map((item) => ({ ...item, percent: percentOf(item.count, totalCapacity) }));
   const bedData: DistributionDatum[] = [
     {
       name: "침대방 제공",
@@ -1061,6 +1084,23 @@ export function AdminConsoleZip() {
             <div className="dashboard-chart-panel">
               <span className="font-serif font-bold text-gray-800 text-base block">수용 인원별 상세 분포</span>
               {renderDistributionList(capacityData, "가정")}
+            </div>
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">희망 순례자 성별별 수용 가능 인원</span>
+              <div className="h-72 text-xs">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={capacityByPreferredGenderData}>
+                    <XAxis dataKey="name" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip formatter={(value) => [`${Number(value).toLocaleString()}명`, "수용 가능 인원"]} />
+                    <Bar dataKey="count" fill="#2f5f98" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="dashboard-chart-panel">
+              <span className="font-serif font-bold text-gray-800 text-base block">성별 수용 인원 상세 분포</span>
+              {renderDistributionList(capacityByPreferredGenderData, "명")}
             </div>
           </div>
         )}
