@@ -142,6 +142,8 @@
 - 일반 운영자는 개인정보가 마스킹된 값을 봅니다.
 - 개인정보 관리자는 원본 상세 조회 및 수정이 가능합니다.
 - 순례자 조건 기반 매칭 후보를 조회할 수 있습니다.
+- 홈스테이 구역 대시보드는 구역별 신청 가정 수, 수용 가능 인원, 목표 가정 수와 달성률을 함께 표시합니다.
+- 신청서 일람표는 온라인/종이 접수 경로와 개인정보 동의 여부를 표시·필터링하며 동일 조건으로 엑셀을 내려받습니다.
 
 ### 순례자 출석·위치 확인
 
@@ -202,6 +204,7 @@
 | GET | `/api/admin/users` | 최고 관리자 운영자 목록 조회 |
 | PATCH | `/api/admin/users/:id` | 최고 관리자 운영자 승인/권한/상태 변경 |
 | GET | `/api/admin/applications` | 홈스테이 관리자 목록 |
+| PUT | `/api/admin/district-targets` | 1~12구역 목표 신청 가정 수 저장 |
 | GET | `/api/admin/volunteers` | 자원봉사자 관리자 목록 |
 | GET | `/api/volunteer/shifts/public` | 개인정보 없는 공개 봉사 일정 조회 |
 | GET/POST | `/api/volunteer/shifts`, `/api/volunteer/shifts/:id/signup` | 인증 봉사자 일정 조회·신청 |

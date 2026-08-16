@@ -17,6 +17,7 @@ export type DistrictInfo = {
 };
 
 export type ApplicationPayload = {
+  submissionSource?: "online" | "paper";
   representative: {
     name: string;
     baptismalName?: string;

@@ -36,6 +36,20 @@ test("구역반 판별은 방죽1마을 주소 번호로 9구역 반을 나눈�
   assert.equal(upper.ban, "9-3");
 });
 
+test("구역반 판별은 방죽마을과 10구역 도로를 9구역과 혼동하지 않는다", () => {
+  const village = assignDistrict("서울특별시 강남구 율현동 방죽마을", "");
+  assert.equal(village.no, "10");
+  assert.equal(village.ban, "10-1");
+
+  const road23 = assignDistrict("서울특별시 강남구 밤고개로23길 12", "");
+  assert.equal(road23.no, "10");
+  assert.equal(road23.ban, "10-1");
+
+  const road29 = assignDistrict("서울특별시 강남구 밤고개로29길 8", "");
+  assert.equal(road29.no, "10");
+  assert.equal(road29.ban, "10-2");
+});
+
 test("구역반 판별 실패 시 99구역 구역외로 처리한다", () => {
   const result = assignDistrict("서울특별시 강남구 테헤란로 123", "1001호");
   assert.equal(result.no, "99");

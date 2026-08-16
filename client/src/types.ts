@@ -19,6 +19,7 @@ export type DistrictInfo = {
 export type ApplicationPayload = {
   id?: string;
   applicationNo?: string;
+  submissionSource?: "online" | "paper";
   status?: string;
   representative: {
     name: string;

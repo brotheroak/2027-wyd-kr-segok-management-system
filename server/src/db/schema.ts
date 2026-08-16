@@ -8,6 +8,7 @@ import { sqliteTable, text as sqliteText, integer as sqliteInteger, real as sqli
 export const sqliteApplications = sqliteTable("homestay_applications", {
   id: sqliteText("id").primaryKey(),
   applicationNo: sqliteText("application_no").unique().notNull(),
+  submissionSource: sqliteText("submission_source").notNull().default("online"),
   status: sqliteText("status").notNull().default("submitted"),
   repName: sqliteText("rep_name").notNull(),
   baptismalName: sqliteText("baptismal_name"),
@@ -242,6 +243,13 @@ export const sqliteQnaPosts = sqliteTable("qna_posts", {
   answeredAt: sqliteText("answered_at"),
 });
 
+export const sqliteDistrictTargets = sqliteTable("district_targets", {
+  districtNo: sqliteText("district_no").primaryKey(),
+  targetHouseholds: sqliteInteger("target_households").notNull().default(0),
+  updatedBy: sqliteText("updated_by").notNull(),
+  updatedAt: sqliteText("updated_at").notNull(),
+});
+
 // ==========================================
 // PostgreSQL Schema Definition (for Production)
 // ==========================================
@@ -249,6 +257,7 @@ export const sqliteQnaPosts = sqliteTable("qna_posts", {
 export const pgApplications = pgTable("homestay_applications", {
   id: pgText("id").primaryKey(),
   applicationNo: pgText("application_no").unique().notNull(),
+  submissionSource: pgText("submission_source").notNull().default("online"),
   status: pgText("status").notNull().default("submitted"),
   repName: pgText("rep_name").notNull(),
   baptismalName: pgText("baptismal_name"),
@@ -430,4 +439,11 @@ export const pgQnaPosts = pgTable("qna_posts", {
   id: pgText("id").primaryKey(), authorName: pgText("author_name").notNull(), passwordHash: pgText("password_hash").notNull(),
   category: pgText("category").notNull(), title: pgText("title").notNull(), content: pgText("content").notNull(), answer: pgText("answer").notNull().default(""),
   status: pgText("status").notNull().default("waiting"), createdAt: pgText("created_at").notNull(), answeredAt: pgText("answered_at"),
+});
+
+export const pgDistrictTargets = pgTable("district_targets", {
+  districtNo: pgText("district_no").primaryKey(),
+  targetHouseholds: pgInteger("target_households").notNull().default(0),
+  updatedBy: pgText("updated_by").notNull(),
+  updatedAt: pgText("updated_at").notNull(),
 });

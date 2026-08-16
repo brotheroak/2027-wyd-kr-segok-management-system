@@ -1,6 +1,6 @@
 # 테스트 리포트
 
-최종 갱신: 2026-07-28 KST
+최종 갱신: 2026-08-17 KST
 
 ## 1. 테스트 범위
 
@@ -46,6 +46,18 @@
 | 의존성 보안 감사 | 통과 | `npm audit --audit-level=moderate`, 취약점 0건 |
 
 로컬 `/api/ready`는 개발 환경이라 `encryption:false`, `notifications.email:false`, `notifications.sms:false`로 확인되었습니다. 운영 Cloud Run에서는 `NODE_ENV=production`과 `DATA_ENCRYPTION_KEY`가 적용되어 `encryption:true`가 정상 기준입니다.
+
+## 2-1. 2026-08-17 검토 의견 회귀 결과
+
+| 항목 | 결과 | 비고 |
+| --- | --- | --- |
+| 타입 검사 | 통과 | `npm run typecheck` |
+| 단위 테스트 | 통과 | `npm test`, 66개 통과 |
+| 프로덕션 빌드 | 통과 | `npm run build`, 기존 Vite 청크 크기 경고만 있음 |
+| DB 마이그레이션 | 통과 | SQLite `submission_source`, `district_targets` 생성 확인 |
+| 구역 목표값 검증 | 통과 | 1~12구역 정수 정규화, 음수·소수·배열 입력 전체 거부 |
+| 9·10구역 판별 | 통과 | 방죽1마을은 9구역, 방죽마을·밤고개로23길·29길은 10구역 |
+| 관리자 목록 | 통과 | 접수 경로·개인정보 동의 표시/필터 및 엑셀 조건 연동 타입·빌드 검증 |
 
 ## 3. 회귀 테스트 체크리스트
 

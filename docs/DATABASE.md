@@ -342,6 +342,14 @@ enc:v1:
 | `pilgrim_meal_logs` | `note`, `recorded_by` |
 | `pilgrim_attendance_logs` | `device_latitude`, `device_longitude`, `checked_by` |
 | `qna_posts` | `author_name`, `content`, `answer` |
+| `district_targets` | `updated_by` |
+
+운영 집계 보조 컬럼/테이블:
+
+- `homestay_applications.submission_source`: `online` 또는 `paper`, 기존 레코드는 `online` 기본값
+- `district_targets`: 1~12구역별 목표 신청 가정 수, 최종 수정 운영자와 시각
+
+구역 목표값은 12개 구역을 한 트랜잭션에서 검증·저장합니다. 값 하나라도 음수, 소수 또는 10,000 초과이면 전체 변경을 거부합니다.
 
 주의:
 

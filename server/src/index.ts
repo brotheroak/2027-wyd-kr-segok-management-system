@@ -16,6 +16,7 @@ import { verifyTotp } from "./totp.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import { matchesIntegratedSearch } from "./search.js";
 import { validCoordinates, validateAttendanceLocation } from "./location.js";
+import { managedDistrictNumbers, parseDistrictTargets } from "./districtTargets.js";
 import { sql, eq, and, or, like, desc } from "drizzle-orm";
 
 const app = express();
@@ -475,7 +476,7 @@ async function insertCapabilities(tx: any, applicationId: string, payload: Appli
   }
 }
 
-async function upsertApplication(payload: ApplicationPayload, existingId?: string) {
+async function upsertApplication(payload: ApplicationPayload, existingId?: string, submissionSource: "online" | "paper" = "online") {
   const parsed = applicationSchema.parse(payload);
   const id = existingId ?? nanoid();
   const timestamp = nowIso();
@@ -566,6 +567,7 @@ async function upsertApplication(payload: ApplicationPayload, existingId?: strin
     } else {
       data.id = id;
       data.applicationNo = applicationNo;
+      data.submissionSource = submissionSource;
       data.status = "submitted";
       data.createdAt = timestamp;
       await tx.insert(tables.applications).values(data);
@@ -628,6 +630,7 @@ async function rowToApplication(row: any) {
   return {
     id: row.id,
     applicationNo: row.applicationNo,
+    submissionSource: row.submissionSource === "paper" ? "paper" : "online",
     status: row.status,
     representative: {
       name: plain(row.repName),
@@ -1057,6 +1060,8 @@ function matchesApplicationFilters(appData: any, query: express.Request["query"]
   const bed = String(query.bed ?? "all");
   const district = String(query.district ?? "all");
   const ban = String(query.ban ?? "all");
+  const privacyConsent = String(query.privacyConsent ?? "all");
+  const submissionSource = String(query.submissionSource ?? "all");
 
   if (status !== "all" && appData.status !== status) return false;
   if (gender !== "all" && appData.homestay.preferredGender !== gender) return false;
@@ -1065,6 +1070,8 @@ function matchesApplicationFilters(appData: any, query: express.Request["query"]
   if (bed !== "all" && (bed === "yes") !== appData.homestay.hasBed) return false;
   if (district !== "all" && appData.district?.no !== district) return false;
   if (ban !== "all" && appData.district?.ban !== ban) return false;
+  if (privacyConsent !== "all" && (privacyConsent === "yes") !== appData.confirmations.privacyConsent) return false;
+  if (submissionSource !== "all" && appData.submissionSource !== submissionSource) return false;
   if (!q) return true;
 
   return matchesIntegratedSearch([
@@ -1080,6 +1087,8 @@ function matchesApplicationFilters(appData: any, query: express.Request["query"]
     appData.homestay.preferredGender,
     appData.homestay.hasPet ? "반려동물 있음" : "반려동물 없음",
     appData.homestay.hasBed ? "침대 있음" : "침대 없음",
+    appData.submissionSource === "paper" ? "종이 신청" : "온라인 신청",
+    appData.confirmations.privacyConsent ? "개인정보 동의" : "개인정보 확인 필요",
     ...appData.members.flatMap((member: any) => [member.name, member.gender, member.relationship]),
     ...appData.homestay.languages
   ], q);
@@ -1154,11 +1163,20 @@ async function filteredVolunteersForAdmin(session: Session, query: express.Reque
   return volunteers;
 }
 
+async function getDistrictTargets() {
+  const rows = await db.select().from(tables.districtTargets);
+  return Object.fromEntries(managedDistrictNumbers.map((no) => {
+    const row = rows.find((item: any) => item.districtNo === no);
+    return [no, Number(row?.targetHouseholds ?? 0)];
+  }));
+}
+
 function applicationExcelRows(applications: any[]) {
   return [
-    ["접수번호", "상태", "대표 성명", "세례명", "성별", "생년월일", "연락처", "이메일", "우편번호", "주소", "상세주소", "구역", "반", "구역반 판별", "가구원 수", "가족 구성", "주거형태", "반려동물", "가능 언어", "희망 성별", "수용 인원", "침대 제공", "침대 제공 인원", "공간 설명", "개인정보 동의", "신청일", "서명", "접수일", "수정일"],
+    ["접수번호", "접수 경로", "상태", "대표 성명", "세례명", "성별", "생년월일", "연락처", "이메일", "우편번호", "주소", "상세주소", "구역", "반", "구역반 판별", "가구원 수", "가족 구성", "주거형태", "반려동물", "가능 언어", "희망 성별", "수용 인원", "침대 제공", "침대 제공 인원", "공간 설명", "개인정보 동의", "신청일", "서명", "접수일", "수정일"],
     ...applications.map((item) => [
       item.applicationNo,
+      item.submissionSource === "paper" ? "종이 신청" : "온라인 신청",
       item.status,
       item.representative.name,
       item.representative.baptismalName,
@@ -1355,7 +1373,7 @@ app.post("/api/admin/applications/paper", requirePrivacyAdmin, async (req, res) 
     const temporaryPin = String(randomInt(0, 10_000)).padStart(4, "0");
     const payload = structuredClone(req.body as ApplicationPayload);
     payload.representative = { ...payload.representative, applicantPin: temporaryPin };
-    const application = await upsertApplication(payload);
+    const application = await upsertApplication(payload, undefined, "paper");
     if (!application) return res.status(500).json({ message: "종이 신청서를 저장하지 못했습니다." });
     await logAudit(actorFrom(session), "privacy_admin_created_paper_application", application.id, {
       applicationNo: application.applicationNo
@@ -1751,7 +1769,10 @@ app.get("/api/public/map-config", (_req, res) => {
 
 app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   const session = res.locals.session as Session;
-  const applications = await filteredApplicationsForAdmin(session, req.query);
+  const [applications, districtTargets] = await Promise.all([
+    filteredApplicationsForAdmin(session, req.query),
+    getDistrictTargets()
+  ]);
 
   // Calculate statistics database-agnostically
   const allApps = await db.select({
@@ -1794,8 +1815,33 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
     role: session.role,
     canViewPersonalData: canAccessPersonalData(session),
     stats: { total, submitted, confirmed, canceled, capacity, genderCounts, ageGroupCounts, recentApplicantChanges },
+    districtTargets,
     applications
   });
+});
+
+app.put("/api/admin/district-targets", requireAdmin, async (req, res) => {
+  const session = res.locals.session as Session;
+  try {
+    const targets = parseDistrictTargets(req.body.targets);
+    const updatedAt = nowIso();
+    await db.transaction(async (tx: any) => {
+      for (const no of managedDistrictNumbers) {
+        const values = {
+          targetHouseholds: targets[no],
+          updatedBy: pii(actorFrom(session)),
+          updatedAt
+        };
+        await tx.insert(tables.districtTargets)
+          .values({ districtNo: no, ...values })
+          .onConflictDoUpdate({ target: tables.districtTargets.districtNo, set: values });
+      }
+    });
+    await logAudit(actorFrom(session), "admin_updated_district_targets", undefined, { targets });
+    res.json({ targets });
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
 });
 
 app.get("/api/admin/applications.xls", requireAdmin, async (req, res) => {

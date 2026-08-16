@@ -286,7 +286,7 @@ const rules: DistrictRule[] = [
   {
     no: "10",
     ban: "10-1",
-    keywords: ["밤고개로23길", "밤고개로31길"],
+    keywords: ["밤고개로23길", "밤고개로31길", "율현동방죽마을"],
     addressNumber: [["밤고개로23길", 7, 20, "10-1"]],
     reason: "10구역 율현동 방죽마을"
   },

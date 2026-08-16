@@ -49,6 +49,11 @@ type DistributionDatum = {
   count: number;
   percent: number;
 };
+type DistrictDatum = DistributionDatum & {
+  no: string;
+  capacity: number;
+  target: number;
+};
 
 const ADMIN_TOKEN_KEY = "wydAdminToken";
 const ADMIN_ROLE_KEY = "wydAdminRole";
@@ -95,6 +100,8 @@ export function AdminConsoleZip() {
   const [filterBed, setFilterBed] = useState("all");
   const [filterDistrict, setFilterDistrict] = useState("all");
   const [filterDistrictBan, setFilterDistrictBan] = useState("all");
+  const [filterPrivacyConsent, setFilterPrivacyConsent] = useState("all");
+  const [filterSubmissionSource, setFilterSubmissionSource] = useState("all");
   const [sortField, setSortField] = useState("applicationNo");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [activeAdminTab, setActiveAdminTab] = useState<"homestay" | "volunteer">("homestay");
@@ -104,7 +111,9 @@ export function AdminConsoleZip() {
   });
   const [homestayDashboardTab, setHomestayDashboardTab] = useState<HomestayDashboardTab>("summary");
   
-  const [data, setData] = useState<{ role: AdminRole; canViewPersonalData: boolean; stats: any; applications: ApplicationPayload[] } | null>(null);
+  const [data, setData] = useState<{ role: AdminRole; canViewPersonalData: boolean; stats: any; districtTargets: Record<string, number>; applications: ApplicationPayload[] } | null>(null);
+  const [districtTargetDrafts, setDistrictTargetDrafts] = useState<Record<string, number>>({});
+  const [districtTargetMessage, setDistrictTargetMessage] = useState("");
   const [selected, setSelected] = useState<ApplicationPayload | null>(null);
   const [match, setMatch] = useState({ capacity: 1, language: "", bedNeeded: false, petAllergy: false, gender: "" });
   const [candidates, setCandidates] = useState<any[]>([]);
@@ -137,10 +146,11 @@ export function AdminConsoleZip() {
       q: query,
       status
     });
-    const response = await api<{ role: AdminRole; canViewPersonalData: boolean; stats: any; applications: ApplicationPayload[] }>(`/api/admin/applications?${params}`, {}, nextToken);
+    const response = await api<{ role: AdminRole; canViewPersonalData: boolean; stats: any; districtTargets: Record<string, number>; applications: ApplicationPayload[] }>(`/api/admin/applications?${params}`, {}, nextToken);
     setRole(response.role);
     sessionStorage.setItem(ADMIN_ROLE_KEY, response.role);
     setData(response);
+    setDistrictTargetDrafts(response.districtTargets);
   };
 
   const loadAdminUsers = async (nextToken = token) => {
@@ -373,6 +383,8 @@ export function AdminConsoleZip() {
       bed: filterBed,
       district: filterDistrict,
       ban: filterDistrictBan,
+      privacyConsent: filterPrivacyConsent,
+      submissionSource: filterSubmissionSource,
       sortField,
       sortOrder
     });
@@ -796,13 +808,23 @@ export function AdminConsoleZip() {
     acc[no] = (acc[no] ?? 0) + 1;
     return acc;
   }, {});
-  const districtData: DistributionDatum[] = Object.entries(districtCounts)
-    .sort(([a], [b]) => districtSort(a, b))
-    .map(([no, count]) => ({
+  const districtCapacities = activeApplications.reduce<Record<string, number>>((acc, item) => {
+    const no = item.district?.no ?? "99";
+    acc[no] = (acc[no] ?? 0) + Number(item.homestay.capacity || 0);
+    return acc;
+  }, {});
+  const districtNumbers = [...Array.from({ length: 12 }, (_, index) => String(index + 1)), "99"];
+  const districtData: DistrictDatum[] = districtNumbers.map((no) => {
+    const count = districtCounts[no] ?? 0;
+    return {
+      no,
       name: districtOptionLabel(no),
       count,
+      capacity: districtCapacities[no] ?? 0,
+      target: no === "99" ? 0 : Number(data?.districtTargets?.[no] ?? 0),
       percent: percentOf(count, activeApplications.length)
-    }));
+    };
+  });
   const capacityData: DistributionDatum[] = [
     { name: "2명", count: activeApplications.filter((item) => item.homestay.capacity === 2).length, percent: 0 },
     { name: "3명", count: activeApplications.filter((item) => item.homestay.capacity === 3).length, percent: 0 },
@@ -857,8 +879,7 @@ export function AdminConsoleZip() {
   ];
   const genderData: DistributionDatum[] = Object.entries(data?.stats?.genderCounts ?? {}).map(([name, count]) => ({ name, count: Number(count), percent: percentOf(Number(count), activeApplications.length) }));
   const ageData: DistributionDatum[] = Object.entries(data?.stats?.ageGroupCounts ?? {}).map(([name, count]) => ({ name, count: Number(count), percent: percentOf(Number(count), activeApplications.length) }));
-  const districtOptions = Array.from(new Set(applications.map((item) => item.district?.no).filter(Boolean) as string[]))
-    .sort(districtSort);
+  const districtOptions = districtNumbers;
   const districtBanOptions = Array.from(new Set(applications
     .filter((item) => filterDistrict === "all" || item.district?.no === filterDistrict)
     .map((item) => item.district?.ban)
@@ -876,6 +897,8 @@ export function AdminConsoleZip() {
     .filter((item) => filterBed === "all" || (filterBed === "yes" ? item.homestay.hasBed : !item.homestay.hasBed))
     .filter((item) => filterDistrict === "all" || item.district?.no === filterDistrict)
     .filter((item) => filterDistrictBan === "all" || item.district?.ban === filterDistrictBan)
+    .filter((item) => filterPrivacyConsent === "all" || (filterPrivacyConsent === "yes") === item.confirmations.privacyConsent)
+    .filter((item) => filterSubmissionSource === "all" || item.submissionSource === filterSubmissionSource)
     .sort((a, b) => {
       let result = 0;
       if (sortField === "capacity") result = a.homestay.capacity - b.homestay.capacity;
@@ -907,6 +930,21 @@ export function AdminConsoleZip() {
     }, token);
     setSelected((current) => (current?.id === application.id ? response.application : current));
     await load();
+  };
+
+  const saveDistrictTargets = async () => {
+    setDistrictTargetMessage("");
+    try {
+      const response = await api<{ targets: Record<string, number> }>("/api/admin/district-targets", {
+        method: "PUT",
+        body: JSON.stringify({ targets: districtTargetDrafts })
+      }, token);
+      setDistrictTargetDrafts(response.targets);
+      setData((current) => current ? { ...current, districtTargets: response.targets } : current);
+      setDistrictTargetMessage("구역별 목표 가정 수를 저장했습니다.");
+    } catch (error) {
+      setDistrictTargetMessage((error as Error).message);
+    }
   };
 
   const deleteApplication = async (application: ApplicationPayload) => {
@@ -1045,23 +1083,67 @@ export function AdminConsoleZip() {
         )}
 
         {homestayDashboardTab === "district" && (
-          <div className="dashboard-analysis-grid">
+          <div className="dashboard-analysis-grid district-dashboard-grid">
             <div className="dashboard-chart-panel">
-              <span className="font-serif font-bold text-gray-800 text-base block">구역별 신청 비율 및 건수</span>
+              <span className="font-serif font-bold text-gray-800 text-base block">구역별 신청 가정 및 수용 가능 인원</span>
               <div className="h-72 text-xs">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={districtData}>
                     <XAxis dataKey="name" interval={0} tick={{ fontSize: 11 }} />
                     <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#2f5f98" radius={[4, 4, 0, 0]} />
+                    <Tooltip formatter={(value, name) => [`${Number(value).toLocaleString()}${name === "신청 가정" ? "가정" : "명"}`, name]} />
+                    <Legend />
+                    <Bar name="신청 가정" dataKey="count" fill="#2f5f98" radius={[4, 4, 0, 0]} />
+                    <Bar name="수용 인원" dataKey="capacity" fill="#c5a85c" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
             <div className="dashboard-chart-panel">
-              <span className="font-serif font-bold text-gray-800 text-base block">구역별 상세 분포</span>
-              {renderDistributionList(districtData, "건")}
+              <span className="font-serif font-bold text-gray-800 text-base block">구역별 운영 현황</span>
+              <div className="district-summary-list">
+                {districtData.map((item) => (
+                  <div className="district-summary-row" key={item.no}>
+                    <strong>{item.name}</strong>
+                    <span>신청 <b>{item.count}</b>가정</span>
+                    <span>수용 <b>{item.capacity}</b>명</span>
+                    {item.no !== "99" && <span>목표 <b>{item.target}</b>가정</span>}
+                    {item.no !== "99" && <em className={item.target > 0 && item.count >= item.target ? "complete" : ""}>
+                      {item.target > 0 ? `${percentOf(item.count, item.target)}%` : "미설정"}
+                    </em>}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="dashboard-chart-panel district-target-panel">
+              <div className="district-target-heading">
+                <div>
+                  <span className="font-serif font-bold text-gray-800 text-base block">구역별 목표 가정 수 설정</span>
+                  <small>0은 목표 미설정으로 표시됩니다.</small>
+                </div>
+                <button className="secondary" type="button" onClick={saveDistrictTargets}>목표 저장</button>
+              </div>
+              <div className="district-target-grid">
+                {districtNumbers.filter((no) => no !== "99").map((no) => (
+                  <label key={no}>
+                    <span>{no}구역</span>
+                    <input
+                      aria-label={`${no}구역 목표 가정 수`}
+                      type="number"
+                      min="0"
+                      max="10000"
+                      step="1"
+                      value={districtTargetDrafts[no] ?? 0}
+                      onChange={(event) => setDistrictTargetDrafts((current) => ({
+                        ...current,
+                        [no]: Math.max(0, Number(event.target.value) || 0)
+                      }))}
+                    />
+                    <small>가정</small>
+                  </label>
+                ))}
+              </div>
+              {districtTargetMessage && <p className="district-target-message" role="status">{districtTargetMessage}</p>}
             </div>
           </div>
         )}
@@ -1228,7 +1310,7 @@ export function AdminConsoleZip() {
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-7 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-9 gap-3 pt-2">
             <select
               className="w-full px-2 py-2 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none text-xs"
               value={filterGender}
@@ -1283,6 +1365,24 @@ export function AdminConsoleZip() {
             </select>
             <select
               className="w-full px-2 py-2 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none text-xs"
+              value={filterSubmissionSource}
+              onChange={(e) => setFilterSubmissionSource(e.target.value)}
+            >
+              <option value="all">접수 경로 전체</option>
+              <option value="online">온라인 신청</option>
+              <option value="paper">종이 신청</option>
+            </select>
+            <select
+              className="w-full px-2 py-2 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none text-xs"
+              value={filterPrivacyConsent}
+              onChange={(e) => setFilterPrivacyConsent(e.target.value)}
+            >
+              <option value="all">개인정보 동의 전체</option>
+              <option value="yes">동의 완료</option>
+              <option value="no">확인 필요</option>
+            </select>
+            <select
+              className="w-full px-2 py-2 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none text-xs"
               value={sortField}
               onChange={(e) => setSortField(e.target.value)}
             >
@@ -1322,13 +1422,15 @@ export function AdminConsoleZip() {
               <p className="text-xs">다른 검색어나 필터 값을 조절해 보세요.</p>
             </div>
           ) : (
-            <table className="w-full text-left border-collapse text-sm text-gray-700 min-w-[1040px]">
+            <table className="w-full text-left border-collapse text-sm text-gray-700 min-w-[1240px]">
               <thead>
                 <tr className="bg-gold-50/40 border-b border-gold-100 text-gray-700 font-bold">
                   <th className="p-4">호스트 성명 (세례명)</th>
                   <th className="p-4">연락처</th>
                   <th className="p-4">거주 주소</th>
                   <th className="p-4 text-center">구역/반</th>
+                  <th className="p-4 text-center">접수 경로</th>
+                  <th className="p-4 text-center">개인정보 동의</th>
                   <th className="p-4 text-center">가능 인원</th>
                   <th className="p-4">동반언어</th>
                   <th className="p-4 text-center">침대 / 애완</th>
@@ -1348,6 +1450,16 @@ export function AdminConsoleZip() {
                     <td className="p-4 text-center text-xs">
                       <span className="inline-flex items-center justify-center px-2 py-1 rounded-lg border border-gold-200 bg-gold-50 text-gold-800 font-bold">
                         {item.district?.label ?? "구역외 (99구역)"}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center text-xs">
+                      <span className={`application-source-badge ${item.submissionSource === "paper" ? "paper" : "online"}`}>
+                        {item.submissionSource === "paper" ? "종이" : "온라인"}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center text-xs">
+                      <span className={`privacy-consent-badge ${item.confirmations.privacyConsent ? "complete" : "review"}`}>
+                        {item.confirmations.privacyConsent ? "동의" : "확인 필요"}
                       </span>
                     </td>
                     <td className="p-4 text-center font-bold text-gold-700 font-mono">

@@ -60,6 +60,7 @@ async function setupPg() {
       CREATE TABLE IF NOT EXISTS homestay_applications (
         id TEXT PRIMARY KEY,
         application_no TEXT UNIQUE NOT NULL,
+        submission_source TEXT NOT NULL DEFAULT 'online',
         status TEXT NOT NULL DEFAULT 'submitted',
         rep_name TEXT NOT NULL,
         baptismal_name TEXT,
@@ -187,6 +188,13 @@ async function setupPg() {
         updated_at TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS district_targets (
+        district_no TEXT PRIMARY KEY,
+        target_households INTEGER NOT NULL DEFAULT 0,
+        updated_by TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
       ALTER TABLE verification_codes ADD COLUMN IF NOT EXISTS email_hash TEXT;
       ALTER TABLE admins ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'approved';
       ALTER TABLE admins ADD COLUMN IF NOT EXISTS approved_by TEXT;
@@ -209,6 +217,13 @@ async function setupPg() {
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_label TEXT NOT NULL DEFAULT '구역외 (99구역)';
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_confidence TEXT NOT NULL DEFAULT 'low';
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS district_reason TEXT;
+      ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS submission_source TEXT NOT NULL DEFAULT 'online';
+      UPDATE homestay_applications
+      SET submission_source = 'paper'
+      WHERE id IN (
+        SELECT application_id FROM audit_logs
+        WHERE action = 'privacy_admin_created_paper_application' AND application_id IS NOT NULL
+      );
       ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS bed_capacity INTEGER;
       ALTER TABLE homestay_applications ALTER COLUMN district_no SET DEFAULT '99';
       ALTER TABLE homestay_applications ALTER COLUMN district_name SET DEFAULT '구역외';
@@ -314,6 +329,7 @@ function setupSqlite() {
       CREATE TABLE IF NOT EXISTS homestay_applications (
         id TEXT PRIMARY KEY,
         application_no TEXT UNIQUE NOT NULL,
+        submission_source TEXT NOT NULL DEFAULT 'online',
         status TEXT NOT NULL DEFAULT 'submitted',
         rep_name TEXT NOT NULL,
         baptismal_name TEXT,
@@ -443,6 +459,13 @@ function setupSqlite() {
         updated_at TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS district_targets (
+        district_no TEXT PRIMARY KEY,
+        target_households INTEGER NOT NULL DEFAULT 0,
+        updated_by TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_homestay_applications_email ON homestay_applications(email);
       CREATE INDEX IF NOT EXISTS idx_homestay_applications_lookup ON homestay_applications(rep_name, phone);
       CREATE INDEX IF NOT EXISTS idx_homestay_applications_status ON homestay_applications(status);
@@ -484,6 +507,17 @@ function setupSqlite() {
     if (!applicationColumns.some((column) => column.name === "bed_capacity")) {
       db.exec("ALTER TABLE homestay_applications ADD COLUMN bed_capacity INTEGER");
     }
+    if (!applicationColumns.some((column) => column.name === "submission_source")) {
+      db.exec("ALTER TABLE homestay_applications ADD COLUMN submission_source TEXT NOT NULL DEFAULT 'online'");
+    }
+    db.exec(`
+      UPDATE homestay_applications
+      SET submission_source = 'paper'
+      WHERE id IN (
+        SELECT application_id FROM audit_logs
+        WHERE action = 'privacy_admin_created_paper_application' AND application_id IS NOT NULL
+      )
+    `);
     const districtColumns = [
       ["district_no", "TEXT NOT NULL DEFAULT '99'"],
       ["district_name", "TEXT NOT NULL DEFAULT '구역외'"],

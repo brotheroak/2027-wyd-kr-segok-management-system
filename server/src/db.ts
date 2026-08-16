@@ -63,6 +63,7 @@ export const tables = {
   pilgrimAttendanceLogs: isPg ? schema.pgPilgrimAttendanceLogs : schema.sqlitePilgrimAttendanceLogs,
   faqs: isPg ? schema.pgFaqs : schema.sqliteFaqs,
   qnaPosts: isPg ? schema.pgQnaPosts : schema.sqliteQnaPosts,
+  districtTargets: isPg ? schema.pgDistrictTargets : schema.sqliteDistrictTargets,
 };
 
 // Initialize DB schema
@@ -124,6 +125,23 @@ export async function initDb() {
         CREATE INDEX IF NOT EXISTS idx_homestay_applications_district ON homestay_applications(district_no, district_ban);
       `);
       await client.query("ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS bed_capacity INTEGER");
+      await client.query("ALTER TABLE homestay_applications ADD COLUMN IF NOT EXISTS submission_source TEXT NOT NULL DEFAULT 'online'");
+      await client.query(`
+        UPDATE homestay_applications
+        SET submission_source = 'paper'
+        WHERE id IN (
+          SELECT application_id FROM audit_logs
+          WHERE action = 'privacy_admin_created_paper_application' AND application_id IS NOT NULL
+        )
+      `);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS district_targets (
+          district_no TEXT PRIMARY KEY,
+          target_households INTEGER NOT NULL DEFAULT 0,
+          updated_by TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
       await client.query("CREATE INDEX IF NOT EXISTS idx_verification_codes_email_hash ON verification_codes(email_hash)");
       await client.query(`
         CREATE TABLE IF NOT EXISTS volunteer_shifts (
@@ -239,6 +257,25 @@ export async function initDb() {
       if (!applicationColumns.some((column) => column.name === "bed_capacity")) {
         sqliteDbInstance.exec("ALTER TABLE homestay_applications ADD COLUMN bed_capacity INTEGER");
       }
+      if (!applicationColumns.some((column) => column.name === "submission_source")) {
+        sqliteDbInstance.exec("ALTER TABLE homestay_applications ADD COLUMN submission_source TEXT NOT NULL DEFAULT 'online'");
+      }
+      sqliteDbInstance.exec(`
+        UPDATE homestay_applications
+        SET submission_source = 'paper'
+        WHERE id IN (
+          SELECT application_id FROM audit_logs
+          WHERE action = 'privacy_admin_created_paper_application' AND application_id IS NOT NULL
+        )
+      `);
+      sqliteDbInstance.exec(`
+        CREATE TABLE IF NOT EXISTS district_targets (
+          district_no TEXT PRIMARY KEY,
+          target_households INTEGER NOT NULL DEFAULT 0,
+          updated_by TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `);
       sqliteDbInstance.exec(`
         UPDATE homestay_applications
         SET district_no = '99',
