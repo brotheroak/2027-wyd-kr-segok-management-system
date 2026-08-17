@@ -976,6 +976,12 @@ export function AdminConsoleZip() {
       {adminHeaderMenu}
       <AdminModeTabs active={activeAdminTab} onChange={setActiveAdminTab} />
       {recentApplicantChanges > 0 && <div className="admin-change-alert"><RefreshCw /><span>최근 7일간 신청자가 수정한 홈스테이·자원봉사 신청이 <strong>{recentApplicantChanges}건</strong> 있습니다.</span></div>}
+      {(data?.stats?.reconciledPaperSources ?? 0) > 0 && (
+        <div className="admin-change-alert">
+          <FileText />
+          <span>종이 신청 등록 이력을 확인하여 접수 경로 <strong>{data?.stats?.reconciledPaperSources}건</strong>을 종이 신청으로 정리했습니다.</span>
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" id="stats-dashboard">
         <div className="bg-white p-6 rounded-2xl border border-gold-100 shadow-sm flex items-center gap-4">
           <div className="bg-gold-50 p-3 rounded-xl text-gold-600">
@@ -1085,16 +1091,27 @@ export function AdminConsoleZip() {
         {homestayDashboardTab === "district" && (
           <div className="dashboard-analysis-grid district-dashboard-grid">
             <div className="dashboard-chart-panel">
-              <span className="font-serif font-bold text-gray-800 text-base block">구역별 신청 가정 및 수용 가능 인원</span>
+              <span className="font-serif font-bold text-gray-800 text-base block">구역별 목표 가정 및 신청 가정</span>
               <div className="h-72 text-xs">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={districtData}>
                     <XAxis dataKey="name" interval={0} tick={{ fontSize: 11 }} />
                     <YAxis allowDecimals={false} />
-                    <Tooltip formatter={(value, name) => [`${Number(value).toLocaleString()}${name === "신청 가정" ? "가정" : "명"}`, name]} />
+                    <Tooltip content={({ active, payload }) => {
+                      const item = payload?.[0]?.payload as DistrictDatum | undefined;
+                      if (!active || !item) return null;
+                      return (
+                        <div className="district-chart-tooltip">
+                          <strong>{item.name}</strong>
+                          <span>목표 가정 <b>{item.no === "99" ? "미설정" : `${item.target.toLocaleString()}가정`}</b></span>
+                          <span>신청 가정 <b>{item.count.toLocaleString()}가정</b></span>
+                          <span>수용 가능 인원 <b>{item.capacity.toLocaleString()}명</b></span>
+                        </div>
+                      );
+                    }} />
                     <Legend />
+                    <Bar name="목표 가정" dataKey="target" fill="#c5a85c" radius={[4, 4, 0, 0]} />
                     <Bar name="신청 가정" dataKey="count" fill="#2f5f98" radius={[4, 4, 0, 0]} />
-                    <Bar name="수용 인원" dataKey="capacity" fill="#c5a85c" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -1369,8 +1386,8 @@ export function AdminConsoleZip() {
               onChange={(e) => setFilterSubmissionSource(e.target.value)}
             >
               <option value="all">접수 경로 전체</option>
-              <option value="online">온라인 신청</option>
-              <option value="paper">종이 신청</option>
+              <option value="online">온라인 신청 ({data?.stats?.sourceCounts?.online ?? 0})</option>
+              <option value="paper">종이 신청 ({data?.stats?.sourceCounts?.paper ?? 0})</option>
             </select>
             <select
               className="w-full px-2 py-2 bg-white border-2 border-gray-100 rounded-xl focus:border-gold-500 focus:outline-none text-xs"

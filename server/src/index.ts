@@ -17,6 +17,7 @@ import { hashPassword, verifyPassword } from "./password.js";
 import { matchesIntegratedSearch } from "./search.js";
 import { validCoordinates, validateAttendanceLocation } from "./location.js";
 import { managedDistrictNumbers, parseDistrictTargets } from "./districtTargets.js";
+import { paperSourceMismatchIds } from "./submissionSources.js";
 import { sql, eq, and, or, like, desc } from "drizzle-orm";
 
 const app = express();
@@ -1171,6 +1172,35 @@ async function getDistrictTargets() {
   }));
 }
 
+async function reconcilePaperSubmissionSources(session: Session) {
+  const auditRows = await db.select({ applicationId: tables.auditLogs.applicationId })
+    .from(tables.auditLogs)
+    .where(eq(tables.auditLogs.action, "privacy_admin_created_paper_application"));
+  if (auditRows.length === 0) return 0;
+
+  const applicationRows = await db.select({
+    id: tables.applications.id,
+    submissionSource: tables.applications.submissionSource
+  }).from(tables.applications);
+  const mismatchedIds = paperSourceMismatchIds(
+    auditRows.map((row: any) => row.applicationId),
+    applicationRows
+  );
+  if (mismatchedIds.length === 0) return 0;
+
+  await db.transaction(async (tx: any) => {
+    for (const id of mismatchedIds) {
+      await tx.update(tables.applications)
+        .set({ submissionSource: "paper" })
+        .where(and(eq(tables.applications.id, id), eq(tables.applications.submissionSource, "online")));
+    }
+  });
+  await logAudit(actorFrom(session), "admin_reconciled_paper_submission_sources", undefined, {
+    count: mismatchedIds.length
+  });
+  return mismatchedIds.length;
+}
+
 function applicationExcelRows(applications: any[]) {
   return [
     ["접수번호", "접수 경로", "상태", "대표 성명", "세례명", "성별", "생년월일", "연락처", "이메일", "우편번호", "주소", "상세주소", "구역", "반", "구역반 판별", "가구원 수", "가족 구성", "주거형태", "반려동물", "가능 언어", "희망 성별", "수용 인원", "침대 제공", "침대 제공 인원", "공간 설명", "개인정보 동의", "신청일", "서명", "접수일", "수정일"],
@@ -1769,6 +1799,7 @@ app.get("/api/public/map-config", (_req, res) => {
 
 app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   const session = res.locals.session as Session;
+  const reconciledPaperSources = await reconcilePaperSubmissionSources(session);
   const [applications, districtTargets] = await Promise.all([
     filteredApplicationsForAdmin(session, req.query),
     getDistrictTargets()
@@ -1778,6 +1809,7 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   const allApps = await db.select({
     status: tables.applications.status,
     capacity: tables.applications.capacity,
+    submissionSource: tables.applications.submissionSource,
     gender: tables.applications.gender,
     birthDate: tables.applications.birthDate
   }).from(tables.applications);
@@ -1789,6 +1821,7 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   let capacity = 0;
   const genderCounts: Record<string, number> = { 남성: 0, 여성: 0 };
   const ageGroupCounts: Record<string, number> = {};
+  const sourceCounts: Record<string, number> = { online: 0, paper: 0 };
   const auditRows = await db.select({ action: tables.auditLogs.action, createdAt: tables.auditLogs.createdAt })
     .from(tables.auditLogs)
     .orderBy(desc(tables.auditLogs.createdAt));
@@ -1804,6 +1837,8 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
     if (item.status === "confirmed") confirmed++;
     if (item.status === "canceled") canceled++;
     if (item.status !== "canceled") capacity += Number(item.capacity || 0);
+    const source = item.submissionSource === "paper" ? "paper" : "online";
+    sourceCounts[source] = (sourceCounts[source] ?? 0) + 1;
     if (item.status !== "canceled") {
       genderCounts[item.gender] = (genderCounts[item.gender] ?? 0) + 1;
       const ageGroup = ageGroupFromBirthDate(item.birthDate);
@@ -1814,7 +1849,7 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   res.json({
     role: session.role,
     canViewPersonalData: canAccessPersonalData(session),
-    stats: { total, submitted, confirmed, canceled, capacity, genderCounts, ageGroupCounts, recentApplicantChanges },
+    stats: { total, submitted, confirmed, canceled, capacity, genderCounts, ageGroupCounts, sourceCounts, reconciledPaperSources, recentApplicantChanges },
     districtTargets,
     applications
   });

@@ -2228,6 +2228,30 @@ input:focus, select:focus, textarea:focus {
   grid-column: 1 / -1;
 }
 
+.district-chart-tooltip {
+  display: grid;
+  gap: 7px;
+  min-width: 170px;
+  padding: 12px 14px;
+  border: 1px solid var(--gold-100);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 10px 26px rgba(20, 31, 49, 0.14);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.district-chart-tooltip strong,
+.district-chart-tooltip b {
+  color: var(--blue);
+}
+
+.district-chart-tooltip span {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .district-summary-list {
   display: grid;
   max-height: 360px;
