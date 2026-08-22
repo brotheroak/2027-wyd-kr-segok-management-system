@@ -45,6 +45,10 @@ test("구역반 판별은 방죽마을과 10구역 도로를 9구역과 혼동�
   assert.equal(road23.no, "10");
   assert.equal(road23.ban, "10-1");
 
+  const road27 = assignDistrict("서울특별시 강남구 밤고개로 27길 7", "");
+  assert.equal(road27.no, "10");
+  assert.equal(road27.ban, "10-2");
+
   const road29 = assignDistrict("서울특별시 강남구 밤고개로29길 8", "");
   assert.equal(road29.no, "10");
   assert.equal(road29.ban, "10-2");

@@ -133,7 +133,7 @@ export const districtGuideSections: DistrictGuideSection[] = [
     areas: ["율현동 방죽마을", "한신휴플러스 8단지"],
     bans: [
       { ban: "10-1", description: "방죽마을 밤고개로23길 7~20, 밤고개로31길" },
-      { ban: "10-2", description: "한신휴플러스 8단지, 헌릉로637길, 밤고개로29길" }
+      { ban: "10-2", description: "한신휴플러스 8단지, 헌릉로637길, 밤고개로27길, 밤고개로29길" }
     ]
   },
   {

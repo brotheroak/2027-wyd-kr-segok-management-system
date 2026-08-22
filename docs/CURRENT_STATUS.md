@@ -15,7 +15,7 @@
 | 운영 DB | Cloud SQL PostgreSQL |
 | Cloud SQL 인스턴스 | `mystic-planet-347807:asia-northeast3:wyh-postgres` |
 | 배포 방식 | `main` push 후 GitHub Actions 자동 배포 |
-| 이번 배포 범위 | 2026-08-11 검토 의견 반영: 구역별 수용 인원·목표, 종이 신청·개인정보 동의 필터, 9·10구역 판별 보강 |
+| 이번 배포 범위 | 2026-08-11 검토 의견 반영: 구역별 수용 인원·목표, 종이 신청·개인정보 동의 필터, 9·10구역 판별 보강 및 밤고개로27길 10-2반 매핑 |
 
 Cloud Run은 stateless 환경이므로 운영 DB는 PostgreSQL을 기준으로 관리합니다. SQLite는 로컬 개발 또는 단일 VM 대안으로만 취급합니다.
 
