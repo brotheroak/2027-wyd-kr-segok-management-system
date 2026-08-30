@@ -1,5 +1,5 @@
 import React from "react";
-import { Church, Accessibility } from "lucide-react";
+import { Accessibility } from "lucide-react";
 import { ApplyView } from "../types.js";
 import { AppFooter } from "./AppFooter.js";
 
@@ -42,8 +42,8 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
       <header className="topbar applicant-topbar">
         <div className="shell topbar-inner">
           <button type="button" className="brand" onClick={() => navigate("/")} aria-label="신청 첫 화면으로 이동">
-            <div className="brand-mark">
-              <Church size={34} />
+            <div className="brand-mark applicant-parish-mark">
+              <img src="/favicon.png" alt="세곡동성당" />
             </div>
             <div>
               <p>세곡동성당 WYD 분과</p>
