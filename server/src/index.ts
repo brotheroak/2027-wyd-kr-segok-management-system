@@ -18,6 +18,7 @@ import { matchesIntegratedSearch } from "./search.js";
 import { validCoordinates, validateAttendanceLocation } from "./location.js";
 import { managedDistrictNumbers, parseDistrictTargets } from "./districtTargets.js";
 import { paperSourceMismatchIds } from "./submissionSources.js";
+import { isDuplicateHost } from "./hostDuplicates.js";
 import { sql, eq, and, or, like, desc } from "drizzle-orm";
 
 const app = express();
@@ -492,6 +493,8 @@ async function upsertApplication(payload: ApplicationPayload, existingId?: strin
     const ymd = seoulDateKey();
     if (!existingId) await lockDailySequence(tx, "application", ymd);
     if (!existingId) {
+      // Serialize duplicate checks across new registrations, including the date boundary.
+      await lockDailySequence(tx, "host-identity", "all");
       const existingHosts = await tx.select({
         id: tables.applications.id,
         status: tables.applications.status,
@@ -500,13 +503,10 @@ async function upsertApplication(payload: ApplicationPayload, existingId?: strin
         address: tables.applications.address,
         addressDetail: tables.applications.addressDetail
       }).from(tables.applications);
-      const phoneKey = normalizePhone(parsed.representative.phone);
-      const addressKey = `${plain(parsed.representative.address)} ${plain(parsed.representative.addressDetail ?? "")}`.replace(/\s+/g, "").toLowerCase();
-      const duplicate = existingHosts.find((host: any) => host.status !== "canceled" && (
-        normalizePhone(plain(host.phone)) === phoneKey
-        || (plain(host.repName).trim() === parsed.representative.name.trim()
-          && `${plain(host.address)} ${plain(host.addressDetail ?? "")}`.replace(/\s+/g, "").toLowerCase() === addressKey)
-      ));
+      const duplicate = existingHosts.find((host: any) => host.status !== "canceled" && isDuplicateHost({
+        name: plain(host.repName), phone: plain(host.phone),
+        address: plain(host.address), addressDetail: plain(host.addressDetail ?? "")
+      }, parsed.representative));
       if (duplicate) throw new Error("이미 등록된 홈스테이 호스트입니다. 접수 확인에서 기존 신청을 조회해 주세요.");
     }
     const existingRows = existingId
@@ -2431,14 +2431,15 @@ app.get("/api/volunteer/shifts/public", async (_req, res) => {
 });
 
 app.post("/api/applications/duplicate-check", async (req, res) => {
-  const name = String(req.body.name ?? "").trim();
-  const phone = normalizePhone(String(req.body.phone ?? ""));
-  const address = `${String(req.body.address ?? "")} ${String(req.body.addressDetail ?? "")}`.replace(/\s+/g, "").toLowerCase();
+  const candidate = {
+    name: String(req.body.name ?? ""), phone: String(req.body.phone ?? ""),
+    address: String(req.body.address ?? ""), addressDetail: String(req.body.addressDetail ?? "")
+  };
   const rows = await db.select().from(tables.applications);
-  const duplicate = rows.find((row: any) => row.status !== "canceled" && (
-    (phone && normalizePhone(plain(row.phone)) === phone)
-    || (name && address && plain(row.repName).trim() === name && `${plain(row.address)} ${plain(row.addressDetail ?? "")}`.replace(/\s+/g, "").toLowerCase() === address)
-  ));
+  const duplicate = rows.find((row: any) => row.status !== "canceled" && isDuplicateHost({
+    name: plain(row.repName), phone: plain(row.phone),
+    address: plain(row.address), addressDetail: plain(row.addressDetail ?? "")
+  }, candidate));
   res.json({ duplicate: Boolean(duplicate) });
 });
 
