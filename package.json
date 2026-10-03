@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.server.json && vite build",
     "start": "node dist/server/index.js",
     "stress": "node scripts/stress-test.mjs",
-    "test": "node --test --import tsx server/src/monthlyApplications.test.ts server/src/crypto.test.ts server/src/password.test.ts server/src/totp.test.ts server/src/validators.test.ts server/src/districts.test.ts server/src/districtTargets.test.ts server/src/submissionSources.test.ts server/src/hostDuplicates.test.ts server/src/search.test.ts server/src/pilgrimDiet.test.ts server/src/location.test.ts client/src/utils/volunteerCalendar.test.ts server/src/collaboration.integration.test.ts client/src/utils/meetingExcel.test.ts",
+    "test": "node --test --import tsx server/src/monthlyApplications.test.ts server/src/crypto.test.ts server/src/password.test.ts server/src/totp.test.ts server/src/validators.test.ts server/src/districts.test.ts server/src/districtTargets.test.ts server/src/submissionSources.test.ts server/src/hostDuplicates.test.ts server/src/search.test.ts server/src/pilgrimDiet.test.ts server/src/location.test.ts client/src/utils/volunteerCalendar.test.ts server/src/collaboration.integration.test.ts client/src/utils/meetingExcel.test.ts client/src/utils/meetingExcelImport.test.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
     "db:setup": "node scripts/setup-db.mjs"
   },
@@ -22,6 +22,7 @@
     "cors": "^2.8.5",
     "drizzle-orm": "^1.0.0-beta.24",
     "express": "^4.21.2",
+    "fast-xml-parser": "^5.11.2",
     "fflate": "^0.8.3",
     "jsbarcode": "^3.12.3",
     "lucide-react": "^0.468.0",

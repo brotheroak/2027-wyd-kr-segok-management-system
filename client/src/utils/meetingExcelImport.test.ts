@@ -1,0 +1,60 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { unzipSync, zipSync, strFromU8, strToU8 } from "fflate";
+import { buildMeetingExcel } from "./meetingExcel.js";
+import { parseMeetingExcel } from "./meetingExcelImport.js";
+import { collaborationImport, collaborationPayloads } from "../../../server/src/collaborationValidation.js";
+
+const template = new Uint8Array(readFileSync("client/public/meeting-template.xlsx"));
+const meeting = { id: "source", kind: "meeting", payload: { title: "테스트 회의", date: "2026-10-03", time: "14:30", location: "교육관", attendees: "테스트 구성원" } };
+const report = { id: "report", kind: "report", payload: { meeting: "source", team: "총괄", author: "테스트 작성자", progress: "첫 줄\n두 번째 & <내용>", discussion: "논의", requests: "전산", decisions: "결정", plans: "=수식 아닌 글" } };
+const tasks = Array.from({ length: 11 }, (_, i) => ({ id: `task-${i}`, kind: "task", payload: { meeting: "source", title: `업무 ${i}`, team: "전산", owner: "테스트 담당", due: "2026-11-01", status: "진행 중", notes: "메모" } }));
+const exported = () => buildMeetingExcel(template, meeting, [report, ...tasks]);
+test("exported workbook imports all eight reports and expanded tasks as valid new linked records", () => {
+  const preview = parseMeetingExcel(exported(), "sample.xlsx", "new-meeting");
+  assert.equal(preview.records.length, 20);
+  assert.equal(preview.records[0].payload.date, "2026-10-03");
+  assert.equal(preview.records[0].payload.time, "14:30");
+  assert.equal(preview.records[1].payload.progress, report.payload.progress);
+  assert.equal(preview.records[1].payload.plans, "=수식 아닌 글");
+  assert.equal(preview.records[19].payload.due, "2026-11-01");
+  assert.equal(preview.records[19].payload.owner, "테스트 담당");
+  assert.equal(preview.records[19].payload.status, "진행 중");
+  assert.ok(preview.records.slice(1).every(r => r.payload.meeting === "new-meeting"));
+  collaborationImport.parse({ format: "wyd-collaboration-v1", records: preview.records });
+  for (const r of preview.records) collaborationPayloads[r.kind as keyof typeof collaborationPayloads].parse(r.payload);
+});
+test("sheet relationships and rich shared strings work independently of sheet order", () => {
+  const files = unzipSync(exported());
+  files["xl/sharedStrings.xml"] = strToU8('<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><r><t>공유 </t></r><r><t>문자열 &amp; 글</t></r></si></sst>');
+  let sheet = strFromU8(files["xl/worksheets/sheet3.xml"]);
+  sheet = sheet.replace(/<c\b[^>]*r="B7"[^>]*>[\s\S]*?<\/c>/, '<c r="B7" t="s"><v>0</v></c>');
+  files["xl/worksheets/sheet3.xml"] = strToU8(sheet);
+  let w = strFromU8(files["xl/workbook.xml"]);
+  w = w.replace(/<sheets>([\s\S]*?)<\/sheets>/, (_, body) => '<sheets>' + body.match(/<sheet\b[^>]*\/>/g).reverse().join('') + '</sheets>');
+  files["xl/workbook.xml"] = strToU8(w);
+  const preview = parseMeetingExcel(zipSync(files), "sample.xlsx", "new");
+  assert.equal(preview.records[1].payload.progress, "공유 문자열 & 글");
+});
+test("blank metadata stays blank, no stale formula cache is used for empty division cells", () => {
+  const files = unzipSync(template);
+  let main = strFromU8(files["xl/worksheets/sheet2.xml"]);
+  main = main.replace(/<c\b[^>]*r="B8"[^>]*>[\s\S]*?<\/c>/, '<c r="B8" t="str"><f>UNKNOWN()</f><v>stale value</v></c>');
+  files["xl/worksheets/sheet2.xml"] = strToU8(main);
+  const preview = parseMeetingExcel(zipSync(files), "sample.xlsx", "new");
+  assert.equal(preview.records[0].payload.date, "");
+  assert.equal(preview.records[1].payload.progress, "");
+  assert.ok(preview.warnings.length);
+});
+test("missing layout, malformed XML, entity declarations and oversized input are rejected", () => {
+  const files = unzipSync(template);
+  delete files["xl/worksheets/sheet3.xml"];
+  assert.throws(() => parseMeetingExcel(zipSync(files), "sample.xlsx"));
+  const bad = unzipSync(template);
+  bad["xl/workbook.xml"] = strToU8('<!DOCTYPE workbook [<!ENTITY x "bad">]><workbook/>');
+  assert.throws(() => parseMeetingExcel(zipSync(bad), "sample.xlsx"), /올바르지/);
+  bad["xl/workbook.xml"] = strToU8('<workbook>');
+  assert.throws(() => parseMeetingExcel(zipSync(bad), "sample.xlsx"), /올바르지/);
+  assert.throws(() => parseMeetingExcel(new Uint8Array(12 * 1024 * 1024 + 1), "sample.xlsx"), /12MB/);
+});
