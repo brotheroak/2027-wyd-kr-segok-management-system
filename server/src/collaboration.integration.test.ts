@@ -372,30 +372,317 @@ test("collaboration shares staff sessions, rejects applicant access, and persist
       401,
     );
     const attachmentMessageId = randomUUID();
-    const chatMessage = await request("/api/collaboration/records", member, "POST", {
-      id: attachmentMessageId, kind: "message", payload: { channel: "전체", content: "", attachments: [file.record.id] },
-    });
+    const chatMessage = await request(
+      "/api/collaboration/records",
+      member,
+      "POST",
+      {
+        id: attachmentMessageId,
+        kind: "message",
+        payload: {
+          channel: "전체",
+          content: "",
+          attachments: [file.record.id],
+        },
+      },
+    );
     assert.equal(chatMessage.status, 200);
-    assert.deepEqual(chatMessage.data.record.payload.attachments, [file.record.id]);
-    const chatReply = await request("/api/collaboration/records", member, "POST", {
-      id: randomUUID(), kind: "message", payload: { channel: "전체", content: "첨부 답글", parent: attachmentMessageId, attachments: [file.record.id] },
-    });
+    assert.deepEqual(chatMessage.data.record.payload.attachments, [
+      file.record.id,
+    ]);
+    const chatReply = await request(
+      "/api/collaboration/records",
+      member,
+      "POST",
+      {
+        id: randomUUID(),
+        kind: "message",
+        payload: {
+          channel: "전체",
+          content: "첨부 답글",
+          parent: attachmentMessageId,
+          attachments: [file.record.id],
+        },
+      },
+    );
     assert.equal(chatReply.status, 200);
     for (const payload of [
       { channel: "전체", content: "없는 파일", attachments: [randomUUID()] },
-      { channel: "전체", content: "중복 파일", attachments: [file.record.id, file.record.id] },
+      {
+        channel: "전체",
+        content: "중복 파일",
+        attachments: [file.record.id, file.record.id],
+      },
       { channel: "전체", content: "", attachments: [] },
-      { channel: "전체", content: "과다 첨부", attachments: Array.from({length: 6}, () => randomUUID()) },
+      {
+        channel: "전체",
+        content: "과다 첨부",
+        attachments: Array.from({ length: 6 }, () => randomUUID()),
+      },
     ]) {
-      assert.equal((await request("/api/collaboration/records", member, "POST", { id: randomUUID(), kind: "message", payload })).status, 400);
+      assert.equal(
+        (
+          await request("/api/collaboration/records", member, "POST", {
+            id: randomUUID(),
+            kind: "message",
+            payload,
+          })
+        ).status,
+        400,
+      );
     }
     const messageReload = await request("/api/collaboration/records", member);
-    const loadedMessage = messageReload.data.records.find((record: any) => record.id === attachmentMessageId);
+    const loadedMessage = messageReload.data.records.find(
+      (record: any) => record.id === attachmentMessageId,
+    );
     assert.deepEqual(loadedMessage.payload.attachments, [file.record.id]);
     const contents = sqlite
       .prepare("SELECT content FROM collaboration_files WHERE id=?")
       .get(file.record.id)?.content;
     assert.ok(String(contents).startsWith("enc:v1:"));
+    // Seen cutoffs are per channel and monotonic, including concurrent tabs.
+    const seenAt = chatReply.data.record.updated_at;
+    assert.equal(
+      (
+        await request("/api/collaboration/read", member, "PUT", {
+          channel: "전체",
+          at: seenAt,
+        })
+      ).status,
+      200,
+    );
+    await Promise.all([
+      request("/api/collaboration/read", member, "PUT", {
+        channel: "전체",
+        at: "2020-01-01T00:00:00.000Z",
+      }),
+      request("/api/collaboration/read", member, "PUT", {
+        channel: "교육",
+        at: seenAt,
+      }),
+    ]);
+    const seen = (await request("/api/collaboration/records", member)).data
+      .read;
+    assert.equal(seen["전체"], seenAt);
+    assert.equal(seen["교육"], seenAt);
+    assert.deepEqual(
+      (await request("/api/collaboration/records", operator)).data.read,
+      {},
+    );
+    // Editing preserves the previous encrypted version, and restoration creates another version.
+    const history = await request(
+      `/api/collaboration/records/${r.id}/history`,
+      member,
+    );
+    assert.equal(history.status, 200);
+    assert.ok(history.data.history.some((v: any) => v.revision === 1));
+    const restored = await request(
+      `/api/collaboration/records/${r.id}/restore`,
+      member,
+      "POST",
+      { version: 1, revision: history.data.current.revision },
+    );
+    assert.equal(restored.status, 200);
+    assert.equal(restored.data.record.payload.progress, r.payload.progress);
+    assert.equal(
+      restored.data.record.revision,
+      history.data.current.revision + 1,
+    );
+    assert.equal(
+      (
+        await request(
+          `/api/collaboration/records/${r.id}/restore`,
+          member,
+          "POST",
+          { version: 1, revision: history.data.current.revision },
+        )
+      ).status,
+      409,
+    );
+    assert.equal(
+      (await request("/api/collaboration/policy", member)).status,
+      403,
+    );
+    const privateTeam = r.payload.team;
+    async function savePolicy(policy: unknown) {
+      const current = await request("/api/collaboration/policy", operator);
+      return request("/api/collaboration/policy", operator, "PUT", {
+        policy,
+        revision: current.data.revision,
+      });
+    }
+    const policy = {
+      teams: {
+        [privateTeam]: {
+          private: true,
+          members: [] as string[],
+          readOnly: [] as string[],
+        },
+      },
+    };
+    assert.equal((await savePolicy(policy)).status, 200);
+    assert.equal(
+      (
+        await request("/api/collaboration/policy", operator, "PUT", {
+          policy,
+          revision: 0,
+        })
+      ).status,
+      409,
+    );
+    let restricted = await request("/api/collaboration/records", member);
+    assert.ok(!restricted.data.permissions.readTeams.includes(privateTeam));
+    assert.ok(
+      !restricted.data.records.some((record: any) => record.id === r.id),
+    );
+    assert.equal(
+      (await request(`/api/collaboration/records/${r.id}/history`, member))
+        .status,
+      404,
+    );
+    assert.equal(
+      (
+        await request(
+          `/api/collaboration/records/${r.id}/restore`,
+          member,
+          "POST",
+          { version: 1, revision: restored.data.record.revision },
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await request("/api/collaboration/records", member, "POST", {
+          id: randomUUID(),
+          kind: "message",
+          payload: { channel: privateTeam, content: "권한 없음" },
+        })
+      ).status,
+      403,
+    );
+    const privateUpload = await fetch(
+      origin +
+        "/api/collaboration/files?team=" +
+        encodeURIComponent(privateTeam),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${operator}`,
+          "Content-Type": "application/octet-stream",
+          "X-File-Name": "private.txt",
+        },
+        body: bytes,
+      },
+    );
+    assert.equal(privateUpload.status, 200);
+    const privateFile = (await privateUpload.json()).record;
+    assert.equal(
+      (
+        await fetch(origin + "/api/collaboration/files/" + privateFile.id, {
+          headers: { Authorization: `Bearer ${member}` },
+        })
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await request("/api/collaboration/records", operator, "POST", {
+          id: randomUUID(),
+          kind: "message",
+          payload: {
+            channel: "전체",
+            content: "금지된 공개 공유",
+            attachments: [privateFile.id],
+          },
+        })
+      ).status,
+      400,
+    );
+    policy.teams[privateTeam].members = ["member@example.test"];
+    policy.teams[privateTeam].readOnly = ["member@example.test"];
+    assert.equal((await savePolicy(policy)).status, 200);
+    restricted = await request("/api/collaboration/records", member);
+    assert.ok(restricted.data.permissions.readTeams.includes(privateTeam));
+    assert.ok(!restricted.data.permissions.writeTeams.includes(privateTeam));
+    assert.ok(
+      restricted.data.records.some(
+        (record: any) => record.id === privateFile.id,
+      ),
+    );
+    assert.equal(
+      (await request(`/api/collaboration/records/${r.id}/history`, member))
+        .status,
+      200,
+    );
+    assert.equal(
+      (
+        await request(`/api/collaboration/records/${r.id}`, member, "PUT", {
+          ...body,
+          revision: restored.data.record.revision,
+        })
+      ).status,
+      403,
+    );
+    const privateDocId = randomUUID();
+    await request("/api/collaboration/records", operator, "POST", {
+      id: privateDocId,
+      kind: "doc",
+      payload: { team: privateTeam, title: "분과 기록", content: "전용 내용" },
+    });
+    await request(
+      `/api/collaboration/records/${privateDocId}`,
+      operator,
+      "PUT",
+      {
+        id: privateDocId,
+        kind: "doc",
+        revision: 1,
+        payload: { team: "전체", title: "공개 기록", content: "공개 내용" },
+      },
+    );
+    policy.teams[privateTeam].members = [];
+    policy.teams[privateTeam].readOnly = [];
+    await savePolicy(policy);
+    assert.equal(
+      (
+        await request(
+          `/api/collaboration/records/${privateDocId}/history`,
+          member,
+        )
+      ).data.history.length,
+      0,
+      "moving a document public must not expose private historical content",
+    );
+    assert.equal(
+      (
+        await request("/api/collaboration/records", member, "POST", {
+          id: r.id + "-history-99",
+          kind: "doc",
+          payload: { team: "전체", title: "내부 번호 충돌", content: "" },
+        })
+      ).status,
+      400,
+    );
+    const exported = (await request("/api/collaboration/records", operator))
+      .data.records;
+    assert.ok(
+      exported.every(
+        (record: any) =>
+          !["history", "policy", "userstate", "filescope"].includes(
+            record.kind,
+          ),
+      ),
+    );
+    assert.ok(
+      String(
+        sqlite
+          .prepare(
+            "SELECT payload FROM collaboration_records WHERE kind='history' LIMIT 1",
+          )
+          .get()?.payload,
+      ).startsWith("enc:v1:"),
+    );
     const register = await request("/api/admin/register", undefined, "POST", {
       email: "newmember@example.test",
       password,

@@ -1134,16 +1134,205 @@
   }
 }
 
-.collab-chat-files{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.collab-chat-files .collab-file{display:flex;gap:8px;align-items:center;padding:10px 12px;background:#f3f6fc;border:1px solid #e1e7f1;border-radius:10px;max-width:100%;overflow-wrap:anywhere;font-size:13px;cursor:pointer}.collab-attachment-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.collab-attachment-controls>button{display:flex;gap:6px;align-items:center;border:1px solid #dfe5ef;border-radius:8px;padding:8px;font-size:12px;background:#fff;cursor:pointer}.collab-attachment-controls small{font-size:11px;color:#748096}.collab-attachment-controls>span{font-size:12px;background:#edf2ff;border-radius:8px;padding:6px;overflow-wrap:anywhere}.collab-attachment-controls span button{margin-left:8px}.collab-composer footer{flex-wrap:wrap;gap:10px}
+.collab-chat-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+.collab-chat-files .collab-file {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  background: #f3f6fc;
+  border: 1px solid #e1e7f1;
+  border-radius: 10px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  cursor: pointer;
+}
+.collab-attachment-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.collab-attachment-controls > button {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+.collab-attachment-controls small {
+  font-size: 11px;
+  color: #748096;
+}
+.collab-attachment-controls > span {
+  font-size: 12px;
+  background: #edf2ff;
+  border-radius: 8px;
+  padding: 6px;
+  overflow-wrap: anywhere;
+}
+.collab-attachment-controls span button {
+  margin-left: 8px;
+}
+.collab-composer footer {
+  flex-wrap: wrap;
+  gap: 10px;
+}
 
-.excel-import-dialog { width: min(760px, calc(100vw - 32px)); max-height: 88dvh; overflow: auto; }
-.excel-import-dialog fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
-.excel-import-dialog label { display: grid; gap: 6px; margin: 12px 0; }
-.excel-import-dialog input, .excel-import-dialog textarea { width: 100%; min-width: 0; box-sizing: border-box; }
-.excel-import-dialog textarea { min-height: 96px; }
-.excel-import-dialog details { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; margin: 8px 0; }
-.excel-import-dialog summary { cursor: pointer; overflow-wrap: anywhere; }
-.excel-import-dialog p { overflow-wrap: anywhere; }
-.excel-import-dialog footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-.excel-import-datetime { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 520px) { .excel-import-datetime { grid-template-columns: 1fr; gap: 0; } }
+.excel-import-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: 88dvh;
+  overflow: auto;
+}
+.excel-import-dialog fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.excel-import-dialog label {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+}
+.excel-import-dialog input,
+.excel-import-dialog textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.excel-import-dialog textarea {
+  min-height: 96px;
+}
+.excel-import-dialog details {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 8px 0;
+}
+.excel-import-dialog summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.excel-import-dialog p {
+  overflow-wrap: anywhere;
+}
+.excel-import-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.excel-import-datetime {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 520px) {
+  .excel-import-datetime {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+.collab-badge {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 22px;
+  padding: 2px 6px;
+  border-radius: 20px;
+  background: #e8e7ff;
+  color: #5143ba;
+  font-size: 12px;
+  font-weight: 700;
+  margin-left: auto;
+}
+.collab-alerts {
+  display: grid;
+  gap: 12px;
+}
+.collab-alerts h4 {
+  margin: 16px 0 0;
+}
+.collab-alerts > button {
+  text-align: left;
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid #e3e7ef;
+  border-radius: 12px;
+  background: white;
+}
+.collab-alerts > button span {
+  color: #69758a;
+  overflow-wrap: anywhere;
+}
+.collab-history > p,
+.collab-permissions > p {
+  color: #637087;
+  line-height: 1.65;
+}
+.collab-history details {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid #e3e7ef;
+  border-radius: 12px;
+}
+.collab-history summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.collab-history dd {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 4px 0 14px;
+}
+.collab-history dt {
+  color: #69758a;
+  font-size: 13px;
+}
+.collab-permissions fieldset {
+  border: 1px solid #e3e7ef;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+}
+.collab-permissions .collab-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.collab-permissions input[type="checkbox"] {
+  width: auto;
+}
+
+.collab-heading {
+  flex-wrap: wrap;
+}
+.collab-heading > div:first-child {
+  flex: 1 0 210px;
+}
+.collab-heading > .collab-actions {
+  flex: 1 1 510px;
+  justify-content: flex-end;
+}
+.collab-workspace .collab-alerts > button {
+  align-items: start;
+  justify-content: stretch;
+}
+@media (max-width: 600px) {
+  .collab-heading > .collab-actions {
+    justify-content: flex-start;
+  }
+}

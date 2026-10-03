@@ -20,6 +20,7 @@ import { downloadMeetingExcel } from "../../utils/meetingExcel.js";
 import { ExcelMeetingImport } from "./ExcelMeetingImport.js";
 import { api } from "../../api.js";
 import type { AdminRole } from "../../types.js";
+import { RecordHistory, TeamPermissions } from "./CollaborationTools.js";
 import "./collaboration.css";
 const teams = [
   "총괄",
@@ -93,6 +94,21 @@ export function CollaborationPanel({
     [thread, setThread] = useState<Item | null>(null),
     [message, setMessage] = useState(""),
     [reply, setReply] = useState("");
+  const [read, setRead] = useState<Record<string, string>>({});
+  const [permissions, setPermissions] = useState({
+    readTeams: ["전체", ...teams],
+    writeTeams: ["전체", ...teams],
+  });
+  const [historyRecord, setHistoryRecord] = useState<Item | null>(null);
+  const writable = (r: Item) =>
+    permissions.writeTeams.includes(
+      p(r, r.kind === "message" ? "channel" : "team") || "전체",
+    );
+  const historyButton = (r: Item) => (
+    <button disabled={saving} onClick={() => setHistoryRecord(r)}>
+      수정 이력
+    </button>
+  );
   const [attachments, setAttachments] = useState<Item[]>([]);
   const [replyAttachments, setReplyAttachments] = useState<Item[]>([]);
   const chatUploadInput = useRef<HTMLInputElement>(null);
@@ -101,20 +117,45 @@ export function CollaborationPanel({
     importInput = useRef<HTMLInputElement>(null),
     uploadInput = useRef<HTMLInputElement>(null),
     busy = useRef(false);
+  const loadCounter = useRef(0);
   async function load() {
+    const requestId = ++loadCounter.current;
     try {
-      const d = await api<{ records: Item[]; user: { name: string } }>(
-        "/api/collaboration/records",
-        {},
-        token,
-      );
+      const d = await api<{
+        records: Item[];
+        user: { name: string };
+        read: Record<string, string>;
+        permissions: typeof permissions;
+      }>("/api/collaboration/records", {}, token);
+      if (requestId !== loadCounter.current) return null;
       setRecords(d.records);
+      setRead((previous) => {
+        const merged = { ...previous };
+        for (const [team, at] of Object.entries(d.read || {}))
+          if (at > (merged[team] || "")) merged[team] = at;
+        return merged;
+      });
+      if (d.permissions) {
+        setPermissions(d.permissions);
+        setChannel((old) =>
+          d.permissions.readTeams.includes(old) ? old : "전체",
+        );
+      }
+      setHistoryRecord((old) =>
+        old && d.records.some((r) => r.id === old.id) ? old : null,
+      );
+      setDetail((old) =>
+        old && d.records.some((r) => r.id === old.id) ? old : null,
+      );
+      setThread((old) =>
+        old && d.records.some((r) => r.id === old.id) ? old : null,
+      );
       setUser(d.user.name);
       setReady(true);
       setFailure("");
       return d.records;
     } catch (e) {
-      setFailure((e as Error).message);
+      if (requestId === loadCounter.current) setFailure((e as Error).message);
       return null;
     }
   }
@@ -143,6 +184,51 @@ export function CollaborationPanel({
   const messages = records
     .filter((r) => r.kind === "message" && p(r, "channel") === channel)
     .sort((a, b) => a.updated_at.localeCompare(b.updated_at));
+  const unread = records.filter(
+    (r) =>
+      r.kind === "message" &&
+      r.author !== user &&
+      r.updated_at > (read[p(r, "channel")] || ""),
+  );
+  const dueLimit = new Date(date() + "T00:00:00+09:00");
+  dueLimit.setDate(dueLimit.getDate() + 3);
+  const dueTasks = tasks
+    .filter(
+      (r) =>
+        p(r, "status") !== "완료" &&
+        p(r, "due") &&
+        p(r, "due") <=
+          dueLimit.toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" }),
+    )
+    .sort((a, b) => p(a, "due").localeCompare(p(b, "due")));
+  const myReply = (r: Item) =>
+    p(r, "parent") &&
+    records.some(
+      (m) =>
+        m.kind === "message" &&
+        m.author === user &&
+        (m.id === p(r, "parent") || p(m, "parent") === p(r, "parent")),
+    );
+  async function markRead() {
+    const at = messages[messages.length - 1]?.updated_at;
+    if (!at) return;
+    try {
+      const result = await api<{ read: Record<string, string> }>(
+        "/api/collaboration/read",
+        { method: "PUT", body: JSON.stringify({ channel, at }) },
+        token,
+      );
+      setRead((previous) => {
+        const merged = { ...previous };
+        for (const [team, at] of Object.entries(result.read))
+          if (at > (merged[team] || "")) merged[team] = at;
+        return merged;
+      });
+      setNotice("이 채널을 읽음 처리했습니다.");
+    } catch (e) {
+      setNotice((e as Error).message);
+    }
+  }
   const shown = (items: Item[]) =>
     items.filter(
       (r) =>
@@ -187,6 +273,10 @@ export function CollaborationPanel({
       },
       doc: { title: "", team, content: "" },
     };
+    if (record && !writable(record)) {
+      setNotice("이 분과는 읽기 전용입니다.");
+      return;
+    }
     setEditor({
       kind,
       record,
@@ -256,11 +346,21 @@ export function CollaborationPanel({
       await save("message", {
         channel,
         content,
-        attachments: attached.map(file => file.id),
+        attachments: attached.map((file) => file.id),
         parent: isReply ? thread?.id || "" : "",
       });
-      setNotice(attached.length ? "파일을 첨부해 메시지를 보냈습니다." : "메시지를 보냈습니다.");
-      if (isReply) { setReply(""); setReplyAttachments([]); } else { setMessage(""); setAttachments([]); }
+      setNotice(
+        attached.length
+          ? "파일을 첨부해 메시지를 보냈습니다."
+          : "메시지를 보냈습니다.",
+      );
+      if (isReply) {
+        setReply("");
+        setReplyAttachments([]);
+      } else {
+        setMessage("");
+        setAttachments([]);
+      }
     } catch (e) {
       setNotice((e as Error).message);
     } finally {
@@ -292,7 +392,10 @@ export function CollaborationPanel({
   }
   async function upload(file: File, attach = false, toReply = false) {
     if (busy.current) return;
-    if (attach && (toReply ? replyAttachments : attachments).length >= 5) { setNotice("메시지당 파일은 5개까지 첨부할 수 있습니다."); return; }
+    if (attach && (toReply ? replyAttachments : attachments).length >= 5) {
+      setNotice("메시지당 파일은 5개까지 첨부할 수 있습니다.");
+      return;
+    }
     if (file.size > 12 * 1024 * 1024) {
       setNotice("12MB 이하 파일을 선택해 주세요.");
       return;
@@ -300,23 +403,35 @@ export function CollaborationPanel({
     busy.current = true;
     setSaving(true);
     try {
-      const response = await fetch("/api/collaboration/files", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/octet-stream",
-          "X-File-Name": encodeURIComponent(file.name),
+      const response = await fetch(
+        "/api/collaboration/files?team=" +
+          encodeURIComponent(attach ? channel : team),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/octet-stream",
+            "X-File-Name": encodeURIComponent(file.name),
+          },
+          body: file,
         },
-        body: file,
-      });
+      );
       if (!response.ok) {
         const d = await response.json();
         throw Error(d.message);
       }
       const result = await response.json();
-      if (attach) (toReply ? setReplyAttachments : setAttachments)(items => [...items, result.record]);
+      if (attach)
+        (toReply ? setReplyAttachments : setAttachments)((items) => [
+          ...items,
+          result.record,
+        ]);
       await load();
-      setNotice(attach ? "파일이 준비되었습니다. 보내기를 눌러 대화에 첨부하세요." : "자료를 업로드했습니다.");
+      setNotice(
+        attach
+          ? "파일이 준비되었습니다. 보내기를 눌러 대화에 첨부하세요."
+          : "자료를 업로드했습니다.",
+      );
     } catch (e) {
       setNotice((e as Error).message);
     } finally {
@@ -327,12 +442,69 @@ export function CollaborationPanel({
     }
   }
   function messageAttachments(record: Item) {
-    const ids = Array.isArray(record.payload.attachments) ? record.payload.attachments as string[] : [];
-    return <div className="collab-chat-files">{ids.map(id => { const file = files.find(item => item.id === id); return file ? <button key={id} className="collab-file" onClick={() => void fetchFile(file)}><Paperclip size={15} />{p(file, "name")} · {Number(file.payload.size) < 1024 ? Number(file.payload.size) + " B" : (Number(file.payload.size) / 1024).toFixed(1) + " KB"}<Download size={15} /></button> : <span key={id}>첨부 파일을 찾을 수 없습니다.</span>; })}</div>;
+    const ids = Array.isArray(record.payload.attachments)
+      ? (record.payload.attachments as string[])
+      : [];
+    return (
+      <div className="collab-chat-files">
+        {ids.map((id) => {
+          const file = files.find((item) => item.id === id);
+          return file ? (
+            <button
+              key={id}
+              className="collab-file"
+              onClick={() => void fetchFile(file)}
+            >
+              <Paperclip size={15} />
+              {p(file, "name")} ·{" "}
+              {Number(file.payload.size) < 1024
+                ? Number(file.payload.size) + " B"
+                : (Number(file.payload.size) / 1024).toFixed(1) + " KB"}
+              <Download size={15} />
+            </button>
+          ) : (
+            <span key={id}>첨부 파일을 찾을 수 없습니다.</span>
+          );
+        })}
+      </div>
+    );
   }
   function attachmentControls(isReply = false) {
     const items = isReply ? replyAttachments : attachments;
-    return <div className="collab-attachment-controls"><button disabled={saving || items.length >= 5} onClick={() => { attachmentReply.current = isReply; chatUploadInput.current?.click(); }}><Paperclip size={16} /> 파일 첨부</button><small>파일당 12MB · 최대 5개</small>{items.map(file => <span key={file.id}>{p(file, "name")}<button disabled={saving} aria-label={p(file, "name") + " 첨부 취소"} onClick={() => (isReply ? setReplyAttachments : setAttachments)(values => values.filter(item => item.id !== file.id))}>×</button></span>)}</div>;
+    return (
+      <div className="collab-attachment-controls">
+        <button
+          disabled={
+            saving ||
+            !permissions.writeTeams.includes(channel) ||
+            items.length >= 5
+          }
+          onClick={() => {
+            attachmentReply.current = isReply;
+            chatUploadInput.current?.click();
+          }}
+        >
+          <Paperclip size={16} /> 파일 첨부
+        </button>
+        <small>파일당 12MB · 최대 5개</small>
+        {items.map((file) => (
+          <span key={file.id}>
+            {p(file, "name")}
+            <button
+              disabled={saving}
+              aria-label={p(file, "name") + " 첨부 취소"}
+              onClick={() =>
+                (isReply ? setReplyAttachments : setAttachments)((values) =>
+                  values.filter((item) => item.id !== file.id),
+                )
+              }
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+    );
   }
   async function fetchFile(r: Item) {
     try {
@@ -445,7 +617,11 @@ export function CollaborationPanel({
   ) => (
     <button
       className="collab-primary"
-      disabled={!ready || saving}
+      disabled={
+        !ready ||
+        saving ||
+        !permissions.writeTeams.includes(String(defaults?.team || team))
+      }
       onClick={() => start(kind, undefined, defaults)}
     >
       <Plus size={17} />
@@ -461,14 +637,43 @@ export function CollaborationPanel({
   );
   return (
     <section className="collab-workspace">
-      <input type="file" hidden ref={chatUploadInput} onChange={event => { const file = event.target.files?.[0]; if (file) void upload(file, true, attachmentReply.current); }} />
+      <input
+        type="file"
+        hidden
+        ref={chatUploadInput}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void upload(file, true, attachmentReply.current);
+        }}
+      />
       <header className="collab-heading">
         <div>
           <span>WYD · 세곡동성당</span>
           <h2>우리의 워크스페이스</h2>
         </div>
         <div className="collab-actions">
-          {role !== "committee" && <ExcelMeetingImport token={token} disabled={!ready || saving} existing={records} onImported={async id => { await load(); setMeetingId(id); setView("회의록"); setNotice("엑셀 회의록을 새 회의로 가져왔습니다."); }} />}
+          <button disabled={!ready} onClick={() => navigate("알림")}>
+            알림{" "}
+            <span className="collab-badge">
+              {unread.length + dueTasks.length}
+            </span>
+          </button>
+          {role !== "committee" && (
+            <TeamPermissions teams={teams} token={token} onSaved={load} />
+          )}
+          {role !== "committee" && (
+            <ExcelMeetingImport
+              token={token}
+              disabled={!ready || saving}
+              existing={records}
+              onImported={async (id) => {
+                await load();
+                setMeetingId(id);
+                setView("회의록");
+                setNotice("엑셀 회의록을 새 회의로 가져왔습니다.");
+              }}
+            />
+          )}
           <button disabled={!ready} onClick={exportAll}>
             <Download size={16} />
             기록 백업
@@ -523,34 +728,42 @@ export function CollaborationPanel({
             </button>
           ))}
           <div className="collab-nav-title">분과 채널</div>
-          {["전체", ...teams].map((t) => (
+          {permissions.readTeams.map((t) => (
             <button
               key={t}
               disabled={saving}
               className={view === "대화" && channel === t ? "active" : ""}
               onClick={() => {
                 navigate("대화");
-                setAttachments([]); setReplyAttachments([]);
+                setAttachments([]);
+                setReplyAttachments([]);
                 setChannel(t);
               }}
             >
               <Hash size={16} />
-              {t === "전체" ? "전체 공지·대화" : t}
+              {t === "전체" ? "전체 공지·대화" : t}{" "}
+              {unread.some((r) => p(r, "channel") === t) && (
+                <span className="collab-badge">
+                  {unread.filter((r) => p(r, "channel") === t).length}
+                </span>
+              )}
             </button>
           ))}
         </aside>
         <div className="collab-content">
           <div className="collab-view-header">
             <h3>{view === "대화" ? "# " + channel : view}</h3>
-            <label className="collab-search">
-              <Search size={16} />
-              <input
-                aria-label="현재 화면 기록 검색"
-                value={search}
-                placeholder="기록 검색"
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </label>
+            {view !== "알림" && (
+              <label className="collab-search">
+                <Search size={16} />
+                <input
+                  aria-label="현재 화면 기록 검색"
+                  value={search}
+                  placeholder="기록 검색"
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </label>
+            )}
             {view === "회의록"
               ? add("meeting", "새 회의")
               : view === "후속 업무"
@@ -560,7 +773,64 @@ export function CollaborationPanel({
                   : null}
           </div>
           {!ready && !failure && <p>공유 기록을 불러오는 중입니다.</p>}
-          {view === "회의록" ? (
+          {view === "알림" ? (
+            <div className="collab-alerts">
+              <p className="collab-muted">
+                사이트 내 알림입니다. 접속 중에는 약 15초마다 새 내용을
+                확인합니다.
+              </p>
+              <h4>새 대화와 답글 · {unread.length}</h4>
+              {!unread.length && <p>새 대화가 없습니다.</p>}
+              {[...unread].reverse().map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => {
+                    navigate("대화");
+                    setChannel(p(r, "channel"));
+                    const parent = records.find((m) => m.id === p(r, "parent"));
+                    if (parent) setThread(parent);
+                  }}
+                >
+                  <strong>
+                    {myReply(r)
+                      ? "내 대화에 새 답글"
+                      : p(r, "parent")
+                        ? "새 답글"
+                        : "새 대화"}{" "}
+                    · {p(r, "channel")}
+                  </strong>
+                  <span>
+                    {p(r, "content") || "파일 첨부"} · {r.author}
+                  </span>
+                </button>
+              ))}
+              <h4>기한이 가까운 업무 · {dueTasks.length}</h4>
+              <p>기한이 지났거나 3일 안에 마감되는 미완료 업무입니다.</p>
+              {!dueTasks.length && <p>기한 알림이 없습니다.</p>}
+              {dueTasks.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => {
+                    navigate("후속 업무");
+                    setTeam(p(r, "team"));
+                  }}
+                >
+                  <strong>
+                    {p(r, "due") < date()
+                      ? "기한 지남"
+                      : p(r, "due") === date()
+                        ? "오늘 마감"
+                        : "마감 예정"}{" "}
+                    · {p(r, "title")}
+                  </strong>
+                  <span>
+                    {p(r, "team")} · {p(r, "owner") || "담당자 미정"} ·{" "}
+                    {p(r, "due")}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : view === "회의록" ? (
             <>
               {meetings.length === 0 ? (
                 empty(
@@ -599,6 +869,7 @@ export function CollaborationPanel({
                       회의 정보 수정
                     </button>
                   </div>
+                  {historyButton(meeting)}
                   <section className="collab-meeting">
                     <div>
                       <span>{p(meeting, "status")}</span>
@@ -623,7 +894,7 @@ export function CollaborationPanel({
                     </div>
                   </section>
                   <div className="collab-filter">
-                    {select("분과", team, ["전체", ...teams], setTeam)}
+                    {select("분과", team, permissions.readTeams, setTeam)}
                     <span>진행사항 · 논의 · 결정 · 향후 계획</span>
                   </div>
                   <div className="collab-reports">
@@ -635,13 +906,14 @@ export function CollaborationPanel({
                             <small>{p(r, "author") || "작성자 미정"}</small>
                           </div>
                           <button
-                            disabled={!ready || saving}
+                            disabled={!ready || saving || !writable(r)}
                             onClick={() => start("report", r)}
                           >
                             <Pencil size={14} />
                             작성·수정
                           </button>
                         </header>
+                        {historyButton(r)}
                         <section className="collab-report-preview">
                           <h4>진행사항</h4>
                           <p>
@@ -717,7 +989,7 @@ export function CollaborationPanel({
           ) : view === "후속 업무" ? (
             <>
               <div className="collab-filter">
-                {select("담당 분과", team, ["전체", ...teams], setTeam)}
+                {select("담당 분과", team, permissions.readTeams, setTeam)}
               </div>
               {tasks.length === 0 ? (
                 empty(
@@ -745,12 +1017,14 @@ export function CollaborationPanel({
                             <header>
                               <span>{p(r, "team")}</span>
                               <button
+                                disabled={!writable(r)}
                                 aria-label={p(r, "title") + " 수정"}
                                 onClick={() => start("task", r)}
                               >
                                 <Pencil size={14} />
                               </button>
                             </header>
+                            {historyButton(r)}
                             <h4>{p(r, "title")}</h4>
                             <p>{p(r, "notes")}</p>
                             <small>
@@ -760,7 +1034,7 @@ export function CollaborationPanel({
                             <select
                               aria-label={p(r, "title") + " 상태"}
                               value={p(r, "status")}
-                              disabled={saving}
+                              disabled={saving || !writable(r)}
                               onChange={(e) =>
                                 void changeStatus(r, e.target.value)
                               }
@@ -779,7 +1053,7 @@ export function CollaborationPanel({
           ) : view === "문서함" ? (
             <>
               <div className="collab-filter">
-                {select("분과", team, ["전체", ...teams], setTeam)}
+                {select("분과", team, permissions.readTeams, setTeam)}
               </div>
               <div className="collab-docs">
                 {shown(docs).map((r) => (
@@ -805,7 +1079,9 @@ export function CollaborationPanel({
                   <p className="collab-muted">파일당 최대 12MB</p>
                 </div>
                 <button
-                  disabled={!ready || saving}
+                  disabled={
+                    !ready || saving || !permissions.writeTeams.includes(team)
+                  }
                   onClick={() => uploadInput.current?.click()}
                 >
                   <Paperclip size={16} />
@@ -820,7 +1096,7 @@ export function CollaborationPanel({
                   }
                 />
               </div>
-              {files.map((r) => (
+              {shown(files).map((r) => (
                 <button
                   key={r.id}
                   className="collab-file"
@@ -839,10 +1115,11 @@ export function CollaborationPanel({
           ) : (
             <>
               <div className="collab-chat-heading">
-                {select("채널", channel, ["전체", ...teams], (v) => {
+                {select("채널", channel, permissions.readTeams, (v) => {
                   if (busy.current) return;
                   setChannel(v);
-                  setAttachments([]); setReplyAttachments([]);
+                  setAttachments([]);
+                  setReplyAttachments([]);
                   setThread(null);
                 })}
                 <p>
@@ -851,6 +1128,15 @@ export function CollaborationPanel({
                     : channel + " 분과의 대화"}
                 </p>
               </div>
+              <button
+                disabled={saving || !messages.length}
+                onClick={() => void markRead()}
+              >
+                이 채널 읽음 처리
+              </button>
+              {!permissions.writeTeams.includes(channel) && (
+                <p className="collab-muted">이 채널은 읽기 전용입니다.</p>
+              )}
               <div className="collab-chat-feed">
                 {messages
                   .filter(
@@ -897,6 +1183,7 @@ export function CollaborationPanel({
               </div>
               <div className="collab-composer">
                 <textarea
+                  disabled={!permissions.writeTeams.includes(channel)}
                   aria-label="채널 메시지"
                   placeholder={"# " + channel + "에 메시지 남기기"}
                   value={message}
@@ -913,7 +1200,12 @@ export function CollaborationPanel({
                   <span>{user} · Ctrl / ⌘ + Enter로 보내기</span>
                   <button
                     className="collab-primary"
-                    disabled={!ready || saving || (!message.trim() && !attachments.length)}
+                    disabled={
+                      !ready ||
+                      saving ||
+                      !permissions.writeTeams.includes(channel) ||
+                      (!message.trim() && !attachments.length)
+                    }
                     onClick={() => void send()}
                   >
                     <Send size={16} />
@@ -933,7 +1225,11 @@ export function CollaborationPanel({
               <h3>{p(liveDetail, "title")}</h3>
             </div>
             <div className="collab-actions">
-              <button onClick={() => start("doc", liveDetail)}>
+              {historyButton(liveDetail)}
+              <button
+                disabled={!writable(liveDetail)}
+                onClick={() => start("doc", liveDetail)}
+              >
                 <Pencil size={15} />
                 수정
               </button>
@@ -963,7 +1259,15 @@ export function CollaborationPanel({
         <div className="collab-detail">
           <header>
             <h3>대화의 답글</h3>
-            <button disabled={saving} onClick={() => { setThread(null); setReplyAttachments([]); }}>닫기</button>
+            <button
+              disabled={saving}
+              onClick={() => {
+                setThread(null);
+                setReplyAttachments([]);
+              }}
+            >
+              닫기
+            </button>
           </header>
           <article className="collab-thread-original">
             <b>{thread.author}</b>
@@ -981,6 +1285,7 @@ export function CollaborationPanel({
             ))}
           <div className="collab-composer">
             <textarea
+              disabled={!permissions.writeTeams.includes(channel)}
               aria-label="답글 내용"
               placeholder="관련 논의를 이어가세요"
               value={reply}
@@ -990,7 +1295,11 @@ export function CollaborationPanel({
               {attachmentControls(true)}
               <button
                 className="collab-primary"
-                disabled={saving || (!reply.trim() && !replyAttachments.length)}
+                disabled={
+                  saving ||
+                  !permissions.writeTeams.includes(channel) ||
+                  (!reply.trim() && !replyAttachments.length)
+                }
                 onClick={() => void send(true)}
               >
                 <Send size={15} />
@@ -999,6 +1308,16 @@ export function CollaborationPanel({
             </footer>
           </div>
         </div>
+      )}
+      {historyRecord && (
+        <RecordHistory
+          key={historyRecord.id}
+          record={historyRecord}
+          token={token}
+          writable={writable(historyRecord)}
+          onClose={() => setHistoryRecord(null)}
+          onRestored={load}
+        />
       )}
       <dialog
         ref={dialog}
@@ -1115,7 +1434,7 @@ export function CollaborationPanel({
                     {select(
                       "담당 분과",
                       String(editor.payload.team),
-                      ["전체", ...teams],
+                      permissions.writeTeams,
                       (v) => set("team", v),
                     )}
                     {editor.kind === "task" ? (
