@@ -7,6 +7,7 @@ type AppFooterProps = {
 
 const segokParishLogo = "/images/segok-parish-logo.png";
 const adminMenuItems = [
+  { label: "분과 협업", menu: "collaboration" },
   { label: "신청 현황", menu: "applications" },
   { label: "봉사 일정", menu: "shifts" },
   { label: "순례자·호스트", menu: "pilgrims" },

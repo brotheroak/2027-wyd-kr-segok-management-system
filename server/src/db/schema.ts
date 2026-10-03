@@ -447,3 +447,37 @@ export const pgDistrictTargets = pgTable("district_targets", {
   updatedBy: pgText("updated_by").notNull(),
   updatedAt: pgText("updated_at").notNull(),
 });
+
+// Internal collaboration data shares the existing database; content is encrypted by the API.
+export const sqliteCollaborationRecords = sqliteTable("collaboration_records", {
+  id: sqliteText("id").primaryKey(),
+  kind: sqliteText("kind").notNull(),
+  payload: sqliteText("payload").notNull(),
+  revision: sqliteInteger("revision").notNull().default(1),
+  updatedAt: sqliteText("updated_at").notNull(),
+  author: sqliteText("author").notNull()
+});
+export const pgCollaborationRecords = pgTable("collaboration_records", {
+  id: pgText("id").primaryKey(),
+  kind: pgText("kind").notNull(),
+  payload: pgText("payload").notNull(),
+  revision: pgInteger("revision").notNull().default(1),
+  updatedAt: pgText("updated_at").notNull(),
+  author: pgText("author").notNull()
+});
+export const sqliteCollaborationFiles = sqliteTable("collaboration_files", {
+  id: sqliteText("id").primaryKey(),
+  name: sqliteText("name").notNull(),
+  content: sqliteText("content").notNull(),
+  byteSize: sqliteInteger("byte_size").notNull(),
+  createdBy: sqliteText("created_by").notNull(),
+  createdAt: sqliteText("created_at").notNull()
+});
+export const pgCollaborationFiles = pgTable("collaboration_files", {
+  id: pgText("id").primaryKey(),
+  name: pgText("name").notNull(),
+  content: pgText("content").notNull(),
+  byteSize: pgInteger("byte_size").notNull(),
+  createdBy: pgText("created_by").notNull(),
+  createdAt: pgText("created_at").notNull()
+});

@@ -21,6 +21,8 @@ import { paperSourceMismatchIds } from "./submissionSources.js";
 import { isDuplicateHost } from "./hostDuplicates.js";
 import { sql, eq, and, or, like, desc } from "drizzle-orm";
 
+import { collaborationRouter } from "./collaboration.js";
+
 const app = express();
 const port = Number(process.env.PORT ?? 4177);
 
@@ -200,13 +202,13 @@ app.use(rateLimit);
 app.use(blockKnownScanPaths);
 app.use(express.json({ limit: "1mb" }));
 
-type AdminRole = "admin" | "privacy_admin" | "super_admin";
+type AdminRole = "admin" | "privacy_admin" | "super_admin" | "committee";
 type Role = "user" | AdminRole;
 type Session = { email: string; role: Role };
 type AdminStatus = "pending" | "approved" | "rejected";
 
 const superAdminEmails = new Set(["brotheroak@gmail.com", "livelab21@nate.com"]);
-const approvableAdminRoles: AdminRole[] = ["admin", "privacy_admin"];
+const approvableAdminRoles: AdminRole[] = ["admin", "privacy_admin", "committee"];
 const adminStatuses: AdminStatus[] = ["pending", "approved", "rejected"];
 
 const nowIso = () => new Date().toISOString();
@@ -258,7 +260,7 @@ function generateTotpSecret() {
 
 function effectiveAdminRole(email: string, role: string): AdminRole {
   if (superAdminEmails.has(email.trim().toLowerCase())) return "super_admin";
-  return role === "privacy_admin" ? "privacy_admin" : "admin";
+  return role === "committee" ? "committee" : role === "privacy_admin" ? "privacy_admin" : "admin";
 }
 
 function canAccessPersonalData(session: Session) {
@@ -363,6 +365,8 @@ function requireSession(roles?: Role | Role[]) {
 const requireAdmin = requireSession(["admin", "privacy_admin", "super_admin"]);
 const requirePrivacyAdmin = requireSession(["privacy_admin", "super_admin"]);
 const requireSuperAdmin = requireSession("super_admin");
+const requireStaff = requireSession(["committee", "admin", "privacy_admin", "super_admin"]);
+app.use("/api/collaboration", collaborationRouter({ authorize: requireStaff, authorizeImport: requireAdmin, audit: logAudit }));
 
 function actorFrom(session: Session) {
   return canAccessPersonalData(session) ? session.role : session.email;
@@ -1487,7 +1491,7 @@ app.post("/api/admin/register", async (req, res) => {
     id: nanoid(),
     email,
     passwordHash: hashPassword(password),
-    role: "admin",
+    role: req.body.requestedRole === "committee" ? "committee" : "admin",
     status: "pending",
     approvedBy: null,
     approvedAt: null,
@@ -1566,19 +1570,19 @@ app.post("/api/logout", async (req, res) => {
 
 app.post("/api/admin/logout", async (req, res) => {
   const token = tokenFrom(req);
-  const session = token ? await sessionFrom(req, ["admin", "privacy_admin", "super_admin"]) : null;
+  const session = token ? await sessionFrom(req, ["committee", "admin", "privacy_admin", "super_admin"]) : null;
   await revokeSession(token);
   if (session) await logAudit(actorFrom(session), "admin_logout");
   res.status(204).end();
 });
 
-app.get("/api/admin/session", requireAdmin, (_req, res) => {
+app.get("/api/admin/session", requireStaff, (_req, res) => {
   const session = res.locals.session as Session;
   res.setHeader("Cache-Control", "private, no-store, max-age=0");
-  res.json({ active: true, role: session.role, idleTimeoutMinutes: adminSessionMinutes });
+  res.json({ active: true, role: session.role, email: session.email, idleTimeoutMinutes: adminSessionMinutes });
 });
 
-app.post("/api/admin/change-password", requireAdmin, async (req, res) => {
+app.post("/api/admin/change-password", requireStaff, async (req, res) => {
   const session = res.locals.session as Session;
   const currentPassword = String(req.body.currentPassword ?? "");
   const nextPassword = String(req.body.nextPassword ?? "");
@@ -1632,7 +1636,7 @@ app.patch("/api/admin/users/:id", requireSuperAdmin, async (req, res) => {
   const id = String(req.params.id);
   const requestedRole = String(req.body.role ?? "");
   const requestedStatus = String(req.body.status ?? "");
-  if (!approvableAdminRoles.includes(requestedRole as AdminRole)) return res.status(400).json({ message: "권한은 일반 운영자 또는 개인정보 관리자 중 하나여야 합니다." });
+  if (!approvableAdminRoles.includes(requestedRole as AdminRole)) return res.status(400).json({ message: "권한은 분과 구성원, 일반 운영자 또는 개인정보 관리자 중 하나여야 합니다." });
   if (!adminStatuses.includes(requestedStatus as AdminStatus)) return res.status(400).json({ message: "승인 상태가 올바르지 않습니다." });
 
   const rows = await db.select().from(tables.admins).where(eq(tables.admins.id, id));

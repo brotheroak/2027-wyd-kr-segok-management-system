@@ -47,6 +47,8 @@ export async function checkDbReady() {
 
 // Dynamic table export mapping to SQLite or PostgreSQL
 export const tables = {
+  collaborationRecords: isPg ? schema.pgCollaborationRecords : schema.sqliteCollaborationRecords,
+  collaborationFiles: isPg ? schema.pgCollaborationFiles : schema.sqliteCollaborationFiles,
   applications: isPg ? schema.pgApplications : schema.sqliteApplications,
   familyMembers: isPg ? schema.pgFamilyMembers : schema.sqliteFamilyMembers,
   hostCapabilities: isPg ? schema.pgHostCapabilities : schema.sqliteHostCapabilities,

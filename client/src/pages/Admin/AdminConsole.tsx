@@ -17,6 +17,8 @@ import { PilgrimHostAdminPanel } from "./PilgrimHostAdminPanel.js";
 import { CommunityAdminPanel } from "./CommunityAdminPanel.js";
 import { PilgrimAttendanceAdminPanel } from "./PilgrimAttendanceAdminPanel.js";
 
+import { CollaborationPanel } from "./CollaborationPanel.js";
+
 type LoginState = {
   mfaRequired: boolean;
   mfaEnabled?: boolean;
@@ -41,8 +43,8 @@ type AdminUser = {
   updatedAt: string;
 };
 
-type AdminConsoleMenu = "applications" | "shifts" | "pilgrims" | "attendance" | "community" | "accounts" | "password";
-const ADMIN_CONSOLE_MENUS: AdminConsoleMenu[] = ["applications", "shifts", "pilgrims", "attendance", "community", "accounts", "password"];
+type AdminConsoleMenu = "collaboration" | "applications" | "shifts" | "pilgrims" | "attendance" | "community" | "accounts" | "password";
+const ADMIN_CONSOLE_MENUS: AdminConsoleMenu[] = ["collaboration", "applications", "shifts", "pilgrims", "attendance", "community", "accounts", "password"];
 type HomestayDashboardTab = "summary" | "capacity" | "district" | "bed" | "pet" | "gender" | "age";
 type DistributionDatum = {
   name: string;
@@ -84,6 +86,7 @@ export function AdminConsoleZip() {
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerPasswordConfirm, setRegisterPasswordConfirm] = useState("");
   const [registerMessage, setRegisterMessage] = useState("");
+  const [registerRole, setRegisterRole] = useState<"committee" | "admin">(window.location.hash === "#collaboration" ? "committee" : "admin");
   const [busy, setBusy] = useState(false);
   const [accountMessage, setAccountMessage] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -123,6 +126,7 @@ export function AdminConsoleZip() {
   const [resetPinResult, setResetPinResult] = useState("");
 
   const roleLabel = (value?: AdminRole | string) => {
+    if (value === "committee") return "분과 구성원";
     if (value === "super_admin") return "최고 관리자";
     if (value === "privacy_admin") return "개인정보 관리자";
     return "일반 운영자";
@@ -142,6 +146,10 @@ export function AdminConsoleZip() {
 
   const load = async (nextToken = token) => {
     if (!nextToken) return;
+    const session = await api<{ role: AdminRole }>("/api/admin/session", {}, nextToken);
+    setRole(session.role);
+    sessionStorage.setItem(ADMIN_ROLE_KEY, session.role);
+    if (session.role === "committee") { setData(null); setActiveConsoleMenu("collaboration"); return; }
     const params = new URLSearchParams({
       q: query,
       status
@@ -205,7 +213,7 @@ export function AdminConsoleZip() {
   useEffect(() => {
     const onAdminMenuChange = (event: Event) => {
       const menu = (event as CustomEvent<AdminConsoleMenu>).detail;
-      if (!ADMIN_CONSOLE_MENUS.includes(menu)) return;
+      if (!ADMIN_CONSOLE_MENUS.includes(menu) || (role === "committee" && !["collaboration", "password"].includes(menu))) return;
       setActiveConsoleMenu(menu);
       if (menu === "accounts") loadAdminUsers().catch(() => setAdminUsers([]));
     };
@@ -270,7 +278,8 @@ export function AdminConsoleZip() {
         body: JSON.stringify({
           email: registerEmail,
           password: registerPassword,
-          passwordConfirm: registerPasswordConfirm
+          passwordConfirm: registerPasswordConfirm,
+          requestedRole: registerRole
         })
       });
       setRegisterMessage(response.message);
@@ -512,6 +521,7 @@ export function AdminConsoleZip() {
                 </button>
               </div>
               <form onSubmit={handleRegister} className="admin-register-form">
+                <label><span>신청 권한</span><select value={registerRole} onChange={(e) => setRegisterRole(e.target.value as "committee" | "admin")}><option value="committee">분과 구성원 (협업 전용)</option><option value="admin">일반 운영자</option></select></label>
                 <label>
                   <span>운영자 이메일</span>
                   <input
@@ -572,6 +582,8 @@ export function AdminConsoleZip() {
   const adminHeaderMenu = headerMenuSlot
     ? createPortal(
       <nav className="admin-header-menu" aria-label="운영자 콘솔 메뉴">
+        <button type="button" data-menu="collaboration" className={activeConsoleMenu === "collaboration" ? "active" : ""} onClick={() => setActiveConsoleMenu("collaboration")}><MessageSquareText size={18} /> 분과 협업</button>
+        {role !== "committee" && <>
         <button
           type="button"
           data-menu="applications"
@@ -609,6 +621,7 @@ export function AdminConsoleZip() {
             </i>
           )}
         </button>
+        </>}
         <button
           type="button"
           data-menu="password"
@@ -617,6 +630,7 @@ export function AdminConsoleZip() {
         >
           <KeyRound size={18} /> 비밀번호 변경
         </button>
+        <button type="button" onClick={logout}>로그아웃</button>
       </nav>,
       headerMenuSlot
     )
@@ -721,6 +735,7 @@ export function AdminConsoleZip() {
                           className="min-h-10"
                         >
                           {admin.locked ? <option value="super_admin">최고 관리자</option> : null}
+                          <option value="committee">분과 구성원 (협업 전용)</option>
                           <option value="admin">일반 운영자</option>
                           <option value="privacy_admin">개인정보 관리자</option>
                         </select>
@@ -766,6 +781,7 @@ export function AdminConsoleZip() {
     );
   }
 
+  if (activeConsoleMenu === "collaboration" || role === "committee") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<CollaborationPanel token={token} role={role ?? "committee"} /></div>;
   if (activeConsoleMenu === "shifts") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<VolunteerScheduleAdminPanel token={token} /></div>;
   if (activeConsoleMenu === "pilgrims") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<PilgrimHostAdminPanel token={token} canViewPersonalData={canViewPersonalData} /></div>;
   if (activeConsoleMenu === "attendance") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<PilgrimAttendanceAdminPanel token={token} canViewPersonalData={canViewPersonalData} /></div>;
