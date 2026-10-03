@@ -11,7 +11,7 @@ const ROLE_KEY = "wydAdminRole";
 type Challenge = { mfaRequired: boolean; mfaEnabled?: boolean; mfaSecret?: string };
 type LoginResponse = Challenge | { token: string; role: AdminRole };
 
-export function WorkspacePage({ navigate }: { navigate: (path: string) => void }) {
+export function WorkspacePage({ navigate, chatEntry = false }: { navigate: (path: string) => void; chatEntry?: boolean }) {
   const [token, setToken] = useState<string | null>(sessionStorage.getItem(TOKEN_KEY));
   const [role, setRole] = useState<AdminRole | null>(null);
   const [email, setEmail] = useState("");
@@ -91,9 +91,9 @@ export function WorkspacePage({ navigate }: { navigate: (path: string) => void }
 
   return <div className="workspace-shell">
     <header className="workspace-header">
-      <a className="workspace-brand" href="/workspace" aria-label="분과 협업 홈"><span><Layers size={24} /></span><div><small>SEGOK · WYD 2027</small><strong>WYD 함께</strong></div></a>
+      <a className="workspace-brand" href={chatEntry ? "/chat" : "/workspace"} aria-label="분과 협업 홈"><span><Layers size={24} /></span><div><small>SEGOK · WYD 2027</small><strong>WYD 함께</strong></div></a>
       <nav aria-label="협업 공간 메뉴">
-        <a href="/" onClick={event => { event.preventDefault(); navigate("/"); }}><ArrowLeft size={16} /> 홈페이지</a>
+        <a href={window.location.hostname === "chat.segokwyd.kr" ? "https://segokwyd.kr" : "/"} onClick={event => { if (window.location.hostname !== "chat.segokwyd.kr") { event.preventDefault(); navigate("/"); } }}><ArrowLeft size={16} /> 홈페이지</a>
         {token && role && <>
           <button onClick={() => { setPasswordNotice(""); passwordDialog.current?.showModal(); }}><KeyRound size={16} /> 비밀번호 변경</button>
           <button onClick={logout}><LogOut size={16} /> 로그아웃</button>
@@ -101,10 +101,10 @@ export function WorkspacePage({ navigate }: { navigate: (path: string) => void }
       </nav>
     </header>
     <main className="workspace-main">
-      {token ? role ? <CollaborationPanel token={token} role={role} /> : <div className="workspace-loading" role="status">협업 공간을 준비하고 있습니다.</div> :
+      {token ? role ? <CollaborationPanel key={chatEntry ? "chat" : "workspace"} token={token} role={role} initialView={chatEntry ? "대화" : "회의록"} /> : <div className="workspace-loading" role="status">협업 공간을 준비하고 있습니다.</div> :
         <section className="workspace-entry">
-          <div className="workspace-welcome"><span className="workspace-eyebrow">함께 준비하는 서울 WYD</span><h1>우리의 생각이<br />함께하는 준비로.</h1><p>회의에서 나눈 이야기부터 다음 할 일까지.<br />모든 분과 구성원이 한곳에서 함께합니다.</p><div className="workspace-feature-list"><span>01 · 분과별 공동회의록</span><span>02 · 담당자와 기한이 있는 할 일</span><span>03 · 문서와 채널 대화</span></div></div>
-          <div className="workspace-access"><ShieldCheck size={26} /><h2>{register ? "분과 구성원 가입 신청" : "협업 공간 로그인"}</h2><p>{register ? "가입 신청 후 관리자의 승인을 받으면 함께할 수 있습니다." : "기존 분과 구성원 또는 운영자 계정으로 로그인하세요."}</p>
+          <div className="workspace-welcome"><span className="workspace-eyebrow">함께 준비하는 서울 WYD</span><h1>{chatEntry ? <>우리의 대화가<br />함께하는 준비로.</> : <>우리의 생각이<br />함께하는 준비로.</>}</h1><p>회의에서 나눈 이야기부터 다음 할 일까지.<br />모든 분과 구성원이 한곳에서 함께합니다.</p><div className="workspace-feature-list"><span>01 · 분과별 공동회의록</span><span>02 · 담당자와 기한이 있는 할 일</span><span>03 · 문서와 채널 대화</span></div></div>
+          <div className="workspace-access"><ShieldCheck size={26} /><h2>{register ? "분과 구성원 가입 신청" : chatEntry ? "분과 채팅 로그인" : "협업 공간 로그인"}</h2><p>{register ? "가입 신청 후 관리자의 승인을 받으면 함께할 수 있습니다." : "기존 분과 구성원 또는 운영자 계정으로 로그인하세요."}</p>
             <form onSubmit={submitAccess}>
               {!challenge.mfaRequired ? <>
                 <label>이메일<input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} /></label>
@@ -115,7 +115,7 @@ export function WorkspacePage({ navigate }: { navigate: (path: string) => void }
                 <label>OTP 인증번호<input inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} required value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} /></label>
               </>}
               {notice && <p role="status" className="workspace-notice">{notice}</p>}
-              <button className="workspace-primary" disabled={busy}>{busy ? "처리 중…" : register ? "가입 승인 요청" : challenge.mfaRequired ? "인증하고 입장" : "협업 공간 입장"}</button>
+              <button className="workspace-primary" disabled={busy}>{busy ? "처리 중…" : register ? "가입 승인 요청" : challenge.mfaRequired ? "인증하고 입장" : chatEntry ? "채팅 입장" : "협업 공간 입장"}</button>
               <button type="button" className="workspace-text-button" disabled={busy} onClick={() => { setRegister(challenge.mfaRequired ? false : !register); setChallenge({ mfaRequired: false }); setNotice(""); setPassword(""); setConfirmation(""); setCode(""); }}>{register ? "로그인으로 돌아가기" : challenge.mfaRequired ? "로그인부터 다시 시작" : "처음 오셨나요? 분과 구성원 가입 신청"}</button>
             </form>
           </div>
@@ -129,6 +129,6 @@ export function WorkspacePage({ navigate }: { navigate: (path: string) => void }
         {passwordNotice && <p role="status">{passwordNotice}</p>}<button className="workspace-primary" disabled={busy}>변경 내용 저장</button><button type="button" className="workspace-text-button" onClick={() => passwordDialog.current?.close()}>닫기</button>
       </form>
     </dialog>
-    <AppFooter navigate={navigate} />
+    {!chatEntry && <AppFooter navigate={navigate} />}
   </div>;
 }

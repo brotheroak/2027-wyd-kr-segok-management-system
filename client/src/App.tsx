@@ -55,8 +55,10 @@ function initialPilgrimLanguage(): PilgrimCardLanguage {
 }
 
 export function App() {
+  const isChatHost = window.location.hostname === "chat.segokwyd.kr";
   const [currentPath, setCurrentPath] = useState(window.location.pathname.startsWith("/admin") && window.location.hash === "#collaboration" ? "/workspace" : window.location.pathname);
-  const isWorkspacePage = currentPath === "/workspace" || currentPath.startsWith("/workspace/");
+  const isChatPage = currentPath === "/chat" || (isChatHost && currentPath === "/");
+  const isWorkspacePage = isChatPage || currentPath === "/workspace" || currentPath.startsWith("/workspace/");
   const isAdminPage = currentPath.startsWith("/admin");
   const isAttendancePage = currentPath === "/attendance" || currentPath.startsWith("/attendance/");
   const isPrivacyPage = currentPath.startsWith("/privacy");
@@ -212,7 +214,7 @@ export function App() {
       const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!(target instanceof HTMLAnchorElement)) return;
       const url = new URL(target.href);
-      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/schedule", "/community", "/pilgrim", "/host/pilgrims", "/attendance", "/privacy", "/terms", "/workspace"]);
+      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/schedule", "/community", "/pilgrim", "/host/pilgrims", "/attendance", "/privacy", "/terms", "/workspace", "/chat"]);
       if (url.origin !== window.location.origin || !internalPaths.has(url.pathname)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -282,7 +284,7 @@ export function App() {
   }
 
   if (isWorkspacePage) {
-    return <React.Suspense fallback={<div className="admin-loading">협업 공간을 불러오는 중입니다.</div>}><WorkspacePage navigate={navigate} /></React.Suspense>;
+    return <React.Suspense fallback={<div className="admin-loading">협업 공간을 불러오는 중입니다.</div>}><WorkspacePage navigate={navigate} chatEntry={isChatPage} /></React.Suspense>;
   }
 
   if (isAdminPage) {

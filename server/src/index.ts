@@ -38,7 +38,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 const publicCustomOrigins = (process.env.PUBLIC_CUSTOM_ORIGINS
-  ?? "https://segokwyd.kr,https://www.segokwyd.kr,https://sgwyd2027.kr,https://www.sgwyd2027.kr")
+  ?? "https://segokwyd.kr,https://www.segokwyd.kr,https://sgwyd2027.kr,https://www.sgwyd2027.kr,https://chat.segokwyd.kr")
   .split(",")
   .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);
@@ -2924,7 +2924,7 @@ function absolutePublicUrl(req: express.Request, pathname: string) {
 }
 
 function buildOgMeta(req: express.Request) {
-  const isWorkspaceRoute = req.path === "/workspace" || req.path.startsWith("/workspace/");
+  const isWorkspaceRoute = req.hostname === "chat.segokwyd.kr" || req.path === "/chat" || req.path === "/workspace" || req.path.startsWith("/workspace/");
   const isAdminRoute = req.path.startsWith("/admin");
   const isPrivateCardRoute = req.path.startsWith("/pilgrim/card");
   const isPilgrimPortalRoute = req.path === "/pilgrim" || req.path.startsWith("/host/pilgrims");
@@ -2992,7 +2992,7 @@ function buildOgMeta(req: express.Request) {
 
 function sendSpaIndex(req: express.Request, res: express.Response) {
   const html = fs.readFileSync(indexHtmlPath, "utf8");
-  const title = req.path === "/workspace" || req.path.startsWith("/workspace/") ? "WYD 함께 · 분과 협업 공간" : req.path.startsWith("/admin") ? "2027 WYD 운영자 콘솔" : req.path.startsWith("/pilgrim/card") ? "2027 WYD 순례자 카드" : "2027 WYD 세곡동 성당";
+  const title = req.hostname === "chat.segokwyd.kr" || req.path === "/chat" || req.path === "/workspace" || req.path.startsWith("/workspace/") ? "WYD 함께 · 분과 협업 공간" : req.path.startsWith("/admin") ? "2027 WYD 운영자 콘솔" : req.path.startsWith("/pilgrim/card") ? "2027 WYD 순례자 카드" : "2027 WYD 세곡동 성당";
   const ogMeta = `<!-- OG_META_START -->\n    ${buildOgMeta(req)}\n    <!-- OG_META_END -->`;
   const rendered = html
     .replace(/<!-- OG_META_START -->[\s\S]*?<!-- OG_META_END -->/, ogMeta)

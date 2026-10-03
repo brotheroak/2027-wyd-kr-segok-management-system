@@ -52,9 +52,10 @@ export const collaborationPayloads = {
   doc: z.object({ title, team, content: text }),
   message: z.object({
     channel: team,
-    content: z.string().trim().min(1).max(5000),
+    content: z.string().trim().max(5000),
+    attachments: z.array(z.string().uuid()).max(5).default([]).refine(ids => new Set(ids).size === ids.length),
     parent: z.string().max(100).default(""),
-  }),
+  }).refine(message => Boolean(message.content || message.attachments.length), "메시지 또는 첨부 파일을 입력해 주세요."),
 };
 export const collaborationWrite = z.object({
   id: z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/),

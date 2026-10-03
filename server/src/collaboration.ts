@@ -126,6 +126,10 @@ export function collaborationRouter({
             .json({ message: "기록의 회의와 분과는 변경할 수 없습니다." });
       }
       if (b.kind === "message") {
+        for (const id of (payload as any).attachments) {
+          const [file] = await db.select({ id: tables.collaborationFiles.id }).from(tables.collaborationFiles).where(eq(tables.collaborationFiles.id, id));
+          if (!file) return res.status(400).json({ message: "첨부 파일을 찾을 수 없습니다. 다시 선택해 주세요." });
+        }
         const p = payload as any;
         if (edit)
           return res
@@ -251,6 +255,12 @@ export function collaborationRouter({
           lookup.get(p.meeting)?.kind !== "meeting"
         )
           throw new ImportValidationError("업무에 연결된 회의가 없습니다.");
+        if (r.kind === "message") {
+          for (const id of p.attachments) {
+            const [file] = await db.select({ id: tables.collaborationFiles.id }).from(tables.collaborationFiles).where(eq(tables.collaborationFiles.id, id));
+            if (!file) throw new ImportValidationError("대화의 첨부 파일이 없습니다. 원래 공간에서 파일을 별도로 보관해 주세요.");
+          }
+        }
         if (r.kind === "message" && p.parent) {
           const parent = lookup.get(p.parent);
           if (

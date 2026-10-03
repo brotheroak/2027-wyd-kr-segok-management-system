@@ -1133,3 +1133,5 @@
     grid-template-columns: 1fr;
   }
 }
+
+.collab-chat-files{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.collab-chat-files .collab-file{display:flex;gap:8px;align-items:center;padding:10px 12px;background:#f3f6fc;border:1px solid #e1e7f1;border-radius:10px;max-width:100%;overflow-wrap:anywhere;font-size:13px;cursor:pointer}.collab-attachment-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.collab-attachment-controls>button{display:flex;gap:6px;align-items:center;border:1px solid #dfe5ef;border-radius:8px;padding:8px;font-size:12px;background:#fff;cursor:pointer}.collab-attachment-controls small{font-size:11px;color:#748096}.collab-attachment-controls>span{font-size:12px;background:#edf2ff;border-radius:8px;padding:6px;overflow-wrap:anywhere}.collab-attachment-controls span button{margin-left:8px}.collab-composer footer{flex-wrap:wrap;gap:10px}

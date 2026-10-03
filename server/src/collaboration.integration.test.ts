@@ -371,6 +371,27 @@ test("collaboration shares staff sessions, rejects applicant access, and persist
         .status,
       401,
     );
+    const attachmentMessageId = randomUUID();
+    const chatMessage = await request("/api/collaboration/records", member, "POST", {
+      id: attachmentMessageId, kind: "message", payload: { channel: "전체", content: "", attachments: [file.record.id] },
+    });
+    assert.equal(chatMessage.status, 200);
+    assert.deepEqual(chatMessage.data.record.payload.attachments, [file.record.id]);
+    const chatReply = await request("/api/collaboration/records", member, "POST", {
+      id: randomUUID(), kind: "message", payload: { channel: "전체", content: "첨부 답글", parent: attachmentMessageId, attachments: [file.record.id] },
+    });
+    assert.equal(chatReply.status, 200);
+    for (const payload of [
+      { channel: "전체", content: "없는 파일", attachments: [randomUUID()] },
+      { channel: "전체", content: "중복 파일", attachments: [file.record.id, file.record.id] },
+      { channel: "전체", content: "", attachments: [] },
+      { channel: "전체", content: "과다 첨부", attachments: Array.from({length: 6}, () => randomUUID()) },
+    ]) {
+      assert.equal((await request("/api/collaboration/records", member, "POST", { id: randomUUID(), kind: "message", payload })).status, 400);
+    }
+    const messageReload = await request("/api/collaboration/records", member);
+    const loadedMessage = messageReload.data.records.find((record: any) => record.id === attachmentMessageId);
+    assert.deepEqual(loadedMessage.payload.attachments, [file.record.id]);
     const contents = sqlite
       .prepare("SELECT content FROM collaboration_files WHERE id=?")
       .get(file.record.id)?.content;

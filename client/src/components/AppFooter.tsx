@@ -60,10 +60,6 @@ export function AppFooter({ navigate, mode = "public" }: AppFooterProps) {
               현장 출석 스캔
             </a>
           </div>
-          <div>
-            <span>함께 준비하기</span>
-            <a href="/workspace" onClick={event => { event.preventDefault(); navigate("/workspace"); }}>분과 협업 공간</a>
-          </div>
           {mode === "admin" && (
             <div>
               <span>운영자 메뉴</span>

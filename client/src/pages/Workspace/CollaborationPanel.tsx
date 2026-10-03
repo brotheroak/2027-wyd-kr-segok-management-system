@@ -40,7 +40,7 @@ const fields = [
 type Item = {
   id: string;
   kind: string;
-  payload: Record<string, string | number>;
+  payload: Record<string, string | number | string[]>;
   revision: number;
   updated_at: string;
   author: string;
@@ -48,7 +48,7 @@ type Item = {
 type Editor = {
   kind: string;
   record?: Item;
-  payload: Record<string, string | number>;
+  payload: Record<string, string | number | string[]>;
 };
 function p(item: Item, key: string) {
   return String(item.payload[key] ?? "");
@@ -70,13 +70,15 @@ const date = () =>
 export function CollaborationPanel({
   token,
   role,
+  initialView = "회의록",
 }: {
   token: string;
   role: AdminRole;
+  initialView?: "회의록" | "대화";
 }) {
   const [records, setRecords] = useState<Item[]>([]),
     [ready, setReady] = useState(false),
-    [view, setView] = useState("회의록"),
+    [view, setView] = useState<string>(initialView),
     [channel, setChannel] = useState("전체"),
     [meetingId, setMeetingId] = useState(""),
     [team, setTeam] = useState("전체"),
@@ -90,6 +92,10 @@ export function CollaborationPanel({
     [thread, setThread] = useState<Item | null>(null),
     [message, setMessage] = useState(""),
     [reply, setReply] = useState("");
+  const [attachments, setAttachments] = useState<Item[]>([]);
+  const [replyAttachments, setReplyAttachments] = useState<Item[]>([]);
+  const chatUploadInput = useRef<HTMLInputElement>(null);
+  const attachmentReply = useRef(false);
   const dialog = useRef<HTMLDialogElement>(null),
     importInput = useRef<HTMLInputElement>(null),
     uploadInput = useRef<HTMLInputElement>(null),
@@ -158,9 +164,9 @@ export function CollaborationPanel({
   function start(
     kind: string,
     record?: Item,
-    defaults?: Record<string, string | number>,
+    defaults?: Record<string, string | number | string[]>,
   ) {
-    const base: Record<string, Record<string, string | number>> = {
+    const base: Record<string, Record<string, string | number | string[]>> = {
       meeting: {
         title: "",
         date: date(),
@@ -189,7 +195,7 @@ export function CollaborationPanel({
   }
   async function save(
     kind: string,
-    payload: Record<string, string | number>,
+    payload: Record<string, string | number | string[]>,
     record?: Item,
   ) {
     const id = record?.id || crypto.randomUUID();
@@ -241,16 +247,19 @@ export function CollaborationPanel({
   }
   async function send(isReply = false) {
     const content = isReply ? reply : message;
-    if (!content.trim() || busy.current) return;
+    const attached = isReply ? replyAttachments : attachments;
+    if ((!content.trim() && !attached.length) || busy.current) return;
     busy.current = true;
     setSaving(true);
     try {
       await save("message", {
         channel,
         content,
+        attachments: attached.map(file => file.id),
         parent: isReply ? thread?.id || "" : "",
       });
-      isReply ? setReply("") : setMessage("");
+      setNotice(attached.length ? "파일을 첨부해 메시지를 보냈습니다." : "메시지를 보냈습니다.");
+      if (isReply) { setReply(""); setReplyAttachments([]); } else { setMessage(""); setAttachments([]); }
     } catch (e) {
       setNotice((e as Error).message);
     } finally {
@@ -280,11 +289,14 @@ export function CollaborationPanel({
       if (importInput.current) importInput.current.value = "";
     }
   }
-  async function upload(file: File) {
+  async function upload(file: File, attach = false, toReply = false) {
+    if (busy.current) return;
+    if (attach && (toReply ? replyAttachments : attachments).length >= 5) { setNotice("메시지당 파일은 5개까지 첨부할 수 있습니다."); return; }
     if (file.size > 12 * 1024 * 1024) {
       setNotice("12MB 이하 파일을 선택해 주세요.");
       return;
     }
+    busy.current = true;
     setSaving(true);
     try {
       const response = await fetch("/api/collaboration/files", {
@@ -300,14 +312,26 @@ export function CollaborationPanel({
         const d = await response.json();
         throw Error(d.message);
       }
+      const result = await response.json();
+      if (attach) (toReply ? setReplyAttachments : setAttachments)(items => [...items, result.record]);
       await load();
-      setNotice("자료를 업로드했습니다.");
+      setNotice(attach ? "파일이 준비되었습니다. 보내기를 눌러 대화에 첨부하세요." : "자료를 업로드했습니다.");
     } catch (e) {
       setNotice((e as Error).message);
     } finally {
       setSaving(false);
+      busy.current = false;
       if (uploadInput.current) uploadInput.current.value = "";
+      if (chatUploadInput.current) chatUploadInput.current.value = "";
     }
+  }
+  function messageAttachments(record: Item) {
+    const ids = Array.isArray(record.payload.attachments) ? record.payload.attachments as string[] : [];
+    return <div className="collab-chat-files">{ids.map(id => { const file = files.find(item => item.id === id); return file ? <button key={id} className="collab-file" onClick={() => void fetchFile(file)}><Paperclip size={15} />{p(file, "name")} · {Number(file.payload.size) < 1024 ? Number(file.payload.size) + " B" : (Number(file.payload.size) / 1024).toFixed(1) + " KB"}<Download size={15} /></button> : <span key={id}>첨부 파일을 찾을 수 없습니다.</span>; })}</div>;
+  }
+  function attachmentControls(isReply = false) {
+    const items = isReply ? replyAttachments : attachments;
+    return <div className="collab-attachment-controls"><button disabled={saving || items.length >= 5} onClick={() => { attachmentReply.current = isReply; chatUploadInput.current?.click(); }}><Paperclip size={16} /> 파일 첨부</button><small>파일당 12MB · 최대 5개</small>{items.map(file => <span key={file.id}>{p(file, "name")}<button disabled={saving} aria-label={p(file, "name") + " 첨부 취소"} onClick={() => (isReply ? setReplyAttachments : setAttachments)(values => values.filter(item => item.id !== file.id))}>×</button></span>)}</div>;
   }
   async function fetchFile(r: Item) {
     try {
@@ -416,7 +440,7 @@ export function CollaborationPanel({
   const add = (
     kind: string,
     label: string,
-    defaults?: Record<string, string | number>,
+    defaults?: Record<string, string | number | string[]>,
   ) => (
     <button
       className="collab-primary"
@@ -436,6 +460,7 @@ export function CollaborationPanel({
   );
   return (
     <section className="collab-workspace">
+      <input type="file" hidden ref={chatUploadInput} onChange={event => { const file = event.target.files?.[0]; if (file) void upload(file, true, attachmentReply.current); }} />
       <header className="collab-heading">
         <div>
           <span>WYD · 세곡동성당</span>
@@ -487,6 +512,7 @@ export function CollaborationPanel({
           ].map(([label, Icon]: any) => (
             <button
               key={label}
+              disabled={saving}
               className={view === label ? "active" : ""}
               onClick={() => navigate(label)}
             >
@@ -498,9 +524,11 @@ export function CollaborationPanel({
           {["전체", ...teams].map((t) => (
             <button
               key={t}
+              disabled={saving}
               className={view === "대화" && channel === t ? "active" : ""}
               onClick={() => {
                 navigate("대화");
+                setAttachments([]); setReplyAttachments([]);
                 setChannel(t);
               }}
             >
@@ -810,7 +838,9 @@ export function CollaborationPanel({
             <>
               <div className="collab-chat-heading">
                 {select("채널", channel, ["전체", ...teams], (v) => {
+                  if (busy.current) return;
                   setChannel(v);
+                  setAttachments([]); setReplyAttachments([]);
                   setThread(null);
                 })}
                 <p>
@@ -841,10 +871,13 @@ export function CollaborationPanel({
                         </time>
                       </header>
                       <p>{p(r, "content")}</p>
+                      {messageAttachments(r)}
                       <button
                         className="collab-link"
+                        disabled={saving}
                         onClick={() => {
                           setThread(r);
+                          setReplyAttachments([]);
                           setReply("");
                         }}
                       >
@@ -874,10 +907,11 @@ export function CollaborationPanel({
                   }}
                 />
                 <footer>
+                  {attachmentControls()}
                   <span>{user} · Ctrl / ⌘ + Enter로 보내기</span>
                   <button
                     className="collab-primary"
-                    disabled={!ready || saving || !message.trim()}
+                    disabled={!ready || saving || (!message.trim() && !attachments.length)}
                     onClick={() => void send()}
                   >
                     <Send size={16} />
@@ -927,11 +961,12 @@ export function CollaborationPanel({
         <div className="collab-detail">
           <header>
             <h3>대화의 답글</h3>
-            <button onClick={() => setThread(null)}>닫기</button>
+            <button disabled={saving} onClick={() => { setThread(null); setReplyAttachments([]); }}>닫기</button>
           </header>
           <article className="collab-thread-original">
             <b>{thread.author}</b>
             <p>{p(thread, "content")}</p>
+            {messageAttachments(thread)}
           </article>
           {messages
             .filter((r) => p(r, "parent") === thread.id)
@@ -939,6 +974,7 @@ export function CollaborationPanel({
               <article className="collab-thread-reply" key={r.id}>
                 <b>{r.author}</b>
                 <p>{p(r, "content")}</p>
+                {messageAttachments(r)}
               </article>
             ))}
           <div className="collab-composer">
@@ -949,9 +985,10 @@ export function CollaborationPanel({
               onChange={(e) => setReply(e.target.value)}
             />
             <footer>
+              {attachmentControls(true)}
               <button
                 className="collab-primary"
-                disabled={saving || !reply.trim()}
+                disabled={saving || (!reply.trim() && !replyAttachments.length)}
                 onClick={() => void send(true)}
               >
                 <Send size={15} />
