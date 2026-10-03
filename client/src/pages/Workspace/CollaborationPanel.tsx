@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   BookOpen,
+  ArrowUpRight,
+  Bell,
+  Sparkles,
+  History,
   CalendarDays,
   CheckSquare,
   ChevronDown,
@@ -105,7 +109,12 @@ export function CollaborationPanel({
       p(r, r.kind === "message" ? "channel" : "team") || "전체",
     );
   const historyButton = (r: Item) => (
-    <button disabled={saving} onClick={() => setHistoryRecord(r)}>
+    <button
+      className="collab-history-trigger"
+      disabled={saving}
+      onClick={() => setHistoryRecord(r)}
+    >
+      <History size={13} />
       수정 이력
     </button>
   );
@@ -707,7 +716,7 @@ export function CollaborationPanel({
     </div>
   );
   return (
-    <section className="collab-workspace">
+    <section className="collab-workspace" data-view={view}>
       <input
         type="file"
         hidden
@@ -718,13 +727,34 @@ export function CollaborationPanel({
         }}
       />
       <header className="collab-heading">
-        <div>
-          <span>WYD · 세곡동성당</span>
-          <h2>우리의 워크스페이스</h2>
+        <div className="collab-heading-copy">
+          <span className="collab-eyebrow">
+            <Sparkles size={14} /> SEGOK · WYD 2027
+          </span>
+          <h2>
+            {view === "대화" ? (
+              <>
+                작은 대화가, <em>큰 준비로.</em>
+              </>
+            ) : (
+              <>
+                우리의 준비를, <em>더 가깝게.</em>
+              </>
+            )}
+          </h2>
+          <p>
+            {view === "대화"
+              ? "소식을 나누고, 같은 이야기 안에서 함께해요."
+              : "회의에서 나눈 생각이 다음 할 일로 이어지는 공간."}
+          </p>
         </div>
-        <div className="collab-actions">
-          <button disabled={!ready} onClick={() => navigate("알림")}>
-            알림{" "}
+        <div className="collab-actions collab-toolbar">
+          <button
+            className="collab-notifications-button"
+            disabled={!ready}
+            onClick={() => navigate("알림")}
+          >
+            <Bell size={16} /> 알림{" "}
             <span className="collab-badge">
               {unread.length + dueTasks.length}
             </span>
@@ -780,8 +810,17 @@ export function CollaborationPanel({
         </div>
       )}
       <div className="collab-layout">
-        <aside className="collab-nav">
-          <div className="collab-nav-title">협업 공간</div>
+        <aside className="collab-nav" aria-label="분과 협업 메뉴">
+          <div className="collab-nav-brand">
+            <span>
+              <Layers size={21} />
+            </span>
+            <div>
+              <strong>함께하는 공간</strong>
+              <small>세곡동성당 · WYD</small>
+            </div>
+          </div>
+          <div className="collab-nav-title">WORKSPACE</div>
           {[
             ["회의록", FileText],
             ["후속 업무", CheckSquare],
@@ -791,6 +830,7 @@ export function CollaborationPanel({
             <button
               key={label}
               disabled={saving}
+              aria-current={view === label ? "page" : undefined}
               className={view === label ? "active" : ""}
               onClick={() => navigate(label)}
             >
@@ -803,6 +843,9 @@ export function CollaborationPanel({
             <button
               key={t}
               disabled={saving}
+              aria-current={
+                view === "대화" && channel === t ? "page" : undefined
+              }
               className={view === "대화" && channel === t ? "active" : ""}
               onClick={() => {
                 navigate("대화");
@@ -820,9 +863,71 @@ export function CollaborationPanel({
               )}
             </button>
           ))}
+          <div className="collab-nav-profile">
+            <span>{user.slice(0, 1).toUpperCase() || "W"}</span>
+            <div>
+              <strong>{role === "committee" ? "분과 구성원" : "운영자"}</strong>
+              <small>{user}</small>
+            </div>
+          </div>
         </aside>
         <div className="collab-content">
-          <div className="collab-view-header">
+          {view === "회의록" && (
+            <div className="collab-overview" aria-label="협업 현황">
+              <button
+                className="collab-metric metric-purple"
+                disabled={!ready || saving}
+                onClick={() => navigate("알림")}
+              >
+                <span className="collab-metric-icon">
+                  <Bell size={20} />
+                </span>
+                <span>
+                  <small>새 대화 · 답글</small>
+                  <strong>
+                    {unread.length}
+                    <em>개</em>
+                  </strong>
+                </span>
+                <ArrowUpRight size={17} />
+              </button>
+              <button
+                className="collab-metric metric-blue"
+                disabled={!ready || saving}
+                onClick={() => navigate("후속 업무")}
+              >
+                <span className="collab-metric-icon">
+                  <CheckSquare size={20} />
+                </span>
+                <span>
+                  <small>함께 진행할 업무</small>
+                  <strong>
+                    {tasks.filter((r) => p(r, "status") !== "완료").length}
+                    <em>개</em>
+                  </strong>
+                </span>
+                <ArrowUpRight size={17} />
+              </button>
+              <button
+                className="collab-metric metric-peach"
+                disabled={!ready || saving}
+                onClick={() => navigate("알림")}
+              >
+                <span className="collab-metric-icon">
+                  <CalendarDays size={20} />
+                </span>
+                <span>
+                  <small>기한 확인이 필요해요</small>
+                  <strong>
+                    {dueTasks.length}
+                    <em>개</em>
+                  </strong>
+                </span>
+                <ArrowUpRight size={17} />
+              </button>
+            </div>
+          )}
+          <div className="collab-view-header" key={view}>
             <h3>{view === "대화" ? "# " + channel : view}</h3>
             {view !== "알림" && (
               <label className="collab-search">
@@ -939,8 +1044,8 @@ export function CollaborationPanel({
                       <Pencil size={15} />
                       회의 정보 수정
                     </button>
+                    {historyButton(meeting)}
                   </div>
-                  {historyButton(meeting)}
                   <section className="collab-meeting">
                     <div>
                       <span>{p(meeting, "status")}</span>
@@ -960,7 +1065,7 @@ export function CollaborationPanel({
                             fields.some(([key]) => p(r, key).trim()),
                           ).length
                         }
-                        <small> / 8</small>
+                        <small> / {reports.length}</small>
                       </strong>
                     </div>
                   </section>
@@ -1218,9 +1323,19 @@ export function CollaborationPanel({
                       JSON.stringify(r.payload).includes(search),
                   )
                   .map((r) => (
-                    <article key={r.id}>
+                    <article
+                      key={r.id}
+                      className={
+                        r.author === user
+                          ? "collab-message collab-message-own"
+                          : "collab-message"
+                      }
+                    >
+                      <span className="collab-avatar" aria-hidden="true">
+                        {r.author.slice(0, 1).toUpperCase()}
+                      </span>
                       <header>
-                        <b>{r.author}</b>
+                        <b>{r.author === user ? "나" : r.author}</b>
                         <time>
                           {new Intl.DateTimeFormat("ko-KR", {
                             timeZone: "Asia/Seoul",
