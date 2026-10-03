@@ -50,15 +50,34 @@ export const collaborationPayloads = {
     meeting: z.string().max(100).default(""),
   }),
   doc: z.object({ title, team, content: text }),
-  message: z.object({
-    channel: team,
-    content: z.string().trim().max(5000),
-    attachments: z.array(z.string().uuid()).max(5).default([]).refine(ids => new Set(ids).size === ids.length),
-    parent: z.string().max(100).default(""),
-  }).refine(message => Boolean(message.content || message.attachments.length), "메시지 또는 첨부 파일을 입력해 주세요."),
+  message: z
+    .object({
+      channel: team,
+      content: z.string().trim().max(5000),
+      attachments: z
+        .array(z.string().uuid())
+        .max(5)
+        .default([])
+        .refine((ids) => new Set(ids).size === ids.length),
+      parent: z.string().max(100).default(""),
+    })
+    .refine(
+      (message) => Boolean(message.content || message.attachments.length),
+      "메시지 또는 첨부 파일을 입력해 주세요.",
+    ),
 };
 export const collaborationWrite = z.object({
-  id: z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/),
+  id: z
+    .string()
+    .regex(/^[a-zA-Z0-9_-]{1,100}$/)
+    .refine(
+      (id) =>
+        id !== "workspace-policy" &&
+        !id.startsWith("user-") &&
+        !id.startsWith("file-scope-") &&
+        !id.includes("-history-"),
+      "내부 기록 번호는 사용할 수 없습니다.",
+    ),
   kind: z.enum(["meeting", "report", "task", "doc", "message"]),
   payload: z.unknown(),
   revision: z.number().int().positive().optional(),

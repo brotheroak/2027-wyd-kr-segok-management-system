@@ -1,4 +1,13 @@
 import express from "express";
+import { createHash } from "node:crypto";
+import { z } from "zod";
+import {
+  policySchema,
+  teamAccess,
+  recordTeam,
+  type WorkspacePolicy,
+} from "./collaborationAccess.js";
+import { collaborationTeams } from "./collaborationValidation.js";
 import { and, eq, asc, sql } from "drizzle-orm";
 import { db, tables } from "./db.js";
 import { encryptText, decryptText } from "./crypto.js";
@@ -69,12 +78,215 @@ export function collaborationRouter({
     res.setHeader("Cache-Control", "private, no-store");
     next();
   });
-  router.get("/records", async (_req, res) => {
+  router.use(async (_req, res, next) => {
     try {
+      const table = tables.collaborationRecords;
       const rows = await db
         .select()
+        .from(table)
+        .where(sql`${table.kind} NOT IN ('history', 'userstate')`)
+        .orderBy(asc(table.updatedAt));
+      const decoded = rows.map(decode);
+      const policy = policySchema.parse(
+        decoded.find(
+          (r: any) => r.id === "workspace-policy" && r.kind === "policy",
+        )?.payload || { teams: {} },
+      );
+      const session = res.locals.session;
+      res.locals.workspace = {
+        rows,
+        decoded,
+        policy,
+        can: (r: any, write = false) =>
+          teamAccess(policy, recordTeam(r), session.email, session.role, write),
+        fileCan: (id: string, write = false) => {
+          const scope =
+            decoded.find(
+              (r: any) => r.kind === "filescope" && r.payload.file === id,
+            )?.payload.team || "전체";
+          if (!teamAccess(policy, scope, session.email, session.role, write))
+            return false;
+          return decoded
+            .filter(
+              (r: any) =>
+                r.kind === "message" && r.payload.attachments?.includes(id),
+            )
+            .every((r: any) =>
+              teamAccess(policy, recordTeam(r), session.email, session.role),
+            );
+        },
+      };
+      next();
+    } catch (e) {
+      error(res, e);
+    }
+  });
+  const stateId = (email: string) =>
+    "user-" + createHash("sha256").update(email.toLowerCase()).digest("hex");
+  async function state(email: string) {
+    const rows = await db
+      .select()
+      .from(tables.collaborationRecords)
+      .where(
+        and(
+          eq(tables.collaborationRecords.kind, "userstate"),
+          sql`${tables.collaborationRecords.id} LIKE ${stateId(email) + "-%"}`,
+        ),
+      );
+    return {
+      read: Object.fromEntries(
+        rows.map((row: any) => {
+          const p = decode(row).payload;
+          return [p.channel, p.at];
+        }),
+      ),
+    };
+  }
+  router.put("/read", async (req, res) => {
+    try {
+      const b = z
+        .object({
+          channel: z.enum(["전체", ...collaborationTeams]),
+          at: z.string().datetime(),
+        })
+        .parse(req.body);
+      if (
+        !teamAccess(
+          res.locals.workspace.policy,
+          b.channel,
+          res.locals.session.email,
+          res.locals.session.role,
+        )
+      )
+        return res
+          .status(403)
+          .json({ message: "이 분과에 접근할 권한이 없습니다." });
+      const at = new Date(
+        Math.min(new Date(b.at).getTime(), Date.now()),
+      ).toISOString();
+      const table = tables.collaborationRecords;
+      const id =
+        stateId(res.locals.session.email) +
+        "-" +
+        createHash("sha256").update(b.channel).digest("hex");
+      const row = newRow(
+        id,
+        "userstate",
+        { channel: b.channel, at },
+        res.locals.session.email,
+      );
+      // updatedAt is the seen-message cutoff; the conditional upsert prevents older tabs moving it backwards.
+      row.updatedAt = at;
+      await db
+        .insert(table)
+        .values(row)
+        .onConflictDoUpdate({
+          target: table.id,
+          set: { payload: row.payload, updatedAt: at },
+          setWhere: sql`${table.updatedAt} < ${at}`,
+        });
+      const next = await state(res.locals.session.email);
+      res.json({ read: next.read });
+    } catch {
+      res.status(400).json({ message: "읽음 처리 정보를 확인해 주세요." });
+    }
+  });
+  router.get("/policy", authorizeImport, (_req, res) =>
+    res.json({
+      policy: res.locals.workspace.policy,
+      revision:
+        res.locals.workspace.decoded.find(
+          (r: any) => r.id === "workspace-policy",
+        )?.revision || 0,
+    }),
+  );
+  router.put("/policy", authorizeImport, async (req, res) => {
+    try {
+      const { policy, revision } = z
+        .object({
+          policy: policySchema,
+          revision: z.number().int().nonnegative(),
+        })
+        .parse(req.body);
+      const table = tables.collaborationRecords;
+      const row = newRow(
+        "workspace-policy",
+        "policy",
+        policy,
+        res.locals.session.email,
+      );
+      const changed =
+        revision === 0
+          ? await db.insert(table).values(row).onConflictDoNothing().returning()
+          : await db
+              .update(table)
+              .set({
+                payload: row.payload,
+                author: row.author,
+                revision: revision + 1,
+                updatedAt: row.updatedAt,
+              })
+              .where(
+                and(
+                  eq(table.id, row.id),
+                  eq(table.kind, "policy"),
+                  eq(table.revision, revision),
+                ),
+              )
+              .returning();
+      if (!changed.length)
+        return res
+          .status(409)
+          .json({
+            message:
+              "다른 운영자가 먼저 권한을 변경했습니다. 창을 닫고 다시 열어 최신 설정을 확인해 주세요.",
+          });
+      await audit(
+        res.locals.session.email,
+        "collaboration_changed_access_policy",
+      );
+      res.json({ policy, revision: revision + 1 });
+    } catch {
+      res
+        .status(400)
+        .json({ message: "분과와 구성원 이메일을 확인해 주세요." });
+    }
+  });
+  router.get("/records/:id/history", async (req, res) => {
+    try {
+      const current = res.locals.workspace.decoded.find(
+        (r: any) =>
+          r.id === req.params.id &&
+          ["meeting", "report", "task", "doc"].includes(r.kind),
+      );
+      if (!current || !res.locals.workspace.can(current))
+        return res.status(404).json({ message: "기록을 찾을 수 없습니다." });
+      const history = await db
+        .select()
         .from(tables.collaborationRecords)
-        .orderBy(asc(tables.collaborationRecords.updatedAt));
+        .where(
+          and(
+            eq(tables.collaborationRecords.kind, "history"),
+            sql`${tables.collaborationRecords.id} LIKE ${current.id + "-history-%"}`,
+          ),
+        );
+      res.json({
+        history: history
+          .map(decode)
+          .map((r: any) => r.payload)
+          .filter(
+            (r: any) => r.id === current.id && res.locals.workspace.can(r),
+          )
+          .sort((a: any, b: any) => b.revision - a.revision),
+        current,
+      });
+    } catch (e) {
+      error(res, e);
+    }
+  });
+  router.get("/records", async (_req, res) => {
+    try {
+      const rows = res.locals.workspace.rows;
       const files = await db
         .select({
           id: tables.collaborationFiles.id,
@@ -84,8 +296,50 @@ export function collaborationRouter({
           createdAt: tables.collaborationFiles.createdAt,
         })
         .from(tables.collaborationFiles);
+      const workspace = res.locals.workspace;
+      const personal = await state(res.locals.session.email);
       res.json({
-        records: [...rows.map(decode), ...files.map(fileInfo)],
+        records: [
+          ...rows
+            .filter((r: any) =>
+              ["meeting", "report", "task", "doc", "message"].includes(r.kind),
+            )
+            .map(decode)
+            .filter((r: any) => workspace.can(r)),
+          ...files
+            .filter((r: any) => workspace.fileCan(r.id))
+            .map((r: any) => ({
+              ...fileInfo(r),
+              payload: {
+                ...fileInfo(r).payload,
+                team:
+                  workspace.decoded.find(
+                    (d: any) =>
+                      d.kind === "filescope" && d.payload.file === r.id,
+                  )?.payload.team || "전체",
+              },
+            })),
+        ],
+        read: personal.read || {},
+        permissions: {
+          readTeams: ["전체", ...collaborationTeams].filter((t) =>
+            teamAccess(
+              workspace.policy,
+              t,
+              res.locals.session.email,
+              res.locals.session.role,
+            ),
+          ),
+          writeTeams: ["전체", ...collaborationTeams].filter((t) =>
+            teamAccess(
+              workspace.policy,
+              t,
+              res.locals.session.email,
+              res.locals.session.role,
+              true,
+            ),
+          ),
+        },
         user: { name: res.locals.session.email, role: res.locals.session.role },
       });
     } catch (e) {
@@ -100,11 +354,20 @@ export function collaborationRouter({
     try {
       const b = collaborationWrite.parse(req.body),
         payload = collaborationPayloads[b.kind].parse(b.payload);
+      const candidate = { kind: b.kind, payload };
+      if (!res.locals.workspace.can(candidate, true))
+        return res
+          .status(403)
+          .json({ message: "이 분과는 읽기 전용이거나 접근 권한이 없습니다." });
       const table = tables.collaborationRecords;
       const [existing] = await db
         .select()
         .from(table)
         .where(eq(table.id, b.id));
+      if (existing && !res.locals.workspace.can(decode(existing), true))
+        return res
+          .status(403)
+          .json({ message: "이 기록을 수정할 권한이 없습니다." });
       if (edit && (!existing || existing.kind !== b.kind || !b.revision))
         return res
           .status(404)
@@ -127,8 +390,30 @@ export function collaborationRouter({
       }
       if (b.kind === "message") {
         for (const id of (payload as any).attachments) {
-          const [file] = await db.select({ id: tables.collaborationFiles.id }).from(tables.collaborationFiles).where(eq(tables.collaborationFiles.id, id));
-          if (!file) return res.status(400).json({ message: "첨부 파일을 찾을 수 없습니다. 다시 선택해 주세요." });
+          const [file] = await db
+            .select({ id: tables.collaborationFiles.id })
+            .from(tables.collaborationFiles)
+            .where(eq(tables.collaborationFiles.id, id));
+          if (!res.locals.workspace.fileCan(id))
+            return res
+              .status(403)
+              .json({ message: "첨부 파일 접근 권한이 없습니다." });
+          const scope =
+            res.locals.workspace.decoded.find(
+              (r: any) => r.kind === "filescope" && r.payload.file === id,
+            )?.payload.team || "전체";
+          if (scope !== "전체" && scope !== (payload as any).channel)
+            return res
+              .status(400)
+              .json({
+                message: "분과 전용 첨부는 같은 분과에서만 공유할 수 있습니다.",
+              });
+          if (!file)
+            return res
+              .status(400)
+              .json({
+                message: "첨부 파일을 찾을 수 없습니다. 다시 선택해 주세요.",
+              });
         }
         const p = payload as any;
         if (edit)
@@ -164,6 +449,17 @@ export function collaborationRouter({
       const author = res.locals.session.email;
       let row: any;
       if (edit) {
+        await db
+          .insert(table)
+          .values(
+            newRow(
+              `${b.id}-history-${existing.revision}`,
+              "history",
+              decode(existing),
+              author,
+            ),
+          )
+          .onConflictDoNothing();
         const rows = await db
           .update(table)
           .set({
@@ -214,6 +510,46 @@ export function collaborationRouter({
         .json({ message: "기록 번호가 일치하지 않습니다." });
     void write(req, res, true);
   });
+  router.post("/records/:id/restore", async (req, res) => {
+    try {
+      const b = z
+        .object({
+          version: z.number().int().positive(),
+          revision: z.number().int().positive(),
+        })
+        .parse(req.body);
+      const [snapshot] = await db
+        .select()
+        .from(tables.collaborationRecords)
+        .where(
+          eq(
+            tables.collaborationRecords.id,
+            `${req.params.id}-history-${b.version}`,
+          ),
+        );
+      if (!snapshot || snapshot.kind !== "history")
+        return res
+          .status(404)
+          .json({ message: "수정 이력을 찾을 수 없습니다." });
+      const old = decode(snapshot).payload;
+      if (
+        old.id !== req.params.id ||
+        !["meeting", "report", "task", "doc"].includes(old.kind)
+      )
+        return res
+          .status(400)
+          .json({ message: "복원할 기록이 올바르지 않습니다." });
+      req.body = {
+        id: old.id,
+        kind: old.kind,
+        payload: old.payload,
+        revision: b.revision,
+      };
+      await write(req, res, true);
+    } catch {
+      res.status(400).json({ message: "복원할 버전을 확인해 주세요." });
+    }
+  });
   router.post("/import", authorizeImport, async (req, res) => {
     try {
       const data = collaborationImport.parse(req.body);
@@ -257,8 +593,22 @@ export function collaborationRouter({
           throw new ImportValidationError("업무에 연결된 회의가 없습니다.");
         if (r.kind === "message") {
           for (const id of p.attachments) {
-            const [file] = await db.select({ id: tables.collaborationFiles.id }).from(tables.collaborationFiles).where(eq(tables.collaborationFiles.id, id));
-            if (!file) throw new ImportValidationError("대화의 첨부 파일이 없습니다. 원래 공간에서 파일을 별도로 보관해 주세요.");
+            const [file] = await db
+              .select({ id: tables.collaborationFiles.id })
+              .from(tables.collaborationFiles)
+              .where(eq(tables.collaborationFiles.id, id));
+            const scope =
+              res.locals.workspace.decoded.find(
+                (d: any) => d.kind === "filescope" && d.payload.file === id,
+              )?.payload.team || "전체";
+            if (scope !== "전체" && scope !== p.channel)
+              throw new ImportValidationError(
+                "분과 전용 첨부는 같은 분과에서만 가져올 수 있습니다.",
+              );
+            if (!file)
+              throw new ImportValidationError(
+                "대화의 첨부 파일이 없습니다. 원래 공간에서 파일을 별도로 보관해 주세요.",
+              );
           }
         }
         if (r.kind === "message" && p.parent) {
@@ -360,6 +710,21 @@ export function collaborationRouter({
           return res
             .status(400)
             .json({ message: "파일 이름과 내용을 확인해 주세요." });
+        const team = z
+          .enum(["전체", ...collaborationTeams])
+          .parse(req.query.team || "전체");
+        if (
+          !teamAccess(
+            res.locals.workspace.policy,
+            team,
+            res.locals.session.email,
+            res.locals.session.role,
+            true,
+          )
+        )
+          return res
+            .status(403)
+            .json({ message: "이 분과에 자료를 올릴 권한이 없습니다." });
         const row = {
           id: crypto.randomUUID(),
           name: encryptText(name),
@@ -368,6 +733,17 @@ export function collaborationRouter({
           createdBy: encryptText(res.locals.session.email),
           createdAt: new Date().toISOString(),
         };
+        // Store scope first: a failed file write leaves an inert scope, never an unscoped private file.
+        await db
+          .insert(tables.collaborationRecords)
+          .values(
+            newRow(
+              `file-scope-${row.id}`,
+              "filescope",
+              { file: row.id, team },
+              res.locals.session.email,
+            ),
+          );
         await db.insert(tables.collaborationFiles).values(row);
         await audit(
           res.locals.session.email,
@@ -375,7 +751,12 @@ export function collaborationRouter({
           row.id,
           { size: row.byteSize },
         );
-        res.json({ record: fileInfo(row) });
+        res.json({
+          record: {
+            ...fileInfo(row),
+            payload: { ...fileInfo(row).payload, team },
+          },
+        });
       } catch (e) {
         error(res, e);
       }
@@ -387,7 +768,7 @@ export function collaborationRouter({
         .select()
         .from(tables.collaborationFiles)
         .where(eq(tables.collaborationFiles.id, String(req.params.id)));
-      if (!row)
+      if (!row || !res.locals.workspace.fileCan(row.id))
         return res.status(404).json({ message: "자료를 찾을 수 없습니다." });
       res.setHeader("Content-Type", "application/octet-stream");
       res.setHeader(
