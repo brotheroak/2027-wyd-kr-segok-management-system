@@ -57,6 +57,15 @@ async function setupPg() {
   try {
     console.log("[SETUP] Creating tables & indexes...");
     await client.query(`
+      CREATE TABLE IF NOT EXISTS collaboration_records (
+        id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL, author TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS collaboration_files (
+        id TEXT PRIMARY KEY, name TEXT NOT NULL, content TEXT NOT NULL, byte_size INTEGER NOT NULL,
+        created_by TEXT NOT NULL, created_at TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS homestay_applications (
         id TEXT PRIMARY KEY,
         application_no TEXT UNIQUE NOT NULL,
@@ -325,6 +334,15 @@ function setupSqlite() {
       PRAGMA journal_mode = WAL;
       PRAGMA foreign_keys = ON;
       PRAGMA busy_timeout = 5000;
+
+      CREATE TABLE IF NOT EXISTS collaboration_records (
+        id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL, author TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS collaboration_files (
+        id TEXT PRIMARY KEY, name TEXT NOT NULL, content TEXT NOT NULL, byte_size INTEGER NOT NULL,
+        created_by TEXT NOT NULL, created_at TEXT NOT NULL
+      );
 
       CREATE TABLE IF NOT EXISTS homestay_applications (
         id TEXT PRIMARY KEY,

@@ -1,3 +1,4 @@
+import { MonthlyApplicationsPanel } from "./MonthlyApplicationsPanel.js";
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, BedDouble, Sparkles, MapPinned, UserPlus, KeyRound, Crown, ClipboardList, PawPrint, CalendarClock, ScanBarcode, MessageSquareText, UserRound, ChartNoAxesColumn, Trash2 } from "lucide-react";
@@ -43,7 +44,7 @@ type AdminUser = {
 
 type AdminConsoleMenu = "applications" | "shifts" | "pilgrims" | "attendance" | "community" | "accounts" | "password";
 const ADMIN_CONSOLE_MENUS: AdminConsoleMenu[] = ["applications", "shifts", "pilgrims", "attendance", "community", "accounts", "password"];
-type HomestayDashboardTab = "summary" | "capacity" | "district" | "bed" | "pet" | "gender" | "age";
+type HomestayDashboardTab = "monthly" | "summary" | "capacity" | "district" | "bed" | "pet" | "gender" | "age";
 type DistributionDatum = {
   name: string;
   count: number;
@@ -84,6 +85,7 @@ export function AdminConsoleZip() {
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerPasswordConfirm, setRegisterPasswordConfirm] = useState("");
   const [registerMessage, setRegisterMessage] = useState("");
+  const [registerRole, setRegisterRole] = useState<"committee" | "admin">("admin");
   const [busy, setBusy] = useState(false);
   const [accountMessage, setAccountMessage] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -123,6 +125,7 @@ export function AdminConsoleZip() {
   const [resetPinResult, setResetPinResult] = useState("");
 
   const roleLabel = (value?: AdminRole | string) => {
+    if (value === "committee") return "분과 구성원";
     if (value === "super_admin") return "최고 관리자";
     if (value === "privacy_admin") return "개인정보 관리자";
     return "일반 운영자";
@@ -134,6 +137,7 @@ export function AdminConsoleZip() {
     setToken(response.token);
     setRole(response.role);
     resetLoginState();
+    if (response.role === "committee") { window.location.replace("/workspace"); return; }
     if (response.role === "super_admin") {
       const users = await api<{ admins: AdminUser[] }>("/api/admin/users", {}, response.token);
       setAdminUsers(users.admins);
@@ -142,6 +146,10 @@ export function AdminConsoleZip() {
 
   const load = async (nextToken = token) => {
     if (!nextToken) return;
+    const session = await api<{ role: AdminRole }>("/api/admin/session", {}, nextToken);
+    setRole(session.role);
+    sessionStorage.setItem(ADMIN_ROLE_KEY, session.role);
+    if (session.role === "committee") { setData(null); window.location.replace("/workspace"); return; }
     const params = new URLSearchParams({
       q: query,
       status
@@ -205,7 +213,7 @@ export function AdminConsoleZip() {
   useEffect(() => {
     const onAdminMenuChange = (event: Event) => {
       const menu = (event as CustomEvent<AdminConsoleMenu>).detail;
-      if (!ADMIN_CONSOLE_MENUS.includes(menu)) return;
+      if (!ADMIN_CONSOLE_MENUS.includes(menu) || (role === "committee" && menu !== "password")) return;
       setActiveConsoleMenu(menu);
       if (menu === "accounts") loadAdminUsers().catch(() => setAdminUsers([]));
     };
@@ -270,7 +278,8 @@ export function AdminConsoleZip() {
         body: JSON.stringify({
           email: registerEmail,
           password: registerPassword,
-          passwordConfirm: registerPasswordConfirm
+          passwordConfirm: registerPasswordConfirm,
+          requestedRole: registerRole
         })
       });
       setRegisterMessage(response.message);
@@ -512,6 +521,7 @@ export function AdminConsoleZip() {
                 </button>
               </div>
               <form onSubmit={handleRegister} className="admin-register-form">
+                <label><span>신청 권한</span><select value={registerRole} onChange={(e) => setRegisterRole(e.target.value as "committee" | "admin")}><option value="committee">분과 구성원 (협업 전용)</option><option value="admin">일반 운영자</option></select></label>
                 <label>
                   <span>운영자 이메일</span>
                   <input
@@ -572,6 +582,7 @@ export function AdminConsoleZip() {
   const adminHeaderMenu = headerMenuSlot
     ? createPortal(
       <nav className="admin-header-menu" aria-label="운영자 콘솔 메뉴">
+        {role !== "committee" && <>
         <button
           type="button"
           data-menu="applications"
@@ -609,6 +620,7 @@ export function AdminConsoleZip() {
             </i>
           )}
         </button>
+        </>}
         <button
           type="button"
           data-menu="password"
@@ -617,6 +629,7 @@ export function AdminConsoleZip() {
         >
           <KeyRound size={18} /> 비밀번호 변경
         </button>
+        <button type="button" onClick={logout}>로그아웃</button>
       </nav>,
       headerMenuSlot
     )
@@ -721,6 +734,7 @@ export function AdminConsoleZip() {
                           className="min-h-10"
                         >
                           {admin.locked ? <option value="super_admin">최고 관리자</option> : null}
+                          <option value="committee">분과 구성원 (협업 전용)</option>
                           <option value="admin">일반 운영자</option>
                           <option value="privacy_admin">개인정보 관리자</option>
                         </select>
@@ -766,6 +780,7 @@ export function AdminConsoleZip() {
     );
   }
 
+  if (role === "committee") return <div role="status">분과 협업 공간으로 이동하고 있습니다.</div>;
   if (activeConsoleMenu === "shifts") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<VolunteerScheduleAdminPanel token={token} /></div>;
   if (activeConsoleMenu === "pilgrims") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<PilgrimHostAdminPanel token={token} canViewPersonalData={canViewPersonalData} /></div>;
   if (activeConsoleMenu === "attendance") return <div className="space-y-8" id="admin-dashboard">{adminHeaderMenu}<PilgrimAttendanceAdminPanel token={token} canViewPersonalData={canViewPersonalData} /></div>;
@@ -1030,6 +1045,7 @@ export function AdminConsoleZip() {
             <h2>홈스테이 신청 현황 분석</h2>
           </div>
           <div className="dashboard-tabs" role="tablist" aria-label="홈스테이 대시보드 보기">
+            <button className={homestayDashboardTab === "monthly" ? "active" : ""} onClick={() => setHomestayDashboardTab("monthly")} type="button">월별 신청</button>
             <button className={homestayDashboardTab === "summary" ? "active" : ""} onClick={() => setHomestayDashboardTab("summary")} type="button">
               <Languages size={16} /> 요약
             </button>
@@ -1053,6 +1069,8 @@ export function AdminConsoleZip() {
             </button>
           </div>
         </div>
+
+        {homestayDashboardTab === "monthly" && <MonthlyApplicationsPanel counts={data?.stats?.monthlyApplications} kind="homestay" />}
 
         {homestayDashboardTab === "summary" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

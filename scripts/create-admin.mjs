@@ -39,15 +39,15 @@ function hashPassword(password) {
 async function main() {
   const email = process.argv[2];
   const password = process.argv[3];
-  const role = process.argv[4] || "admin"; // admin, privacy_admin, or super_admin
+  const role = process.argv[4] || "admin"; // committee, admin, privacy_admin, or super_admin
 
   if (!email || !password) {
-    console.error("사용법: node scripts/create-admin.mjs <이메일> <비밀번호> [admin|privacy_admin]");
+    console.error("사용법: node scripts/create-admin.mjs <이메일> <비밀번호> [committee|admin|privacy_admin]");
     process.exit(1);
   }
 
-  if (!["admin", "privacy_admin", "super_admin"].includes(role)) {
-    console.error("역할(role)은 admin, privacy_admin 또는 super_admin이어야 합니다.");
+  if (!["committee", "admin", "privacy_admin", "super_admin"].includes(role)) {
+    console.error("역할(role)은 committee, admin, privacy_admin 또는 super_admin이어야 합니다.");
     process.exit(1);
   }
 
