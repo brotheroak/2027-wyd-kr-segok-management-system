@@ -117,7 +117,9 @@ export function CollaborationPanel({
     importInput = useRef<HTMLInputElement>(null),
     uploadInput = useRef<HTMLInputElement>(null),
     busy = useRef(false);
+  const loadCounter = useRef(0);
   async function load() {
+    const requestId = ++loadCounter.current;
     try {
       const d = await api<{
         records: Item[];
@@ -125,8 +127,14 @@ export function CollaborationPanel({
         read: Record<string, string>;
         permissions: typeof permissions;
       }>("/api/collaboration/records", {}, token);
+      if (requestId !== loadCounter.current) return null;
       setRecords(d.records);
-      setRead(d.read || {});
+      setRead((previous) => {
+        const merged = { ...previous };
+        for (const [team, at] of Object.entries(d.read || {}))
+          if (at > (merged[team] || "")) merged[team] = at;
+        return merged;
+      });
       if (d.permissions) {
         setPermissions(d.permissions);
         setChannel((old) =>
@@ -147,7 +155,7 @@ export function CollaborationPanel({
       setFailure("");
       return d.records;
     } catch (e) {
-      setFailure((e as Error).message);
+      if (requestId === loadCounter.current) setFailure((e as Error).message);
       return null;
     }
   }
@@ -210,7 +218,12 @@ export function CollaborationPanel({
         { method: "PUT", body: JSON.stringify({ channel, at }) },
         token,
       );
-      setRead(result.read);
+      setRead((previous) => {
+        const merged = { ...previous };
+        for (const [team, at] of Object.entries(result.read))
+          if (at > (merged[team] || "")) merged[team] = at;
+        return merged;
+      });
       setNotice("이 채널을 읽음 처리했습니다.");
     } catch (e) {
       setNotice((e as Error).message);
