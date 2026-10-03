@@ -29,6 +29,9 @@ const PILGRIM_LANGUAGE_KEY = "wydPilgrimPortalLanguage";
 const AdminConsoleZip = React.lazy(() =>
   import("./pages/Admin/AdminConsole.js").then((module) => ({ default: module.AdminConsoleZip }))
 );
+const WorkspacePage = React.lazy(() =>
+  import("./pages/Workspace/WorkspacePage.js").then(module => ({ default: module.WorkspacePage }))
+);
 const AttendanceScannerPage = React.lazy(() =>
   import("./pages/AttendanceScannerPage.js").then((module) => ({ default: module.AttendanceScannerPage }))
 );
@@ -52,7 +55,8 @@ function initialPilgrimLanguage(): PilgrimCardLanguage {
 }
 
 export function App() {
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [currentPath, setCurrentPath] = useState(window.location.pathname.startsWith("/admin") && window.location.hash === "#collaboration" ? "/workspace" : window.location.pathname);
+  const isWorkspacePage = currentPath === "/workspace" || currentPath.startsWith("/workspace/");
   const isAdminPage = currentPath.startsWith("/admin");
   const isAttendancePage = currentPath === "/attendance" || currentPath.startsWith("/attendance/");
   const isPrivacyPage = currentPath.startsWith("/privacy");
@@ -100,7 +104,11 @@ export function App() {
   }, [isPilgrimPortalPage, pilgrimLanguage]);
 
   useEffect(() => {
-    const onPopState = () => setCurrentPath(window.location.pathname);
+    if (isWorkspacePage && window.location.pathname.startsWith("/admin")) window.history.replaceState({}, "", "/workspace");
+  }, [isWorkspacePage]);
+
+  useEffect(() => {
+    const onPopState = () => setCurrentPath(window.location.pathname.startsWith("/admin") && window.location.hash === "#collaboration" ? "/workspace" : window.location.pathname);
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
@@ -204,7 +212,7 @@ export function App() {
       const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!(target instanceof HTMLAnchorElement)) return;
       const url = new URL(target.href);
-      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/schedule", "/community", "/pilgrim", "/host/pilgrims", "/attendance", "/privacy", "/terms"]);
+      const internalPaths = new Set(["/", "/apply", "/apply/homestay", "/apply/volunteer", "/check", "/schedule", "/community", "/pilgrim", "/host/pilgrims", "/attendance", "/privacy", "/terms", "/workspace"]);
       if (url.origin !== window.location.origin || !internalPaths.has(url.pathname)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -271,6 +279,10 @@ export function App() {
         <AppFooter navigate={navigate} />
       </div>
     );
+  }
+
+  if (isWorkspacePage) {
+    return <React.Suspense fallback={<div className="admin-loading">협업 공간을 불러오는 중입니다.</div>}><WorkspacePage navigate={navigate} /></React.Suspense>;
   }
 
   if (isAdminPage) {

@@ -7,7 +7,6 @@ type AppFooterProps = {
 
 const segokParishLogo = "/images/segok-parish-logo.png";
 const adminMenuItems = [
-  { label: "분과 협업", menu: "collaboration" },
   { label: "신청 현황", menu: "applications" },
   { label: "봉사 일정", menu: "shifts" },
   { label: "순례자·호스트", menu: "pilgrims" },
@@ -60,6 +59,10 @@ export function AppFooter({ navigate, mode = "public" }: AppFooterProps) {
             <a href="/attendance" onClick={(event) => { event.preventDefault(); navigate("/attendance"); }}>
               현장 출석 스캔
             </a>
+          </div>
+          <div>
+            <span>함께 준비하기</span>
+            <a href="/workspace" onClick={event => { event.preventDefault(); navigate("/workspace"); }}>분과 협업 공간</a>
           </div>
           {mode === "admin" && (
             <div>

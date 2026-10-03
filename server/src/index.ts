@@ -2921,6 +2921,7 @@ function absolutePublicUrl(req: express.Request, pathname: string) {
 }
 
 function buildOgMeta(req: express.Request) {
+  const isWorkspaceRoute = req.path === "/workspace" || req.path.startsWith("/workspace/");
   const isAdminRoute = req.path.startsWith("/admin");
   const isPrivateCardRoute = req.path.startsWith("/pilgrim/card");
   const isPilgrimPortalRoute = req.path === "/pilgrim" || req.path.startsWith("/host/pilgrims");
@@ -2938,6 +2939,13 @@ function buildOgMeta(req: express.Request) {
         description: "세곡동성당 WYD 순례자 카드 및 홈스테이 호스트 전용 확인 화면",
         image: "/images/og-preview.png",
         robots: "noindex,nofollow,noarchive"
+      }
+    : isWorkspaceRoute
+    ? {
+        title: "WYD 함께 · 분과 협업 공간",
+        description: "회의록, 후속 업무, 문서와 대화를 함께 관리하는 세곡동성당 분과 구성원 공간",
+        image: "/images/og-preview.png",
+        robots: "noindex,nofollow"
       }
     : isAdminRoute
     ? {
@@ -2981,7 +2989,7 @@ function buildOgMeta(req: express.Request) {
 
 function sendSpaIndex(req: express.Request, res: express.Response) {
   const html = fs.readFileSync(indexHtmlPath, "utf8");
-  const title = req.path.startsWith("/admin") ? "2027 WYD 운영자 콘솔" : req.path.startsWith("/pilgrim/card") ? "2027 WYD 순례자 카드" : "2027 WYD 세곡동 성당";
+  const title = req.path === "/workspace" || req.path.startsWith("/workspace/") ? "WYD 함께 · 분과 협업 공간" : req.path.startsWith("/admin") ? "2027 WYD 운영자 콘솔" : req.path.startsWith("/pilgrim/card") ? "2027 WYD 순례자 카드" : "2027 WYD 세곡동 성당";
   const ogMeta = `<!-- OG_META_START -->\n    ${buildOgMeta(req)}\n    <!-- OG_META_END -->`;
   const rendered = html
     .replace(/<!-- OG_META_START -->[\s\S]*?<!-- OG_META_END -->/, ogMeta)

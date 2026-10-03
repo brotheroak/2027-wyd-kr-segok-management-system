@@ -98,6 +98,7 @@ export function ApplicantShell({ children, fontScale, setFontScale, view, naviga
             >
               FAQ / Q&A
             </a>
+            <a href="/workspace" onClick={event => { event.preventDefault(); navigate("/workspace"); }}>분과 협업</a>
           </nav>
           <div className="accessibility" aria-label="글자 크기 조절">
             <Accessibility size={20} />
