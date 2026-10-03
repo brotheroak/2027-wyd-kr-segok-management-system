@@ -117,6 +117,11 @@ export function CollaborationPanel({
     importInput = useRef<HTMLInputElement>(null),
     uploadInput = useRef<HTMLInputElement>(null),
     busy = useRef(false);
+  const chatFeed = useRef<HTMLDivElement>(null);
+  const chatEnd = useRef<HTMLDivElement>(null);
+  const keepAtBottom = useRef(true);
+  const openedChannel = useRef<string | null>(null);
+  const [chatVisible, setChatVisible] = useState(false);
   const loadCounter = useRef(0);
   async function load() {
     const requestId = ++loadCounter.current;
@@ -209,26 +214,92 @@ export function CollaborationPanel({
         m.author === user &&
         (m.id === p(r, "parent") || p(m, "parent") === p(r, "parent")),
     );
-  async function markRead() {
-    const at = messages[messages.length - 1]?.updated_at;
-    if (!at) return;
-    try {
-      const result = await api<{ read: Record<string, string> }>(
-        "/api/collaboration/read",
-        { method: "PUT", body: JSON.stringify({ channel, at }) },
-        token,
-      );
-      setRead((previous) => {
-        const merged = { ...previous };
-        for (const [team, at] of Object.entries(result.read))
-          if (at > (merged[team] || "")) merged[team] = at;
-        return merged;
-      });
-      setNotice("이 채널을 읽음 처리했습니다.");
-    } catch (e) {
-      setNotice((e as Error).message);
+  const latestMessageAt = messages[messages.length - 1]?.updated_at || "";
+  const channelReadAt = read[channel] || "";
+  useEffect(() => {
+    if (view !== "대화") {
+      openedChannel.current = null;
+      return;
     }
-  }
+    const feed = chatFeed.current;
+    if (!feed || search) return;
+    if (openedChannel.current !== channel || keepAtBottom.current) {
+      feed.scrollTop = feed.scrollHeight;
+      keepAtBottom.current = true;
+    }
+    openedChannel.current = channel;
+  }, [view, channel, latestMessageAt, search]);
+  useEffect(() => {
+    setChatVisible(false);
+    if (view !== "대화" || search || !chatEnd.current) return;
+    const observer = new IntersectionObserver((entries) => {
+      setChatVisible(entries.some((entry) => entry.isIntersecting));
+    });
+    observer.observe(chatEnd.current);
+    return () => observer.disconnect();
+  }, [view, channel, search]);
+  useEffect(() => {
+    if (
+      !ready ||
+      view !== "대화" ||
+      search ||
+      editor ||
+      !chatVisible ||
+      !latestMessageAt ||
+      latestMessageAt <= channelReadAt
+    )
+      return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    async function persistRead() {
+      if (!active || document.visibilityState !== "visible") return;
+      if (document.querySelector("dialog[open]")) {
+        timer = setTimeout(() => void persistRead(), 1000);
+        return;
+      }
+      try {
+        const result = await api<{ read: Record<string, string> }>(
+          "/api/collaboration/read",
+          {
+            method: "PUT",
+            body: JSON.stringify({ channel, at: latestMessageAt }),
+          },
+          token,
+        );
+        if (!active) return;
+        setRead((previous) => {
+          const merged = { ...previous };
+          for (const [team, at] of Object.entries(result.read))
+            if (at > (merged[team] || "")) merged[team] = at;
+          return merged;
+        });
+      } catch {
+        if (active) timer = setTimeout(() => void persistRead(), 4000);
+      }
+    }
+    function schedule() {
+      if (timer) clearTimeout(timer);
+      if (document.visibilityState === "visible")
+        timer = setTimeout(() => void persistRead(), 500);
+    }
+    schedule();
+    document.addEventListener("visibilitychange", schedule);
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", schedule);
+    };
+  }, [
+    ready,
+    view,
+    channel,
+    latestMessageAt,
+    channelReadAt,
+    search,
+    editor,
+    chatVisible,
+    token,
+  ]);
   const shown = (items: Item[]) =>
     items.filter(
       (r) =>
@@ -1128,16 +1199,18 @@ export function CollaborationPanel({
                     : channel + " 분과의 대화"}
                 </p>
               </div>
-              <button
-                disabled={saving || !messages.length}
-                onClick={() => void markRead()}
-              >
-                이 채널 읽음 처리
-              </button>
               {!permissions.writeTeams.includes(channel) && (
                 <p className="collab-muted">이 채널은 읽기 전용입니다.</p>
               )}
-              <div className="collab-chat-feed">
+              <div
+                className="collab-chat-feed"
+                ref={chatFeed}
+                onScroll={(event) => {
+                  const feed = event.currentTarget;
+                  keepAtBottom.current =
+                    feed.scrollHeight - feed.scrollTop - feed.clientHeight < 24;
+                }}
+              >
                 {messages
                   .filter(
                     (r) =>
@@ -1180,6 +1253,7 @@ export function CollaborationPanel({
                     "첫 대화를 시작해보세요",
                     "분과의 소식과 협조가 필요한 내용을 남겨 주세요.",
                   )}
+                <div ref={chatEnd} style={{ height: 1 }} aria-hidden="true" />
               </div>
               <div className="collab-composer">
                 <textarea
