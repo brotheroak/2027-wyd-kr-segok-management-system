@@ -1,3 +1,4 @@
+import { MonthlyApplicationsPanel } from "./MonthlyApplicationsPanel.js";
 import React, { useState, useEffect } from "react";
 import { Heart, ClipboardList, Languages, ShieldCheck, Search, AlertCircle, User, Sparkles, Download, MapPinned, UserRound } from "lucide-react";
 import { BarChart, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
@@ -14,7 +15,7 @@ type VolunteerAdminPanelProps = {
   statusTone: (value?: string) => string;
 };
 
-type VolunteerDashboardTab = "summary" | "district" | "gender";
+type VolunteerDashboardTab = "monthly" | "summary" | "district" | "gender";
 type DistributionDatum = {
   name: string;
   count: number;
@@ -198,6 +199,7 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
             <h2>자원봉사자 신청 현황 분석</h2>
           </div>
           <div className="dashboard-tabs" role="tablist" aria-label="자원봉사자 대시보드 보기">
+            <button className={dashboardTab === "monthly" ? "active" : ""} onClick={() => setDashboardTab("monthly")} type="button">월별 신청</button>
             <button className={dashboardTab === "summary" ? "active" : ""} onClick={() => setDashboardTab("summary")} type="button">
               <Languages size={16} /> 요약
             </button>
@@ -209,6 +211,8 @@ export function VolunteerAdminPanel({ token, canViewPersonalData, statusLabel, s
             </button>
           </div>
         </div>
+
+        {dashboardTab === "monthly" && <MonthlyApplicationsPanel counts={data?.stats?.monthlyApplications} kind="volunteer" />}
 
         {dashboardTab === "summary" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

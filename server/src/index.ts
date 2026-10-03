@@ -21,6 +21,7 @@ import { paperSourceMismatchIds } from "./submissionSources.js";
 import { isDuplicateHost } from "./hostDuplicates.js";
 import { sql, eq, and, or, like, desc } from "drizzle-orm";
 
+import { monthlyApplicationCounts } from "./monthlyApplications.js";
 import { collaborationRouter } from "./collaboration.js";
 
 const app = express();
@@ -1815,7 +1816,8 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
     capacity: tables.applications.capacity,
     submissionSource: tables.applications.submissionSource,
     gender: tables.applications.gender,
-    birthDate: tables.applications.birthDate
+    birthDate: tables.applications.birthDate,
+    createdAt: tables.applications.createdAt
   }).from(tables.applications);
 
   let total = 0;
@@ -1853,7 +1855,7 @@ app.get("/api/admin/applications", requireAdmin, async (req, res) => {
   res.json({
     role: session.role,
     canViewPersonalData: canAccessPersonalData(session),
-    stats: { total, submitted, confirmed, canceled, capacity, genderCounts, ageGroupCounts, sourceCounts, reconciledPaperSources, recentApplicantChanges },
+    stats: { total, submitted, confirmed, canceled, capacity, genderCounts, ageGroupCounts, sourceCounts, reconciledPaperSources, recentApplicantChanges, monthlyApplications: monthlyApplicationCounts(allApps) },
     districtTargets,
     applications
   });
@@ -1981,7 +1983,8 @@ app.get("/api/admin/volunteers", requireAdmin, async (req, res) => {
   const allVols = await db.select({
     status: tables.volunteers.status,
     supportFields: tables.volunteers.supportFields,
-    gender: tables.volunteers.gender
+    gender: tables.volunteers.gender,
+    createdAt: tables.volunteers.createdAt
   }).from(tables.volunteers);
 
   let total = 0;
@@ -2008,7 +2011,7 @@ app.get("/api/admin/volunteers", requireAdmin, async (req, res) => {
   res.json({
     role: session.role,
     canViewPersonalData: canAccessPersonalData(session),
-    stats: { total, submitted, confirmed, canceled, languageSupport, medicalSupport, flexibleSupport, genderCounts },
+    stats: { total, submitted, confirmed, canceled, languageSupport, medicalSupport, flexibleSupport, genderCounts, monthlyApplications: monthlyApplicationCounts(allVols) },
     volunteers
   });
 });

@@ -1,3 +1,4 @@
+import { MonthlyApplicationsPanel } from "./MonthlyApplicationsPanel.js";
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ShieldCheck, Users, Home, Languages, CheckCircle2, Unlock, Lock, Download, FileText, Search, RefreshCw, AlertCircle, BedDouble, Sparkles, MapPinned, UserPlus, KeyRound, Crown, ClipboardList, PawPrint, CalendarClock, ScanBarcode, MessageSquareText, UserRound, ChartNoAxesColumn, Trash2 } from "lucide-react";
@@ -43,7 +44,7 @@ type AdminUser = {
 
 type AdminConsoleMenu = "applications" | "shifts" | "pilgrims" | "attendance" | "community" | "accounts" | "password";
 const ADMIN_CONSOLE_MENUS: AdminConsoleMenu[] = ["applications", "shifts", "pilgrims", "attendance", "community", "accounts", "password"];
-type HomestayDashboardTab = "summary" | "capacity" | "district" | "bed" | "pet" | "gender" | "age";
+type HomestayDashboardTab = "monthly" | "summary" | "capacity" | "district" | "bed" | "pet" | "gender" | "age";
 type DistributionDatum = {
   name: string;
   count: number;
@@ -1044,6 +1045,7 @@ export function AdminConsoleZip() {
             <h2>홈스테이 신청 현황 분석</h2>
           </div>
           <div className="dashboard-tabs" role="tablist" aria-label="홈스테이 대시보드 보기">
+            <button className={homestayDashboardTab === "monthly" ? "active" : ""} onClick={() => setHomestayDashboardTab("monthly")} type="button">월별 신청</button>
             <button className={homestayDashboardTab === "summary" ? "active" : ""} onClick={() => setHomestayDashboardTab("summary")} type="button">
               <Languages size={16} /> 요약
             </button>
@@ -1067,6 +1069,8 @@ export function AdminConsoleZip() {
             </button>
           </div>
         </div>
+
+        {homestayDashboardTab === "monthly" && <MonthlyApplicationsPanel counts={data?.stats?.monthlyApplications} kind="homestay" />}
 
         {homestayDashboardTab === "summary" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
