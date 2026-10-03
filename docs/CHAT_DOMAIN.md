@@ -9,17 +9,31 @@
 - `https://chat.segokwyd.kr`은 인증서 호스트 이름 불일치로 검증에 실패합니다. 따라서 채팅 주소 연결 완료 상태가 아닙니다.
 - Cloud Run 서비스는 `wyd-2027-kr-segok-mgmt`, 배포 지역은 `asia-northeast3`입니다.
 
+## 제공된 관리 정보 (콘솔 확인 대기)
+
+- 프로젝트 이름: `2027-wyd-kr-segok-mgmt`
+- 프로젝트 ID: `mystic-planet-347807`
+- 대상 HTTPS 프록시: `wyd-https-proxy`
+- 기존 SSL 인증서: `wyd-ssl-cert`
+- 제공된 기존 도메인: `segokwyd.kr`, `sgwyd2027.kr`
+- [부하분산기 관리](https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=mystic-planet-347807)
+- [클래식 SSL 인증서 관리](https://console.cloud.google.com/net-services/loadbalancing/advanced/sslCertificates/list?project=mystic-planet-347807)
+
+위 자원 정보는 관리자가 제공한 정보이며, 현재 작업 브라우저는 Google 로그인 화면에 머물러 있어 실제 설정은 아직 확인하지 못했습니다. 인증서를 변경하기 전에 현재 인증서 목록·프록시·URL 맵을 확인합니다.
+
 ## 기존 인프라에서 마무리할 작업
 
 1. Google Cloud에서 `136.69.22.73`을 사용하는 HTTPS 로드밸런서와 프런트엔드 인증서를 확인합니다. 다른 서비스를 가리키는 경우 기존 홈페이지 트래픽을 건드리지 말고 실제 서비스 연결부터 확인합니다.
-2. 현재 인증서 관리 방식에 맞춰 `chat.segokwyd.kr`을 포함하는 인증서를 발급합니다. 기존 도메인 목록을 유지하고 새 인증서를 HTTPS 프런트엔드/인증서 맵에 연결합니다. 기존 인증서는 새 인증서의 준비 상태를 확인하기 전 제거하지 않습니다.
+2. 확인된 프록시에 연결된 모든 기존 유효 인증서를 유지합니다. 현재 인증서 관리 방식에 맞춰 `chat.segokwyd.kr`을 포함하는 인증서를 발급합니다. 기존 도메인 목록을 유지하고 새 인증서를 HTTPS 프런트엔드/인증서 맵에 연결합니다. 새 인증서를 추가 인증서로 연결한 뒤 인증서와 각 도메인의 `ACTIVE` 상태를 확인합니다. Google 관리형 인증서는 대상 프록시에 연결되어야 활성화됩니다. 기존 인증서는 제거하지 않습니다.
 3. URL 맵의 `chat.segokwyd.kr` 호스트가 기존 WYD Cloud Run 백엔드를 사용하도록 설정합니다. 기본 백엔드를 이미 함께 쓰고 있다면 별도 호스트 규칙이 필요한지 확인합니다.
 4. GitHub 변경안의 앱 버전을 운영에 반영합니다. 배포 작업에 채팅 Origin을 기존 허용 목록에 추가했습니다.
 5. 인증서가 활성 상태가 된 뒤 HTTPS 접속, 로그인, 파일 업로드·다운로드를 확인합니다. 인증서 검증을 끄거나 브라우저 경고를 우회하지 않습니다.
 
-Google Cloud 관리 연결이 제공되지 않아 인프라 설정은 실행하지 않았습니다. 소스 변경만으로 인증서나 로드밸런서 설정이 자동으로 바뀌지 않습니다.
+프로젝트와 관리 주소는 제공되었으나 현재 작업 브라우저에 Google Cloud 로그인 세션이 없어 인프라 설정은 실행하지 않았습니다. 소스 변경만으로 인증서나 로드밸런서 설정이 자동으로 바뀌지 않습니다.
 
-공식 안내: [Cloud Run 사용자 도메인 연결](https://docs.cloud.google.com/run/docs/mapping-custom-domains). 서울 지역에서 현재 구성에 추가할 때는 기존 HTTPS 로드밸런서 구성을 유지하는 방식을 사용합니다.
+인증서 공식 안내: [Google 관리형 SSL 인증서 사용](https://docs.cloud.google.com/load-balancing/docs/ssl-certificates/google-managed-certs).
+
+도메인 공식 안내: [Cloud Run 사용자 도메인 연결](https://docs.cloud.google.com/run/docs/mapping-custom-domains). 서울 지역에서 현재 구성에 추가할 때는 기존 HTTPS 로드밸런서 구성을 유지하는 방식을 사용합니다.
 
 ## 로컬 확인
 
