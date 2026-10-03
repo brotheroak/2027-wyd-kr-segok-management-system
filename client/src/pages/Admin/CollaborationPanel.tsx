@@ -16,6 +16,7 @@ import {
   Send,
   Search,
 } from "lucide-react";
+import { downloadMeetingExcel } from "../../utils/meetingExcel.js";
 import { api } from "../../api.js";
 import type { AdminRole } from "../../types.js";
 import "./collaboration.css";
@@ -347,6 +348,15 @@ export function CollaborationPanel({
       "기록을 내보냈습니다. 첨부 자료 파일은 자료 목록에서 개별 다운로드해 주세요.",
     );
   }
+  async function exportExcel() {
+    if (!meeting) return;
+    try {
+      await downloadMeetingExcel(meeting, records);
+      setNotice("기존 엑셀 양식으로 회의록을 내려받았습니다.");
+    } catch (e) {
+      setNotice((e as Error).message);
+    }
+  }
   function exportCsv() {
     if (!meeting) return;
     const rows = [
@@ -541,6 +551,12 @@ export function CollaborationPanel({
                         </option>
                       ))}
                     </select>
+                    <button
+                      disabled={!ready}
+                      onClick={() => void exportExcel()}
+                    >
+                      <Download size={15} /> 기존 양식 엑셀
+                    </button>
                     <button onClick={exportCsv}>
                       <Download size={15} />
                       회의록 CSV
