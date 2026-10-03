@@ -1135,3 +1135,15 @@
 }
 
 .collab-chat-files{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.collab-chat-files .collab-file{display:flex;gap:8px;align-items:center;padding:10px 12px;background:#f3f6fc;border:1px solid #e1e7f1;border-radius:10px;max-width:100%;overflow-wrap:anywhere;font-size:13px;cursor:pointer}.collab-attachment-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.collab-attachment-controls>button{display:flex;gap:6px;align-items:center;border:1px solid #dfe5ef;border-radius:8px;padding:8px;font-size:12px;background:#fff;cursor:pointer}.collab-attachment-controls small{font-size:11px;color:#748096}.collab-attachment-controls>span{font-size:12px;background:#edf2ff;border-radius:8px;padding:6px;overflow-wrap:anywhere}.collab-attachment-controls span button{margin-left:8px}.collab-composer footer{flex-wrap:wrap;gap:10px}
+
+.excel-import-dialog { width: min(760px, calc(100vw - 32px)); max-height: 88dvh; overflow: auto; }
+.excel-import-dialog fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.excel-import-dialog label { display: grid; gap: 6px; margin: 12px 0; }
+.excel-import-dialog input, .excel-import-dialog textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+.excel-import-dialog textarea { min-height: 96px; }
+.excel-import-dialog details { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; margin: 8px 0; }
+.excel-import-dialog summary { cursor: pointer; overflow-wrap: anywhere; }
+.excel-import-dialog p { overflow-wrap: anywhere; }
+.excel-import-dialog footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.excel-import-datetime { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 520px) { .excel-import-datetime { grid-template-columns: 1fr; gap: 0; } }

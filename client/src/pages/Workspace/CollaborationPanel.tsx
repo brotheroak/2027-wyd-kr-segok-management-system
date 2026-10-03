@@ -17,6 +17,7 @@ import {
   Search,
 } from "lucide-react";
 import { downloadMeetingExcel } from "../../utils/meetingExcel.js";
+import { ExcelMeetingImport } from "./ExcelMeetingImport.js";
 import { api } from "../../api.js";
 import type { AdminRole } from "../../types.js";
 import "./collaboration.css";
@@ -467,6 +468,7 @@ export function CollaborationPanel({
           <h2>우리의 워크스페이스</h2>
         </div>
         <div className="collab-actions">
+          {role !== "committee" && <ExcelMeetingImport token={token} disabled={!ready || saving} existing={records} onImported={async id => { await load(); setMeetingId(id); setView("회의록"); setNotice("엑셀 회의록을 새 회의로 가져왔습니다."); }} />}
           <button disabled={!ready} onClick={exportAll}>
             <Download size={16} />
             기록 백업
@@ -476,7 +478,7 @@ export function CollaborationPanel({
               disabled={!ready || saving}
               onClick={() => importInput.current?.click()}
             >
-              기록 가져오기
+              백업 가져오기
             </button>
           )}
           <button
@@ -563,7 +565,7 @@ export function CollaborationPanel({
               {meetings.length === 0 ? (
                 empty(
                   "첫 공동회의록을 만들어보세요",
-                  "새 회의를 만들면 8개 분과의 작성란이 자동으로 생성됩니다. 기존 회의록은 기록 가져오기로 옮길 수 있습니다.",
+                  "새 회의를 만들면 8개 분과의 작성란이 자동으로 생성됩니다. 운영자는 엑셀 회의록 가져오기로 기존 양식의 내용을 옮길 수 있습니다.",
                 )
               ) : (
                 <>
