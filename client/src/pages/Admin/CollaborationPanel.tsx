@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarDays,
   CheckSquare,
+  ChevronDown,
   Download,
   FileText,
   Hash,
@@ -427,9 +428,8 @@ export function CollaborationPanel({
     <section className="collab-workspace">
       <header className="collab-heading">
         <div>
-          <span>WYD 함께</span>
-          <h2>분과 협업 공간</h2>
-          <p>회의의 기록과 다음 할 일, 분과의 대화를 한곳에</p>
+          <span>WYD · 세곡동성당</span>
+          <h2>우리의 워크스페이스</h2>
         </div>
         <div className="collab-actions">
           <button disabled={!ready} onClick={exportAll}>
@@ -596,12 +596,30 @@ export function CollaborationPanel({
                             작성·수정
                           </button>
                         </header>
-                        {fields.map(([key, label]) => (
-                          <section key={key}>
-                            <h4>{label}</h4>
-                            <p>{p(r, key) || "아직 기록되지 않았습니다."}</p>
-                          </section>
-                        ))}
+                        <section className="collab-report-preview">
+                          <h4>진행사항</h4>
+                          <p>
+                            {p(r, "progress") || "아직 기록되지 않았습니다."}
+                          </p>
+                        </section>
+                        <details
+                          className="collab-report-details"
+                          open={team !== "전체"}
+                        >
+                          <summary>
+                            논의·결정·향후 계획 <ChevronDown size={15} />
+                          </summary>
+                          {fields
+                            .filter(([key]) => key !== "progress")
+                            .map(([key, label]) => (
+                              <section key={key}>
+                                <h4>{label}</h4>
+                                <p>
+                                  {p(r, key) || "아직 기록되지 않았습니다."}
+                                </p>
+                              </section>
+                            ))}
+                        </details>
                         {p(r, "plans") && (
                           <button
                             className="collab-link"
