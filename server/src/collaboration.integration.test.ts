@@ -665,6 +665,8 @@ test("collaboration shares staff sessions, rejects applicant access, and persist
       kind: "doc",
       payload: { team: privateTeam, title: "분과 기록", content: "전용 내용" },
     });
+    assert.equal((await request(`/api/collaboration/records/${privateDocId}`, member, "DELETE", { revision: 1 })).status, 403);
+    assert.equal((await request(`/api/collaboration/files/${privateFile.id}`, member, "DELETE")).status, 403);
     await request(
       `/api/collaboration/records/${privateDocId}`,
       operator,
@@ -718,6 +720,19 @@ test("collaboration shares staff sessions, rejects applicant access, and persist
           .get()?.payload,
       ).startsWith("enc:v1:"),
     );
+    const deleteDoc = await request("/api/collaboration/records", operator, "POST", {
+      id: randomUUID(), kind: "doc", payload: { team: "전체", title: "삭제 테스트", content: "삭제할 내용" },
+    });
+    const deletedId = deleteDoc.data.record.id;
+    assert.equal((await request(`/api/collaboration/records/${deletedId}`, operator, "DELETE", { revision: 99 })).status, 409);
+    assert.equal((await request(`/api/collaboration/records/${deletedId}`, operator, "DELETE", { revision: 1 })).status, 200);
+    assert.equal((await request(`/api/collaboration/records/${deletedId}/history`, operator)).status, 404);
+    assert.equal((await request(`/api/collaboration/records/${deletedId}`, operator, "DELETE", { revision: 1 })).status, 404);
+    assert.equal((await request(`/api/collaboration/files/${file.record.id}`, operator, "DELETE")).status, 200);
+    assert.equal((await request(`/api/collaboration/files/${file.record.id}`, operator)).status, 404);
+    const afterDelete = await request("/api/collaboration/records", operator);
+    assert.ok(!afterDelete.data.records.some((item: any) => [deletedId, file.record.id].includes(item.id)));
+    assert.equal((await request(`/api/collaboration/records/${r.id}`, operator, "DELETE", { revision: 1 })).status, 404, "reports cannot be deleted through document deletion");
     const register = await request("/api/admin/register", undefined, "POST", {
       email: "newmember@example.test",
       password,
