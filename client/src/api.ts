@@ -1,3 +1,7 @@
+export class ApiError extends Error {
+  constructor(message: string, public status: number) { super(message); }
+}
+
 export async function api<T>(path: string, options: RequestInit = {}, token?: string | null): Promise<T> {
   const response = await fetch(path, {
     ...options,
@@ -8,6 +12,6 @@ export async function api<T>(path: string, options: RequestInit = {}, token?: st
     }
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.message ?? "요청 처리 중 오류가 발생했습니다.");
+  if (!response.ok) throw new ApiError(data.message ?? "요청 처리 중 오류가 발생했습니다.", response.status);
   return data;
 }

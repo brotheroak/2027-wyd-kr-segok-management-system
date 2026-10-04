@@ -10,21 +10,16 @@ import {
   CheckSquare,
   FileText,
 } from "lucide-react";
-import { api } from "../../api.js";
+import { api, ApiError } from "../../api.js";
 import type { AdminRole } from "../../types.js";
 import { CollaborationPanel } from "./CollaborationPanel.js";
 import { AppFooter } from "../../components/AppFooter.js";
 import "./workspace.css";
 import "./workspace-refresh.css";
 
-const TOKEN_KEY = "wydAdminToken";
-const ROLE_KEY = "wydAdminRole";
-type Challenge = {
-  mfaRequired: boolean;
-  mfaEnabled?: boolean;
-  mfaSecret?: string;
-};
-type LoginResponse = Challenge | { token: string; role: AdminRole };
+const TOKEN_KEY = "wydWorkspaceToken";
+const ROLE_KEY = "wydWorkspaceRole";
+type LoginResponse = { token: string; role: AdminRole };
 
 export function WorkspacePage({
   navigate,
@@ -39,8 +34,6 @@ export function WorkspacePage({
   const [role, setRole] = useState<AdminRole | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
-  const [challenge, setChallenge] = useState<Challenge>({ mfaRequired: false });
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [register, setRegister] = useState(false);
@@ -57,8 +50,6 @@ export function WorkspacePage({
     setToken(null);
     setRole(null);
     setPassword("");
-    setCode("");
-    setChallenge({ mfaRequired: false });
     setCurrentPassword("");
     setNextPassword("");
     setNextPasswordConfirm("");
@@ -66,7 +57,7 @@ export function WorkspacePage({
   };
   const logout = () => {
     if (token)
-      void api("/api/admin/logout", { method: "POST" }, token).catch(
+      void api("/api/workspace/logout", { method: "POST" }, token).catch(
         () => undefined,
       );
     clearSession();
@@ -84,10 +75,15 @@ export function WorkspacePage({
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
+    let validating = false;
+    let retryTimer: number | undefined;
     const validate = async () => {
+      if (validating || cancelled) return;
+      validating = true;
+      window.clearTimeout(retryTimer);
       try {
         const session = await api<{ role: AdminRole }>(
-          "/api/admin/session",
+          "/api/workspace/session",
           {},
           token,
         );
@@ -96,11 +92,18 @@ export function WorkspacePage({
           sessionStorage.setItem(ROLE_KEY, session.role);
           setNotice("");
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          clearSession();
-          setNotice("로그인 정보를 확인할 수 없습니다. 다시 로그인해 주세요.");
+          if (error instanceof ApiError && error.status === 401) {
+            clearSession();
+            setNotice("로그인이 만료되었습니다. 다시 로그인해 주세요.");
+          } else {
+            setNotice("연결을 다시 확인하고 있습니다. 잠시 후 자동으로 재시도합니다.");
+            retryTimer = window.setTimeout(() => void validate(), 5000);
+          }
         }
+      } finally {
+        validating = false;
       }
     };
     void validate();
@@ -109,9 +112,12 @@ export function WorkspacePage({
     };
     const timer = window.setInterval(visible, 5 * 60 * 1000);
     document.addEventListener("visibilitychange", visible);
+    window.addEventListener("online", visible);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      window.clearTimeout(retryTimer);
+      window.removeEventListener("online", visible);
       document.removeEventListener("visibilitychange", visible);
     };
   }, [token]);
@@ -135,25 +141,19 @@ export function WorkspacePage({
         setPassword("");
         setConfirmation("");
       } else {
-        const result = await api<LoginResponse>("/api/admin/login", {
+        const result = await api<LoginResponse>("/api/workspace/login", {
           method: "POST",
           body: JSON.stringify({
             email,
             password,
-            ...(challenge.mfaRequired ? { code } : {}),
           }),
         });
-        if ("token" in result) {
+
           sessionStorage.setItem(TOKEN_KEY, result.token);
           sessionStorage.setItem(ROLE_KEY, result.role);
           setToken(result.token);
           setRole(null);
           setPassword("");
-          setCode("");
-          setChallenge({ mfaRequired: false });
-        } else {
-          setChallenge(result);
-        }
       }
     } catch (error) {
       setNotice((error as Error).message);
@@ -167,7 +167,7 @@ export function WorkspacePage({
     setPasswordNotice("");
     try {
       const result = await api<{ message: string }>(
-        "/api/admin/change-password",
+        "/api/workspace/change-password",
         {
           method: "POST",
           body: JSON.stringify({
@@ -311,7 +311,6 @@ export function WorkspacePage({
                   : "기존 분과 구성원 또는 운영자 계정으로 로그인하세요."}
               </p>
               <form onSubmit={submitAccess}>
-                {!challenge.mfaRequired ? (
                   <>
                     <label>
                       이메일
@@ -350,34 +349,6 @@ export function WorkspacePage({
                       </label>
                     )}
                   </>
-                ) : (
-                  <>
-                    {!challenge.mfaEnabled && (
-                      <div className="workspace-otp">
-                        <strong>인증 앱 설정</strong>
-                        <p>
-                          Google Authenticator 등 인증 앱에 아래 설정 키를
-                          등록한 뒤 6자리 인증번호를 입력하세요.
-                        </p>
-                        <code>{challenge.mfaSecret}</code>
-                      </div>
-                    )}
-                    <label>
-                      OTP 인증번호
-                      <input
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        pattern="\d{6}"
-                        maxLength={6}
-                        required
-                        value={code}
-                        onChange={(e) =>
-                          setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-                        }
-                      />
-                    </label>
-                  </>
-                )}
                 {notice && (
                   <p role="status" className="workspace-notice">
                     {notice}
@@ -388,9 +359,7 @@ export function WorkspacePage({
                     ? "처리 중…"
                     : register
                       ? "가입 승인 요청"
-                      : challenge.mfaRequired
-                        ? "인증하고 입장"
-                        : chatEntry
+                      : chatEntry
                           ? "채팅 입장"
                           : "협업 공간 입장"}
                 </button>
@@ -399,19 +368,15 @@ export function WorkspacePage({
                   className="workspace-text-button"
                   disabled={busy}
                   onClick={() => {
-                    setRegister(challenge.mfaRequired ? false : !register);
-                    setChallenge({ mfaRequired: false });
+                    setRegister(!register);
                     setNotice("");
                     setPassword("");
                     setConfirmation("");
-                    setCode("");
                   }}
                 >
                   {register
                     ? "로그인으로 돌아가기"
-                    : challenge.mfaRequired
-                      ? "로그인부터 다시 시작"
-                      : "처음 오셨나요? 분과 구성원 가입 신청"}
+                    : "처음 오셨나요? 분과 구성원 가입 신청"}
                 </button>
               </form>
             </div>
