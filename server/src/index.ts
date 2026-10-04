@@ -276,8 +276,8 @@ function isSuperAdmin(session: Session) {
   return session.role === "super_admin" && superAdminEmails.has(session.email.trim().toLowerCase());
 }
 
-async function createAdminSession(email: string, role: AdminRole) {
-  const token = nanoid(48);
+async function createAdminSession(email: string, role: AdminRole, workspace = false) {
+  const token = (workspace ? "ws_" : "") + nanoid(48);
   await db.insert(tables.sessions).values({
     token,
     email: pii(email),
@@ -306,7 +306,13 @@ async function logAudit(actor: string, action: string, applicationId?: string, d
 async function sessionFrom(req: express.Request, roles?: Role | Role[]): Promise<Session | null> {
   const token = tokenFrom(req);
   if (!token) return null;
-  
+  // Workspace password-only credentials must never authorize console APIs.
+  const route = req.originalUrl.split("?")[0];
+  if (token.startsWith("ws_") && !(
+    route.startsWith("/api/collaboration/") ||
+    ["/api/workspace/session", "/api/workspace/logout", "/api/workspace/change-password"].includes(route)
+  )) return null;
+
   const rows = await db.select({
     email: tables.sessions.email,
     role: tables.sessions.role,
@@ -1506,7 +1512,8 @@ app.post("/api/admin/register", async (req, res) => {
 });
 
 // 어드민 로그인 및 OTP 검증 통합 핸들러
-app.post("/api/admin/login", async (req, res) => {
+app.post(["/api/admin/login", "/api/workspace/login"], async (req, res) => {
+  const workspace = req.path === "/api/workspace/login";
   const email = String(req.body.email ?? "").trim().toLowerCase();
   const password = String(req.body.password ?? "").trim();
   const code = String(req.body.code ?? "").trim();
@@ -1528,11 +1535,11 @@ app.post("/api/admin/login", async (req, res) => {
   }
 
   const castMfaEnabled = admin.mfaEnabled === true || admin.mfaEnabled === 1 || admin.mfaEnabled === "1";
-  const mustVerifyMfa = requiresAdminMfa(effectiveRole);
+  const mustVerifyMfa = !workspace && requiresAdminMfa(effectiveRole);
 
   if (!mustVerifyMfa) {
-    const token = await createAdminSession(admin.email, effectiveRole);
-    await logAudit(effectiveRole, "admin_login", undefined, { email: admin.email, mfa: "not_required" });
+    const token = await createAdminSession(admin.email, effectiveRole, workspace);
+    await logAudit(effectiveRole, workspace ? "workspace_login" : "admin_login", undefined, { email: admin.email, mfa: "not_required" });
     return res.json({ token, role: effectiveRole });
   }
 
@@ -1569,7 +1576,7 @@ app.post("/api/logout", async (req, res) => {
   res.status(204).end();
 });
 
-app.post("/api/admin/logout", async (req, res) => {
+app.post(["/api/admin/logout", "/api/workspace/logout"], async (req, res) => {
   const token = tokenFrom(req);
   const session = token ? await sessionFrom(req, ["committee", "admin", "privacy_admin", "super_admin"]) : null;
   await revokeSession(token);
@@ -1577,13 +1584,13 @@ app.post("/api/admin/logout", async (req, res) => {
   res.status(204).end();
 });
 
-app.get("/api/admin/session", requireStaff, (_req, res) => {
+app.get(["/api/admin/session", "/api/workspace/session"], requireStaff, (_req, res) => {
   const session = res.locals.session as Session;
   res.setHeader("Cache-Control", "private, no-store, max-age=0");
   res.json({ active: true, role: session.role, email: session.email, idleTimeoutMinutes: adminSessionMinutes });
 });
 
-app.post("/api/admin/change-password", requireStaff, async (req, res) => {
+app.post(["/api/admin/change-password", "/api/workspace/change-password"], requireStaff, async (req, res) => {
   const session = res.locals.session as Session;
   const currentPassword = String(req.body.currentPassword ?? "");
   const nextPassword = String(req.body.nextPassword ?? "");

@@ -38,6 +38,7 @@ test("collaboration shares staff sessions, rejects applicant access, and persist
   for (const [id, role, status] of [
     ["member", "committee", "approved"],
     ["operator", "admin", "approved"],
+    ["privacy", "privacy_admin", "approved"],
     ["waiting", "committee", "pending"],
   ])
     sqlite
@@ -109,6 +110,40 @@ test("collaboration shares staff sessions, rejects applicant access, and persist
       (await request("/api/collaboration/records", applicantToken)).status,
       403,
     );
+    const consoleChallenge = await request("/api/admin/login", undefined, "POST", {
+      email: "privacy@example.test", password,
+    });
+    assert.equal(consoleChallenge.data.mfaRequired, true);
+    for (const account of ["member", "operator", "privacy"]) {
+      const workspaceLogin = await request("/api/workspace/login", undefined, "POST", {
+        email: account + "@example.test", password,
+      });
+      assert.equal(workspaceLogin.status, 200);
+      assert.equal(workspaceLogin.data.mfaRequired, undefined);
+      const workspaceToken = workspaceLogin.data.token;
+      assert.ok(workspaceToken.startsWith("ws_"));
+      assert.equal((await request("/api/workspace/session", workspaceToken)).status, 200);
+      assert.equal((await request("/api/collaboration/records", workspaceToken)).status, 200);
+      for (const route of ["/api/admin/session", "/api/admin/applications", "/api/admin/users", "/api/attendance/checkpoints"]) {
+        assert.equal((await request(route, workspaceToken)).status, 401, route);
+      }
+      const uploaded = await fetch(origin + "/api/collaboration/files?team=" + encodeURIComponent("전체"), {
+        method: "POST", headers: { Authorization: `Bearer ${workspaceToken}`, "Content-Type": "application/octet-stream", "X-File-Name": "workspace.txt" }, body: "workspace attachment",
+      });
+      assert.equal(uploaded.status, 200);
+      const uploadedData = await uploaded.json();
+      assert.equal((await request("/api/collaboration/files/" + uploadedData.record.id, workspaceToken)).status, 200);
+      await request("/api/collaboration/records/" + uploadedData.record.id, workspaceToken, "DELETE");
+      assert.equal((await request("/api/workspace/session", workspaceToken)).status, 200);
+      await request("/api/workspace/logout", workspaceToken, "POST");
+      assert.equal((await request("/api/workspace/session", workspaceToken)).status, 401);
+    }
+    assert.equal((await request("/api/workspace/login", undefined, "POST", {
+      email: "waiting@example.test", password,
+    })).status, 403);
+    assert.equal((await request("/api/workspace/login", undefined, "POST", {
+      email: "privacy@example.test", password: "incorrect",
+    })).status, 401);
     const login = await request("/api/admin/login", undefined, "POST", {
       email: "member@example.test",
       password,
