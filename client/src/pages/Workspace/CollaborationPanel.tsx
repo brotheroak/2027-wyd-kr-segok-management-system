@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   BookOpen,
+  Trash2,
   ArrowUpRight,
   Bell,
   Sparkles,
@@ -103,6 +104,10 @@ export function CollaborationPanel({
     readTeams: ["전체", ...teams],
     writeTeams: ["전체", ...teams],
   });
+  const [deleteError, setDeleteError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
+  const deleteDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => { if (deleteTarget) { setDeleteError(""); deleteDialog.current?.showModal(); } }, [deleteTarget]);
   const [historyRecord, setHistoryRecord] = useState<Item | null>(null);
   const writable = (r: Item) =>
     permissions.writeTeams.includes(
@@ -469,6 +474,24 @@ export function CollaborationPanel({
       setSaving(false);
       if (importInput.current) importInput.current.value = "";
     }
+  }
+  async function deleteItem() {
+    if (!deleteTarget || busy.current) return;
+    busy.current = true;
+    setSaving(true);
+    try {
+      await api(`/api/collaboration/${deleteTarget.kind === "file" ? "files" : "records"}/${deleteTarget.id}`, {
+        method: "DELETE", body: JSON.stringify({ revision: deleteTarget.revision }),
+      }, token);
+      if (detail?.id === deleteTarget.id) setDetail(null);
+      setAttachments(items => items.filter(item => item.id !== deleteTarget.id));
+      setReplyAttachments(items => items.filter(item => item.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      deleteDialog.current?.close();
+      await load();
+      setNotice("삭제했습니다.");
+    } catch (error) { setDeleteError((error as Error).message); }
+    finally { busy.current = false; setSaving(false); }
   }
   async function upload(file: File, attach = false, toReply = false) {
     if (busy.current) return;
@@ -1273,8 +1296,8 @@ export function CollaborationPanel({
                 />
               </div>
               {shown(files).map((r) => (
+                <div key={r.id} className="collab-file-row">
                 <button
-                  key={r.id}
                   className="collab-file"
                   onClick={() => void fetchFile(r)}
                 >
@@ -1283,6 +1306,8 @@ export function CollaborationPanel({
                   <span>{(Number(r.payload.size) / 1024).toFixed(0)}KB</span>
                   <Download size={17} />
                 </button>
+                {writable(r) && <button className="collab-delete" disabled={saving} aria-label={p(r, "name") + " 삭제"} onClick={() => setDeleteTarget(r)}><Trash2 size={16} /> 삭제</button>}
+                </div>
               ))}
               {!files.length && (
                 <p className="collab-muted">공유할 자료를 업로드해 주세요.</p>
@@ -1406,6 +1431,13 @@ export function CollaborationPanel({
           )}
         </div>
       </div>
+      <dialog ref={deleteDialog} className="collab-dialog" onCancel={event => { if (saving) event.preventDefault(); }} onClose={() => setDeleteTarget(null)} aria-labelledby="delete-title">
+        <h3 id="delete-title">{deleteTarget?.kind === "file" ? "자료" : "문서"}를 삭제할까요?</h3>
+        <p>{deleteTarget && p(deleteTarget, deleteTarget.kind === "file" ? "name" : "title")}</p>
+        <p>삭제하면 문서함에서 사라집니다.{deleteTarget?.kind === "file" && " 대화에 첨부된 같은 파일도 더 이상 다운로드할 수 없습니다."}</p>
+        {deleteError && <p role="alert">{deleteError}</p>}
+        <div className="collab-actions"><button disabled={saving} onClick={() => deleteDialog.current?.close()}>취소</button><button className="collab-delete" disabled={saving} onClick={() => void deleteItem()}>{saving ? "삭제 중…" : "삭제하기"}</button></div>
+      </dialog>
       {liveDetail && (
         <div className="collab-detail">
           <header>
@@ -1422,6 +1454,7 @@ export function CollaborationPanel({
                 <Pencil size={15} />
                 수정
               </button>
+              {writable(liveDetail) && <button className="collab-delete" disabled={saving} onClick={() => setDeleteTarget(liveDetail)}><Trash2 size={16} /> 삭제</button>}
               <button onClick={() => setDetail(null)}>닫기</button>
             </div>
           </header>

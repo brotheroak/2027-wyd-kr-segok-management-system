@@ -100,10 +100,11 @@ export function collaborationRouter({
         can: (r: any, write = false) =>
           teamAccess(policy, recordTeam(r), session.email, session.role, write),
         fileCan: (id: string, write = false) => {
-          const scope =
-            decoded.find(
-              (r: any) => r.kind === "filescope" && r.payload.file === id,
-            )?.payload.team || "전체";
+          const fileScope = decoded.find(
+            (r: any) => r.kind === "filescope" && r.payload.file === id,
+          );
+          if (fileScope?.payload.deleted) return false;
+          const scope = fileScope?.payload.team || "전체";
           if (!teamAccess(policy, scope, session.email, session.role, write))
             return false;
           return decoded
@@ -345,6 +346,35 @@ export function collaborationRouter({
     } catch (e) {
       error(res, e);
     }
+  });
+  router.delete("/records/:id", async (req, res) => {
+    try {
+      const table = tables.collaborationRecords;
+      const id = String(req.params.id);
+      const [row] = await db.select().from(table).where(eq(table.id, id));
+      if (!row || row.kind !== "doc") return res.status(404).json({ message: "삭제할 문서를 찾을 수 없습니다." });
+      if (!res.locals.workspace.can(decode(row), true)) return res.status(403).json({ message: "문서를 삭제할 권한이 없습니다." });
+      const revision = Number(req.body.revision);
+      const changed = await db.update(table).set({ kind: "deleted-doc", revision: sql`${table.revision}+1`, updatedAt: new Date().toISOString() })
+        .where(and(eq(table.id, id), eq(table.kind, "doc"), eq(table.revision, revision))).returning();
+      if (!changed.length) return res.status(409).json({ message: "문서가 변경되었습니다. 최신 내용을 확인한 후 다시 삭제해 주세요." });
+      await audit(res.locals.session.email, "collaboration_deleted_document", id);
+      res.json({ deleted: true });
+    } catch (e) { error(res, e); }
+  });
+  router.delete("/files/:id", async (req, res) => {
+    try {
+      const id = String(req.params.id);
+      const [file] = await db.select({ id: tables.collaborationFiles.id }).from(tables.collaborationFiles).where(eq(tables.collaborationFiles.id, id));
+      if (!file) return res.status(404).json({ message: "삭제할 자료를 찾을 수 없습니다." });
+      if (!res.locals.workspace.fileCan(id, true)) return res.status(403).json({ message: "자료를 삭제할 권한이 없습니다." });
+      const scope = res.locals.workspace.decoded.find((r: any) => r.kind === "filescope" && r.payload.file === id);
+      // Retain encrypted bytes, but immediately deny listing and downloading the file.
+      const row = newRow(`file-scope-${id}`, "filescope", { file: id, team: scope?.payload.team || "전체", deleted: true }, res.locals.session.email);
+      await db.insert(tables.collaborationRecords).values(row).onConflictDoUpdate({ target: tables.collaborationRecords.id, set: { payload: row.payload, updatedAt: row.updatedAt } });
+      await audit(res.locals.session.email, "collaboration_deleted_file", id);
+      res.json({ deleted: true });
+    } catch (e) { error(res, e); }
   });
   async function write(
     req: express.Request,

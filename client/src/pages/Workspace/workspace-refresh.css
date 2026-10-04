@@ -1180,3 +1180,8 @@
     min-height: 30px;
   }
 }
+
+.workspace-shell .collab-file-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.workspace-shell .collab-file-row .collab-file { flex:1; min-width:0; margin:0; }
+.workspace-shell .collab-delete { color:#b42338; flex-shrink:0; }
+.workspace-shell .collab-file-row .collab-file b { overflow-wrap:anywhere; }
