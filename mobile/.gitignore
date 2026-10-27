@@ -1,0 +1,17 @@
+**/.gradle/
+**/build/
+**/local.properties
+**/DerivedData/
+**/TestResults/
+**/__pycache__/
+**/*.xcodeproj/
+**/*.xcworkspace/
+**/xcuserdata/
+**/.DS_Store
+**/*.jks
+**/*.keystore
+**/*.p12
+**/*.mobileprovision
+**/GoogleService-Info.plist
+**/google-services.json
+artifacts/

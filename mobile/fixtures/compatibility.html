@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action 'none'; connect-src 'none'">
+<title>앱 기능 테스트</title>
+<style>body{font:17px system-ui,sans-serif;margin:20px;line-height:1.6;background:#faf9f6;color:#24202a}input,button,textarea{box-sizing:border-box;font:inherit;max-width:100%;padding:12px}label{display:block;margin:16px 0}input:not([type=checkbox]),textarea{display:block;width:100%}button{margin:8px 0}output{display:block;overflow-wrap:anywhere;padding:8px;background:#eee}small{display:block}</style></head>
+<body><h1>앱 기능 테스트</h1><p>실제 성당 로그인이나 신청이 아닙니다. 입력·선택 내용은 서버로 전송되지 않습니다. 가상 정보와 테스트 파일만 사용하세요.</p>
+<form id="test-form"><label>가상 아이디<input id="username" name="username" autocomplete="off" required></label>
+<label>가상 비밀번호<input id="password" type="password" autocomplete="off" required></label>
+<label>가상 신청 내용<textarea id="message" required></textarea></label>
+<label>테스트 첨부 파일<input id="attachment" type="file" accept="image/*,application/pdf,text/plain" multiple></label>
+<output id="files">선택된 파일 없음</output><button type="submit">로컬 입력 확인</button><output id="result">아직 확인하지 않음</output></form>
+<button id="alert">알림창 확인</button><button id="confirm">확인·취소 창</button><output id="dialog-result"></output>
+<p><a href="https://www.segokc.or.kr/" target="_blank">새 창에서 성당 홈페이지 열기</a></p>
+<p><a href="https://sgwyd2027.kr/apply">실제 신청 첫 화면 (입력 주의)</a></p>
+<script>
+const fileInput=document.querySelector('#attachment');
+fileInput.addEventListener('change',()=>{document.querySelector('#files').textContent=[...fileInput.files].map(f=>`${f.name} (${f.size} bytes)`).join(', ')||'선택된 파일 없음';});
+document.querySelector('#test-form').addEventListener('submit',e=>{e.preventDefault();document.querySelector('#result').textContent='로컬 폼 확인 성공 — 서버 전송 없음';});
+document.querySelector('#alert').onclick=()=>alert('앱 알림창 테스트');
+document.querySelector('#confirm').onclick=()=>{document.querySelector('#dialog-result').textContent=confirm('확인 동작을 테스트할까요?')?'확인':'취소';};
+</script></body></html>

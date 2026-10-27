@@ -1,0 +1,46 @@
+name: SegokChurch
+options:
+  bundleIdPrefix: kr.segokc
+  deploymentTarget:
+    iOS: '16.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    TARGETED_DEVICE_FAMILY: '1,2'
+    CODE_SIGN_STYLE: Automatic
+targets:
+  SegokChurch:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+      - path: ../fixtures
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.segokc.shell.preview
+        MARKETING_VERSION: '0.1.0'
+        CURRENT_PROJECT_VERSION: '1'
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: 세곡동성당
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_NSCameraUsageDescription: 첨부할 사진을 촬영할 때 카메라를 사용합니다.
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: 신청서에 첨부할 사진을 선택할 때 사용합니다.
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+  SegokChurchTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: Tests
+    dependencies:
+      - target: SegokChurch
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  SegokChurch:
+    build:
+      targets:
+        SegokChurch: all
+    test:
+      targets:
+        - SegokChurchTests
