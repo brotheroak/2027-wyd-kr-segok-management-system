@@ -40,7 +40,7 @@ SIMULATOR_UDID='설치된-기기의-UDID' bash scripts/test-simulator.sh
 
 전체 Xcode 대신 Command Line Tools만 선택된 상태라면 Xcode의 Settings > Locations > Command Line Tools에서 설치된 Xcode를 선택합니다. 사용 가능한 Simulator가 없으면 Xcode의 플랫폼/컴포넌트 설정에서 iOS Simulator를 설치하고 기기를 추가합니다.
 
-검사 결과는 `TestResults/<날짜-시간>.xcresult`, 빌드 결과는 `DerivedData`에 생성됩니다. 현재 테스트는 링크 정책 3개와 로컬 WebKit 폼 1개입니다. 실제 파일 선택 창과 iPhone 실기기 동작을 모두 검증하는 테스트는 아닙니다.
+검사 결과는 `TestResults/<날짜-시간>.xcresult`, 빌드 결과는 `DerivedData`에 생성됩니다. 현재 테스트는 링크 정책 3개, 로컬 WebKit 폼 1개, 운영 사이트 TLS·로딩 및 뒤로가기 2개(네트워크 필요)입니다. Mac에서 iOS 27.0·27.1 Simulator로 통과를 확인했습니다. Debug 빌드는 `-SegokStartPage apply|fixture` 실행 인자로 시작 화면을 바꿀 수 있습니다. 실제 파일 선택 창과 iPhone 실기기 동작을 모두 검증하는 테스트는 아닙니다.
 
 ## 파일 구성
 

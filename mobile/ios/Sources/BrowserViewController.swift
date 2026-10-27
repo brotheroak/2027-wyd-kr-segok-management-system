@@ -58,7 +58,17 @@ final class BrowserViewController: UIViewController, WKNavigationDelegate, WKUID
             self?.progress.isHidden = web.estimatedProgress >= 1
         }
         urlObservation = webView.observe(\.url, options: [.new]) { [weak self] web, _ in self?.navigationItem.title = web.url?.host ?? "세곡동성당" }
-        if !popup { webView.load(URLRequest(url: NavigationPolicy.home)) }
+        if !popup {
+            #if DEBUG
+            // Debug-only launch argument for automated screenshots: -SegokStartPage apply|fixture
+            switch UserDefaults.standard.string(forKey: "SegokStartPage") {
+            case "apply": webView.load(URLRequest(url: NavigationPolicy.apply)); return
+            case "fixture": showDiagnostics(); return
+            default: break
+            }
+            #endif
+            webView.load(URLRequest(url: NavigationPolicy.home))
+        }
     }
 
     @objc private func goBack() { if webView.canGoBack { webView.goBack() } else if popup { closePopup() } }
