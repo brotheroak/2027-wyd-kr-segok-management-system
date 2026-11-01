@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Placeholder cross; replace with the parish artwork before public release. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M49,26h10v18h18v10h-18v28h-10v-28h-18v-10h18z" />
+</vector>

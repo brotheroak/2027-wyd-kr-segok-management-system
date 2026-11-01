@@ -15,3 +15,4 @@
 **/GoogleService-Info.plist
 **/google-services.json
 artifacts/
+**/keystore.properties
